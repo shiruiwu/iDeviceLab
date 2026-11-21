@@ -26,6 +26,9 @@ struct ContentView: View {
                             Button { store.addProfile() } label: {
                                 Label("新增独立配置", systemImage: "plus.circle")
                             }
+                            Button { store.duplicateSelected() } label: {
+                                Label("复制当前配置", systemImage: "doc.on.doc")
+                            }
                             Button(role: .destructive) { store.deleteSelected() } label: {
                                 Label("删除当前配置", systemImage: "trash")
                             }
