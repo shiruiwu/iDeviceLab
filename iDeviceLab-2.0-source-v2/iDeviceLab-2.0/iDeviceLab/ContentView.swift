@@ -6,6 +6,8 @@ struct ContentView: View {
     @State private var showingImporter = false
     @State private var exportURL: URL?
     @State private var alertMessage: String?
+    @State private var newAppName = ""
+    @State private var newAppBundleID = ""
 
     var body: some View {
         NavigationView {
@@ -13,6 +15,59 @@ struct ContentView: View {
                 header
                 if let profile = store.selectedProfile {
                     Form {
+                        Section {
+                            TextField("应用名称", text: $newAppName)
+                            TextField("Bundle ID（应用标识符）", text: $newAppBundleID)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                            Button {
+                                store.addManagedApp(name: newAppName, bundleIdentifier: newAppBundleID)
+                                newAppName = ""
+                                newAppBundleID = ""
+                            } label: {
+                                Label("添加并绑定当前配置", systemImage: "app.badge.plus")
+                            }
+                            .disabled(newAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                      newAppBundleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            if store.managedApps.isEmpty {
+                                Text("尚未添加应用。填写应用名称和 Bundle ID 后，可将它关联到当前配置。")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                            ForEach(store.managedApps) { app in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(app.name)
+                                            Text(app.bundleIdentifier).font(.caption2).foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                        Button(role: .destructive) {
+                                            store.deleteManagedApp(app)
+                                        } label: {
+                                            Image(systemName: "trash")
+                                        }
+                                    }
+                                    Picker("关联配置", selection: Binding(
+                                        get: { store.managedApps.first(where: { $0.id == app.id })?.profileID ?? store.profiles.first?.id ?? UUID() },
+                                        set: { newID in
+                                            var changed = app
+                                            changed.profileID = newID
+                                            store.updateManagedApp(changed)
+                                        }
+                                    )) {
+                                        ForEach(store.profiles) { item in
+                                            Text(item.name).tag(item.id)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        } header: {
+                            Text("应用选择与配置绑定")
+                        } footer: {
+                            Text("当前版本采用手动登记应用名称和 Bundle ID。iOS 不向普通应用开放完整已安装应用清单；登记和绑定只保存管理信息，不会自动把配置注入第三方 App，也不会自动克隆应用。")
+                        }
+
                         Section("配置管理") {
                             Picker("当前配置", selection: Binding(
                                 get: { store.selectedID ?? profile.id },
