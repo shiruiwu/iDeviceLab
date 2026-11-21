@@ -1,0 +1,21 @@
+name: iDeviceLab
+options:
+  bundleIdPrefix: com.idevelab
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  iDeviceLab:
+    type: application
+    platform: iOS
+    sources:
+      - path: iDeviceLab
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.idevelab.manager
+        PRODUCT_NAME: iDeviceLab
+        INFOPLIST_KEY_CFBundleDisplayName: iDevice Lab
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        CODE_SIGNING_ALLOWED: NO
