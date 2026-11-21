@@ -99,6 +99,37 @@ struct ContentView: View {
                             Text("当前版本采用手动登记应用名称和 Bundle ID。iOS 不向普通应用开放完整已安装应用清单；登记和绑定只保存管理信息，不会自动把配置注入第三方 App，也不会自动克隆应用。")
                         }
 
+                        Section("快手普通版多开（实验流程）") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("目标：快手普通版", systemImage: "app.fill")
+                                    .font(.headline)
+                                Text("先使用 TrollAppDuplicator 在本机复制已安装的快手，生成不同 Bundle ID 的副本，再通过 TrollStore 安装。")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("操作步骤：")
+                                    .font(.subheadline.bold())
+                                Text("1. 打开复制工具，选择已安装的快手普通版。")
+                                Text("2. 为副本生成不同的 Bundle ID，并导出副本 IPA。")
+                                Text("3. 回到 TrollStore 安装副本。")
+                                Text("4. 先测试原版和副本能否分别启动、登录及保存数据。")
+                                Button {
+                                    if let url = URL(string: "https://havoc.app/package/appduplicator") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                } label: {
+                                    Label("查看 TrollAppDuplicator 工具说明", systemImage: "safari")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                Text("兼容提示：工具页面标注支持 iOS 15.0–17.0 且需要 TrollStore；你的 iOS 16.2 在标注范围内。工具较旧，实际能否复制当前快手版本仍需在手机上验证。")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("重要：不同 Bundle ID 通常会得到不同 App 沙盒，但 Keychain、共享容器、推送及快手自身的兼容/安全机制可能仍有限制。复制成功不等于登录状态和所有数据完全隔离；此页面也不会修改真实设备身份或注入模拟参数。")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+
                         Section("配置管理") {
                             Picker("当前配置", selection: Binding(
                                 get: { store.selectedID ?? profile.id },
