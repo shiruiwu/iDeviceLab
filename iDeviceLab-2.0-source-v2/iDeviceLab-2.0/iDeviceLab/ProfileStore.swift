@@ -9,6 +9,13 @@ final class ProfileStore: ObservableObject {
     @Published var selectedID: UUID? {
         didSet { UserDefaults.standard.set(selectedID?.uuidString, forKey: "selectedProfileID") }
     }
+    @Published var managedApps: [ManagedApp] = [] {
+        didSet {
+            if let data = try? JSONEncoder().encode(managedApps) {
+                UserDefaults.standard.set(data, forKey: "iDeviceLabManagedAppsV1")
+            }
+        }
+    }
 
     private let storageKey = "iDeviceLabProfilesV1"
 
@@ -18,6 +25,10 @@ final class ProfileStore: ObservableObject {
             profiles = Self.normalized(decoded)
         } else {
             profiles = [DeviceProfile(name: "测试环境 A")]
+        }
+        if let data = UserDefaults.standard.data(forKey: "iDeviceLabManagedAppsV1"),
+           let savedApps = try? JSONDecoder().decode([ManagedApp].self, from: data) {
+            managedApps = savedApps
         }
         if let raw = UserDefaults.standard.string(forKey: "selectedProfileID"),
            let id = UUID(uuidString: raw), profiles.contains(where: { $0.id == id }) {
@@ -29,6 +40,23 @@ final class ProfileStore: ObservableObject {
 
     var selectedProfile: DeviceProfile? {
         profiles.first(where: { $0.id == selectedID })
+    }
+
+    func addManagedApp(name: String, bundleIdentifier: String) {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanBundle = bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty, !cleanBundle.isEmpty, let profileID = selectedID,
+              !managedApps.contains(where: { $0.bundleIdentifier.caseInsensitiveCompare(cleanBundle) == .orderedSame }) else { return }
+        managedApps.append(ManagedApp(name: cleanName, bundleIdentifier: cleanBundle, profileID: profileID))
+    }
+
+    func updateManagedApp(_ app: ManagedApp) {
+        guard let index = managedApps.firstIndex(where: { $0.id == app.id }) else { return }
+        managedApps[index] = app
+    }
+
+    func deleteManagedApp(_ app: ManagedApp) {
+        managedApps.removeAll { $0.id == app.id }
     }
 
     func update(_ profile: DeviceProfile) {
