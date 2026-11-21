@@ -29,3 +29,11 @@ struct ProfileArchive: Codable {
     var exportedAt: Date = Date()
     var profiles: [DeviceProfile]
 }
+
+
+struct ManagedApp: Identifiable, Codable, Equatable {
+    var id: UUID = UUID()
+    var name: String
+    var bundleIdentifier: String
+    var profileID: UUID
+}
