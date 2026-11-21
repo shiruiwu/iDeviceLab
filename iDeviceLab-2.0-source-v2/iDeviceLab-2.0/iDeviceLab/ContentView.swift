@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var store: ProfileStore
@@ -57,6 +58,36 @@ struct ContentView: View {
                                     )) {
                                         ForEach(store.profiles) { item in
                                             Text(item.name).tag(item.id)
+                                        }
+                                    }
+                                    HStack {
+                                        Button {
+                                            openManagedApp(app)
+                                        } label: {
+                                            Label("打开应用", systemImage: "arrow.up.forward.app")
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        Spacer()
+                                        if let boundProfile = store.profiles.first(where: { $0.id == app.profileID }) {
+                                            Text("已绑定：\\(boundProfile.name)")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    if let boundProfile = store.profiles.first(where: { $0.id == app.profileID }) {
+                                        DisclosureGroup("查看绑定的模拟配置") {
+                                            VStack(alignment: .leading, spacing: 5) {
+                                                Text("设备型号：\\(boundProfile.deviceModel)")
+                                                Text("测试系统：iOS \\(boundProfile.iosVersion)")
+                                                Text("语言 / 地区：\\(boundProfile.language) / \\(boundProfile.region)")
+                                                Text("时区：\\(boundProfile.timeZone)")
+                                                Text("网络场景：\\(boundProfile.network)")
+                                                Text("测试坐标：\\(boundProfile.latitude, specifier: "%.4f"), \\(boundProfile.longitude, specifier: "%.4f")")
+                                                Text("测试 UUID：\\(boundProfile.testIdentifier)")
+                                            }
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .padding(.vertical, 4)
                                         }
                                     }
                                 }
@@ -218,6 +249,28 @@ struct ContentView: View {
             .font(.caption)
             .buttonStyle(.bordered)
             .controlSize(.small)
+    }
+
+    private func openManagedApp(_ app: ManagedApp) {
+        let scheme: String
+        switch app.bundleIdentifier.lowercased() {
+        case "com.jiangjia.gif":
+            scheme = "kwai://"
+        case "com.kuaishou.nebula":
+            scheme = "ksnebula://"
+        default:
+            alertMessage = "暂未配置此应用的启动地址。当前已支持快手主版和快手极速版。"
+            return
+        }
+        guard let url = URL(string: scheme) else {
+            alertMessage = "应用启动地址无效"
+            return
+        }
+        UIApplication.shared.open(url, options: [:]) { success in
+            DispatchQueue.main.async {
+                self.alertMessage = success ? "已向 iOS 发出打开\\(app.name) 的请求。" : "无法打开\\(app.name)。请确认手机已安装对应应用。"
+            }
+        }
     }
 
     private func prepareExport() {
