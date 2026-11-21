@@ -77,13 +77,13 @@ struct ContentView: View {
                                     if let boundProfile = store.profiles.first(where: { $0.id == app.profileID }) {
                                         DisclosureGroup("查看绑定的模拟配置") {
                                             VStack(alignment: .leading, spacing: 5) {
-                                                Text("设备型号：\\(boundProfile.deviceModel)")
-                                                Text("测试系统：iOS \\(boundProfile.iosVersion)")
-                                                Text("语言 / 地区：\\(boundProfile.language) / \\(boundProfile.region)")
-                                                Text("时区：\\(boundProfile.timeZone)")
-                                                Text("网络场景：\\(boundProfile.network)")
-                                                Text("测试坐标：\\(boundProfile.latitude, specifier: "%.4f"), \\(boundProfile.longitude, specifier: "%.4f")")
-                                                Text("测试 UUID：\\(boundProfile.testIdentifier)")
+                                                Text("设备型号：\(boundProfile.deviceModel)")
+                                                Text("测试系统：iOS \(boundProfile.iosVersion)")
+                                                Text("语言 / 地区：\(boundProfile.language) / \(boundProfile.region)")
+                                                Text("时区：\(boundProfile.timeZone)")
+                                                Text("网络场景：\(boundProfile.network)")
+                                                Text("测试坐标：\(String(format: "%.4f", boundProfile.latitude)), \(String(format: "%.4f", boundProfile.longitude))")
+                                                Text("测试 UUID：\(boundProfile.testIdentifier)")
                                             }
                                             .font(.caption)
                                             .foregroundColor(.secondary)
