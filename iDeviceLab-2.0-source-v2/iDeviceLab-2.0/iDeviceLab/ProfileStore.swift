@@ -47,6 +47,17 @@ final class ProfileStore: ObservableObject {
         selectedID = profile.id
     }
 
+    func duplicateSelected() {
+        guard let current = selectedProfile, profiles.count < 100 else { return }
+        var copy = current
+        copy.id = UUID()
+        copy.name = "\(current.name) - 副本"
+        copy.testIdentifier = UUID().uuidString
+        copy.updatedAt = Date()
+        profiles.append(copy)
+        selectedID = copy.id
+    }
+
     func deleteSelected() {
         guard let id = selectedID else { return }
         profiles.removeAll { $0.id == id }
