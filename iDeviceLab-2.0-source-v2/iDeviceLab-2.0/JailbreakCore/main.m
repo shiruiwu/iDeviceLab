@@ -28,7 +28,7 @@ static BOOL WriteStore(NSDictionary *value) {
     return data && !error && [data writeToFile:kStore options:NSDataWritingAtomic error:&error];
 }
 
-static NSDictionary *Handle(NSString *method, NSString *target) {
+static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
     NSMutableDictionary *query = [NSMutableDictionary dictionary];
@@ -112,7 +112,7 @@ int main(void) {
                     NSArray *first = lines.firstObject ? [lines.firstObject componentsSeparatedByString:@" "] : @[];
                     if (first.count >= 2) {
                         NSString *method = first[0], *target = first[1];
-                        NSDictionary *result = Handle(method, target);
+                        NSDictionary *result = ProcessRequest(method, target);
                         BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"];
                         Reply(client, result, known ? 200 : 404);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
