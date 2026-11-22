@@ -18,6 +18,10 @@ targets:
       - path: IPAEditor
     dependencies:
       - package: ZIPFoundation
+    info:
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.idevelab.manager
