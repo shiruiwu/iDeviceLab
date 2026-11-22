@@ -12,6 +12,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("IPA 多开", systemImage: "square.stack.3d.up")
                 }
+
+            RootlessCoreView()
+                .tabItem {
+                    Label("越狱核心", systemImage: "terminal")
+                }
         }
     }
 }
