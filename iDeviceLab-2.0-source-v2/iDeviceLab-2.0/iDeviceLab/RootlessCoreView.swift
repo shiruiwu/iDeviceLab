@@ -42,6 +42,7 @@ private struct InstalledAppsResponse: Decodable {
 
 struct RootlessCoreView: View {
     @State private var serviceState = "正在检测"
+    @State private var connectionDetail = ""
     @State private var version = ""
     @State private var profiles: [RootlessProfile] = []
     @State private var selected = ""
@@ -72,6 +73,12 @@ struct RootlessCoreView: View {
                         Task { await refresh() }
                     } label: {
                         Label("重新检测服务", systemImage: "arrow.clockwise")
+                    }
+                    if serviceState == "未连接" && !connectionDetail.isEmpty {
+                        Text("连接诊断：\\(connectionDetail)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
                     }
                 }
 
@@ -173,6 +180,7 @@ struct RootlessCoreView: View {
             let status = try JSONDecoder().decode(RootlessStatus.self, from: statusData)
             guard status.ok else { throw URLError(.cannotConnectToHost) }
             serviceState = "已连接"
+            connectionDetail = ""
             version = status.version ?? ""
 
             async let profileResult = URLSession.shared.data(from: baseURL.appendingPathComponent("profiles"))
@@ -189,6 +197,7 @@ struct RootlessCoreView: View {
             systemInfo = systemResponse
             installedApps = appsResponse.apps
         } catch {
+            connectionDetail = error.localizedDescription
             serviceState = "未连接"
             version = ""
             profiles = []
