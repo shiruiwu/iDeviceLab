@@ -41,13 +41,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install build dependencies
-        run: brew install ldid
+        run: brew install ldid dpkg
       - name: Bootstrap Theos and iOS SDKs
         run: |
           git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
-          git clone https://github.com/theos/sdks.git "$HOME/theos-sdks"
           mkdir -p "$HOME/theos/sdks"
-          cp -R "$HOME/theos-sdks/"* "$HOME/theos/sdks/"
+          SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
+          SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
+          ln -s "$SDK_PATH" "$HOME/theos/sdks/iPhoneOS${SDK_VERSION}.sdk"
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
       - name: Build Rootless package
         working-directory: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/JailbreakCore
