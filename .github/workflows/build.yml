@@ -1,5 +1,4 @@
-
-name: Build iDevice Lab IPA
+name: Build iDevice Lab and Rootless Core
 
 on:
   workflow_dispatch:
@@ -11,14 +10,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install XcodeGen
         run: brew install xcodegen
-
       - name: Generate project
         working-directory: iDeviceLab-2.0-source-v2/iDeviceLab-2.0
         run: xcodegen generate
-
       - name: Build iOS app
         working-directory: iDeviceLab-2.0-source-v2/iDeviceLab-2.0
         run: |
@@ -29,15 +25,35 @@ jobs:
             -sdk iphoneos \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
-
       - name: Package IPA
         working-directory: iDeviceLab-2.0-source-v2/iDeviceLab-2.0
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/iDeviceLab.app Payload/
           zip -r iDeviceLab-unsigned.ipa Payload
-
       - uses: actions/upload-artifact@v4
         with:
           name: iDeviceLab-unsigned-ipa
           path: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab-unsigned.ipa
+
+  rootless:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: brew install ldid
+      - name: Bootstrap Theos and iOS SDKs
+        run: |
+          git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
+          git clone https://github.com/theos/sdks.git "$HOME/theos/sdks"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+      - name: Build Rootless package
+        working-directory: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/JailbreakCore
+        run: |
+          export THEOS="$HOME/theos"
+          export THEOS_PACKAGE_SCHEME=rootless
+          make package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iDeviceLab-rootless-deb
+          path: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/JailbreakCore/packages/*.deb
