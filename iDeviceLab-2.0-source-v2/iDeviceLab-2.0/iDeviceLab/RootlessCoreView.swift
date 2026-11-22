@@ -18,11 +18,36 @@ private struct RootlessProfilesResponse: Decodable {
     let selected: String
 }
 
+private struct DeviceSystemInfo: Decodable {
+    let productType: String
+    let architecture: String
+    let osVersion: String
+    let hostname: String
+    let diskTotalBytes: UInt64
+    let diskFreeBytes: UInt64
+    let uptimeSeconds: Double
+}
+
+private struct InstalledApp: Decodable, Identifiable {
+    let name: String
+    let bundleIdentifier: String
+    let version: String
+    var id: String { bundleIdentifier }
+}
+
+private struct InstalledAppsResponse: Decodable {
+    let ok: Bool
+    let apps: [InstalledApp]
+}
+
 struct RootlessCoreView: View {
     @State private var serviceState = "正在检测"
     @State private var version = ""
     @State private var profiles: [RootlessProfile] = []
     @State private var selected = ""
+    @State private var systemInfo: DeviceSystemInfo?
+    @State private var installedApps: [InstalledApp] = []
+    @State private var appSearch = ""
     @State private var newName = ""
     @State private var message: String?
     @State private var isBusy = false
@@ -48,6 +73,41 @@ struct RootlessCoreView: View {
                     } label: {
                         Label("重新检测服务", systemImage: "arrow.clockwise")
                     }
+                }
+
+                if let info = systemInfo {
+                    Section("设备信息（只读）") {
+                        LabeledContent("设备型号", value: info.productType)
+                        LabeledContent("系统版本", value: info.osVersion)
+                        LabeledContent("架构", value: info.architecture)
+                        LabeledContent("设备名称", value: info.hostname)
+                        LabeledContent("存储空间", value: "\(ByteCountFormatter.string(fromByteCount: Int64(info.diskFreeBytes), countStyle: .file)) 可用 / \(ByteCountFormatter.string(fromByteCount: Int64(info.diskTotalBytes), countStyle: .file))")
+                        LabeledContent("运行时间", value: uptimeText(info.uptimeSeconds))
+                    }
+                }
+
+                Section("已安装应用（只读清单）") {
+                    TextField("搜索应用名称或 Bundle ID", text: $appSearch)
+                    let filtered = installedApps.filter {
+                        appSearch.isEmpty || $0.name.localizedCaseInsensitiveContains(appSearch) || $0.bundleIdentifier.localizedCaseInsensitiveContains(appSearch)
+                    }
+                    if filtered.isEmpty {
+                        Text(installedApps.isEmpty ? "未读取到应用清单" : "没有匹配的应用")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(filtered) { app in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(app.name)
+                                Text(app.bundleIdentifier).font(.caption2).foregroundStyle(.secondary)
+                                if !app.version.isEmpty {
+                                    Text("版本 \(app.version)").font(.caption2).foregroundStyle(.tertiary)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                    Text("仅枚举已安装应用信息，不读取应用私有数据。")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
 
                 Section("本地配置记录") {
@@ -115,16 +175,35 @@ struct RootlessCoreView: View {
             serviceState = "已连接"
             version = status.version ?? ""
 
-            let (data, _) = try await URLSession.shared.data(from: baseURL.appendingPathComponent("profiles"))
-            let response = try JSONDecoder().decode(RootlessProfilesResponse.self, from: data)
+            async let profileResult = URLSession.shared.data(from: baseURL.appendingPathComponent("profiles"))
+            async let systemResult = URLSession.shared.data(from: baseURL.appendingPathComponent("system"))
+            async let appsResult = URLSession.shared.data(from: baseURL.appendingPathComponent("apps"))
+            let (profileData, _) = try await profileResult
+            let (systemData, _) = try await systemResult
+            let (appsData, _) = try await appsResult
+            let response = try JSONDecoder().decode(RootlessProfilesResponse.self, from: profileData)
+            let systemResponse = try JSONDecoder().decode(DeviceSystemInfo.self, from: systemData)
+            let appsResponse = try JSONDecoder().decode(InstalledAppsResponse.self, from: appsData)
             profiles = response.profiles
             selected = response.selected
+            systemInfo = systemResponse
+            installedApps = appsResponse.apps
         } catch {
             serviceState = "未连接"
             version = ""
             profiles = []
             selected = ""
+            systemInfo = nil
+            installedApps = []
         }
+    }
+
+    private func uptimeText(_ seconds: Double) -> String {
+        let value = max(0, Int(seconds))
+        let days = value / 86_400
+        let hours = (value % 86_400) / 3_600
+        let minutes = (value % 3_600) / 60
+        return days > 0 ? "\(days) 天 \(hours) 小时" : "\(hours) 小时 \(minutes) 分钟"
     }
 
     @MainActor
