@@ -1,5 +1,26 @@
 #!/bin/sh
-if [ "$1" = "configure" ] && [ -x /bin/launchctl ]; then
-    /bin/launchctl bootstrap system /var/jb/Library/LaunchDaemons/com.idevelab.core.plist >/dev/null 2>&1 || true
+set -e
+
+PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.core.plist"
+LABEL="system/com.idevelab.core"
+
+if [ "$1" = "configure" ]; then
+    if [ ! -x /bin/launchctl ]; then
+        echo "iDeviceLab: /bin/launchctl not found; Rootless Core cannot be started" >&2
+        exit 1
+    fi
+    if [ ! -x /var/jb/usr/libexec/idevelab-core ]; then
+        echo "iDeviceLab: core executable is missing" >&2
+        exit 1
+    fi
+    mkdir -p /var/mobile/Library/Logs
+    chown mobile:mobile /var/mobile/Library/Logs 2>/dev/null || true
+
+    /bin/launchctl bootout system "$PLIST" >/dev/null 2>&1 || true
+    /bin/launchctl enable "$LABEL" >/dev/null 2>&1 || true
+    /bin/launchctl bootstrap system "$PLIST"
+    /bin/launchctl kickstart -k "$LABEL"
+    /bin/launchctl print "$LABEL" >/dev/null
 fi
+
 exit 0
