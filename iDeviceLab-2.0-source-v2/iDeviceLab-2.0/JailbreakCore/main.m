@@ -99,6 +99,8 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     }
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
         return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.2", @"port":@(kPort)};
+    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/system"]) return SystemSummary();
+    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
 
     NSDictionary *store = ReadStore();
     NSArray *profiles = store[@"profiles"] ?: @[];
