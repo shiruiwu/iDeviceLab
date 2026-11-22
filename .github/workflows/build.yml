@@ -39,15 +39,15 @@ jobs:
       - name: Package IPA
         working-directory: iDeviceLab-2.0-source-v2/iDeviceLab-2.0
         run: |
-          rm -rf Payload iDeviceLab.ipa
+          rm -rf Payload iDeviceLab-trollstore.ipa
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/iDeviceLab.app Payload/
-          /usr/bin/zip -qry iDeviceLab-unsigned.ipa Payload
-          unzip -t iDeviceLab-unsigned.ipa
+          /usr/bin/zip -qry iDeviceLab-trollstore.ipa Payload
+          unzip -t iDeviceLab-trollstore.ipa
       - uses: actions/upload-artifact@v4
         with:
           name: iDeviceLab-trollstore-ipa
-          path: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab-unsigned.ipa
+          path: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab-trollstore.ipa
 
   rootless:
     runs-on: macos-latest
