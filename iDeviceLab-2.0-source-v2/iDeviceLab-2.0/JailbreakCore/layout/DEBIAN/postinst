@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$1" = "configure" ] && [ -x /bin/launchctl ]; then
+    /bin/launchctl bootstrap system /var/jb/Library/LaunchDaemons/com.idevelab.core.plist >/dev/null 2>&1 || true
+fi
+exit 0

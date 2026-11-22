@@ -1,6 +1,6 @@
 Package: com.idevelab.core
 Name: iDeviceLab Rootless Core
-Version: 0.1.0
+Version: 0.1.1
 Architecture: iphoneos-arm64
 Description: Rootless local profile service and automation API for iDeviceLab.
 Maintainer: iDeviceLab

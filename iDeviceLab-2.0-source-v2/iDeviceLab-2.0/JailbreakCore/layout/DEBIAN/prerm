@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ -x /bin/launchctl ]; then
+    /bin/launchctl bootout system /var/jb/Library/LaunchDaemons/com.idevelab.core.plist >/dev/null 2>&1 || true
+fi
+exit 0
