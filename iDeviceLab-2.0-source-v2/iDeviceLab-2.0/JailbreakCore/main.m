@@ -6,6 +6,7 @@
 #import <signal.h>
 #import <errno.h>
 #import <string.h>
+#import <sys/sysctl.h>
 
 static NSString * const kRoot = @"/var/mobile/Library/Application Support/iDeviceLab";
 static NSString * const kStore = @"/var/mobile/Library/Application Support/iDeviceLab/profiles.json";
@@ -28,6 +29,64 @@ static BOOL WriteStore(NSDictionary *value) {
     return data && !error && [data writeToFile:kStore options:NSDataWritingAtomic error:&error];
 }
 
+
+static NSString *SysctlString(const char *key) {
+    size_t size = 0;
+    if (sysctlbyname(key, NULL, &size, NULL, 0) != 0 || size == 0) return @"Unknown";
+    char *value = calloc(1, size);
+    if (!value) return @"Unknown";
+    NSString *result = @"Unknown";
+    if (sysctlbyname(key, value, &size, NULL, 0) == 0)
+        result = [NSString stringWithUTF8String:value] ?: @"Unknown";
+    free(value);
+    return result;
+}
+
+static NSDictionary *SystemSummary(void) {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSDictionary *attributes = [fm attributesOfFileSystemForPath:@"/var" error:nil] ?: @{};
+    unsigned long long total = [attributes[NSFileSystemSize] unsignedLongLongValue];
+    unsigned long long free = [attributes[NSFileSystemFreeSize] unsignedLongLongValue];
+    NSOperatingSystemVersion os = NSProcessInfo.processInfo.operatingSystemVersion;
+    NSString *osVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", (long)os.majorVersion, (long)os.minorVersion, (long)os.patchVersion];
+    return @{
+        @"ok": @YES,
+        @"productType": SysctlString("hw.machine"),
+        @"architecture": SysctlString("hw.cputype"),
+        @"osVersion": osVersion,
+        @"hostname": NSProcessInfo.processInfo.hostName ?: @"",
+        @"diskTotalBytes": @(total),
+        @"diskFreeBytes": @(free),
+        @"uptimeSeconds": @(NSProcessInfo.processInfo.systemUptime)
+    };
+}
+
+static NSArray *InstalledApplications(void) {
+    NSString *root = @"/var/containers/Bundle/Application";
+    NSArray *containers = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    NSMutableArray *apps = [NSMutableArray array];
+    for (NSString *container in containers) {
+        if ([container hasPrefix:@"."]) continue;
+        NSString *containerPath = [root stringByAppendingPathComponent:container];
+        NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:containerPath error:nil] ?: @[];
+        for (NSString *child in children) {
+            if (![child.pathExtension.lowercaseString isEqualToString:@"app"]) continue;
+            NSString *appPath = [containerPath stringByAppendingPathComponent:child];
+            NSString *plistPath = [appPath stringByAppendingPathComponent:@"Info.plist"];
+            NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:plistPath];
+            NSString *bundleID = info[@"CFBundleIdentifier"];
+            if (![bundleID isKindOfClass:NSString.class] || bundleID.length == 0) continue;
+            NSString *name = info[@"CFBundleDisplayName"] ?: info[@"CFBundleName"] ?: child.stringByDeletingPathExtension;
+            NSString *version = info[@"CFBundleShortVersionString"] ?: @"";
+            [apps addObject:@{@"name":name, @"bundleIdentifier":bundleID, @"version":version}];
+        }
+    }
+    [apps sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [a[@"name"] localizedCaseInsensitiveCompare:b[@"name"]];
+    }];
+    return apps;
+}
+
 static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
@@ -39,7 +98,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
         }
     }
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
-        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.0", @"port":@(kPort)};
+        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.2", @"port":@(kPort)};
 
     NSDictionary *store = ReadStore();
     NSArray *profiles = store[@"profiles"] ?: @[];
@@ -113,7 +172,7 @@ int main(void) {
                     if (first.count >= 2) {
                         NSString *method = first[0], *target = first[1];
                         NSDictionary *result = ProcessRequest(method, target);
-                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"];
+                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"];
                         Reply(client, result, known ? 200 : 404);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
                 }
