@@ -3,12 +3,21 @@ options:
   bundleIdPrefix: com.idevelab
   deploymentTarget:
     iOS: "16.0"
+
+packages:
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation.git
+    from: 0.9.19
+
 targets:
   iDeviceLab:
     type: application
     platform: iOS
     sources:
       - path: iDeviceLab
+      - path: IPAEditor
+    dependencies:
+      - package: ZIPFoundation
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.idevelab.manager
