@@ -110,7 +110,7 @@ struct RootlessCoreView: View {
                                     Text(app.name)
                                     Text(app.bundleIdentifier).font(.caption2).foregroundStyle(.secondary)
                                     if !app.version.isEmpty {
-                                        Text("版本 \\(app.version)").font(.caption2).foregroundStyle(.tertiary)
+                                        Text("版本 \(app.version)").font(.caption2).foregroundStyle(.tertiary)
                                     }
                                 }
                                 Spacer(minLength: 8)
