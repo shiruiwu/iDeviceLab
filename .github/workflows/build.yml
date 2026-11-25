@@ -79,6 +79,21 @@ jobs:
           dpkg-deb --contents "$PACKAGE" | tee package-contents.txt
           grep -F 'idevelab-core' package-contents.txt
           grep -F 'com.idevelab.core.plist' package-contents.txt
+          dpkg-deb --ctrl-tarfile "$PACKAGE" | tar -tzf - | tee package-control-files.txt
+          grep -E '(^|/)postinst
+          test "$(dpkg-deb -f "$PACKAGE" Version)" = "0.1.5"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iDeviceLab-rootless-deb
+          path: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/JailbreakCore/packages/*.deb
+ package-control-files.txt
+          grep -E '(^|/)prerm
+          test "$(dpkg-deb -f "$PACKAGE" Version)" = "0.1.5"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iDeviceLab-rootless-deb
+          path: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/JailbreakCore/packages/*.deb
+ package-control-files.txt
           test "$(dpkg-deb -f "$PACKAGE" Package)" = "com.idevelab.core"
           test "$(dpkg-deb -f "$PACKAGE" Version)" = "0.1.5"
       - uses: actions/upload-artifact@v4
