@@ -32,6 +32,7 @@ private struct Alpha11ConfigStatus: Decodable {
     let ok: Bool
     let exists: Bool
     let parseable: Bool
+    let schemaCompatible: Bool?
     let path: String
     let keyCount: Int
     let keys: [String]
@@ -129,6 +130,7 @@ struct RootlessCoreView: View {
                 Section("Alpha11 本地配置文件（只读诊断）") {
                     if let config = alpha11Config {
                         LabeledContent("文件状态", value: !config.exists ? "尚未创建" : (config.parseable ? "存在且可解析" : "文件格式异常"))
+                        LabeledContent("结构检查", value: config.schemaCompatible == true ? "Alpha11 必需字段存在" : "缺少 Alpha11 必需字段")
                         LabeledContent("字段数量", value: "\(config.keyCount)")
                         Text(config.path).font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
                         if !config.keys.isEmpty {
