@@ -188,7 +188,8 @@ int main(void) {
                     if (first.count >= 2 && range.location != NSNotFound) {
                         NSString *method = first[0], *target = first[1];
                         NSDictionary *result = ProcessRequest(method, target);
-                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/config"];
+                        NSString *requestPath = [[target componentsSeparatedByString:@"?"] firstObject] ?: target;
+                        BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/config/status"] containsObject:requestPath];
                         NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
                         Reply(client, result, (int)httpStatus);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
