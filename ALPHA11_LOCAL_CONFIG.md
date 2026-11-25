@@ -2,6 +2,8 @@
 
 ## 当前接入方式
 
+- Alpha11 打包时已将可选的 Apple 云端响应过滤模块从 Theos 编译目标中排除，并将注入过滤范围收窄到 SpringBoard 与设置 App；云端守护进程不再作为本地管理器运行的依赖。
+
 - Alpha11 的主配置文件路径：`/var/mobile/Library/Preferences/com.modhw.ios.devices.plist`。
 - Alpha11 在动态库初始化时调用 `initPrefFile()` 读取该文件；旧路径 `/tmp/devices.plist` 仅作为原项目兼容回退。
 - iDeviceLab Rootless Core 作为本机诊断服务运行，监听回环地址 `127.0.0.1:18080`，不会连接云端。
@@ -30,7 +32,7 @@
 - [ ] 越狱环境中安装 Rootless Core，LaunchDaemon 正常运行。
 - [ ] 管理器能连接本机 Core，系统信息和已安装 App 清单可读取。
 - [ ] 管理器能正确报告 Alpha11 plist 缺失、格式错误和格式正常三种状态。
-- [ ] Alpha11 tweak 能加载，日志无崩溃；分别验证目标进程加载情况。
+- [ ] Alpha11 tweak 能加载，日志无崩溃；分别验证 SpringBoard 与设置 App 的加载情况。
 - [ ] 完成配置备份/恢复、回滚、缓存清理的实机回归。
 - [ ] 记录设备型号、iOS 版本、越狱方案、包版本和验证结果。
 
