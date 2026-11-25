@@ -158,6 +158,51 @@ final class ProfileStore: ObservableObject {
         selectedID = profiles.first?.id
     }
 
+    /// Creates a complete, versioned backup of profiles, app-to-profile bindings and selection.
+    func exportFullBackupData() throws -> Data {
+        let archive = FullBackupArchive(schemaVersion: 1, createdAt: Date(), profiles: profiles, managedApps: managedApps, selectedID: selectedID)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return try encoder.encode(archive)
+    }
+
+    /// Validates the archive before changing persisted state and stores a rollback snapshot.
+    func restoreFullBackup(from data: Data) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let archive = try decoder.decode(FullBackupArchive.self, from: data)
+        guard archive.schemaVersion == 1 else { throw ProfileError.unsupportedVersion }
+        guard !archive.profiles.isEmpty else { throw ProfileError.emptyArchive }
+        guard archive.profiles.count <= 100, archive.managedApps.count <= 500 else { throw ProfileError.tooManyProfiles }
+        let profileIDs = archive.profiles.map(\.id)
+        guard Set(profileIDs).count == profileIDs.count else { throw ProfileError.duplicateIdentifiers }
+        let validIDs = Set(profileIDs)
+        for app in archive.managedApps {
+            guard !app.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !app.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  validIDs.contains(app.profileID) else { throw ProfileError.invalidManagedApp }
+        }
+        if let rollback = try? exportFullBackupData() {
+            UserDefaults.standard.set(rollback, forKey: "iDeviceLabPreRestoreBackupV1")
+        }
+        profiles = Self.normalized(archive.profiles)
+        managedApps = archive.managedApps
+        selectedID = archive.selectedID.flatMap { validIDs.contains($0) ? $0 : nil } ?? profiles[0].id
+    }
+
+    /// Restores the most recent automatic pre-restore snapshot.
+    func restorePreRestoreSnapshot() throws {
+        guard let data = UserDefaults.standard.data(forKey: "iDeviceLabPreRestoreBackupV1") else { throw ProfileError.noRollbackSnapshot }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let archive = try decoder.decode(FullBackupArchive.self, from: data)
+        guard archive.schemaVersion == 1, !archive.profiles.isEmpty else { throw ProfileError.unsupportedVersion }
+        profiles = Self.normalized(archive.profiles)
+        managedApps = archive.managedApps
+        let ids = Set(profiles.map(\.id))
+        selectedID = archive.selectedID.flatMap { ids.contains($0) ? $0 : nil } ?? profiles[0].id
+    }
     private static func normalized(_ input: [DeviceProfile]) -> [DeviceProfile] {
         var seen = Set<UUID>()
         return input.map { original in
@@ -171,13 +216,24 @@ final class ProfileStore: ObservableObject {
     }
 }
 
+struct FullBackupArchive: Codable {
+    var schemaVersion: Int
+    var createdAt: Date
+    var profiles: [DeviceProfile]
+    var managedApps: [ManagedApp]
+    var selectedID: UUID?
+}
+
 enum ProfileError: LocalizedError {
-    case unsupportedVersion, emptyArchive, tooManyProfiles
+    case unsupportedVersion, emptyArchive, tooManyProfiles, duplicateIdentifiers, invalidManagedApp, noRollbackSnapshot
     var errorDescription: String? {
         switch self {
         case .unsupportedVersion: return "不支持此配置文件版本"
         case .emptyArchive: return "配置文件中没有配置内容"
-        case .tooManyProfiles: return "单次最多导入 100 套配置"
+        case .tooManyProfiles: return "配置数量超出限制（最多 100 套配置、500 个应用绑定）"
+        case .duplicateIdentifiers: return "备份包含重复的配置标识符"
+        case .invalidManagedApp: return "备份包含无效的应用绑定或指向不存在的配置"
+        case .noRollbackSnapshot: return "没有可用的还原前自动备份"
         }
     }
 }
