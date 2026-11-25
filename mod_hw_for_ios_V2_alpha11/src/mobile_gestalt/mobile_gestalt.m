@@ -224,11 +224,10 @@ void initPrefFile(){
       a = APCopyDataFromHexString((__bridge CFStringRef)device_id);
       const UInt8* b = CFDataGetBytePtr(a);
       CFIndex c = CFDataGetLength(a);
-      NSData* d = [[NSData alloc] initWithBytes:b length:c];
-      //refences:http://blog.timac.org/?tag=mgcopyanswer
+            //refences:http://blog.timac.org/?tag=mgcopyanswer
       CFBooleanRef cc = (CFBooleanRef)[aa objectForKey:@"UniqueDeviceIDData"];
       if (CFBooleanGetValue(cc)==true) {
-        [cf_device setValue:CFDataCreate(kCFAllocatorDefault, b, c) forKey:@"UniqueDeviceIDData"];
+        [cf_device setValue:(__bridge id)CFDataCreate(kCFAllocatorDefault, b, c) forKey:@"UniqueDeviceIDData"];
       }
       else{
         [cf_device setValue:nil forKey:@"UniqueDeviceIDData"];
@@ -239,7 +238,7 @@ void initPrefFile(){
         if (mac!=nil&&([mac length]>0)) {
           mac = [mac stringByReplacingOccurrencesOfString:@":" withString:@""];
           NSData* data = dataFromHexString(mac);
-          [cf_device setValue:CFDataCreate(kCFAllocatorDefault, [data bytes], [data length]) forKey:@"WifiAddressData"];
+          [cf_device setValue:(__bridge id)CFDataCreate(kCFAllocatorDefault, [data bytes], [data length]) forKey:@"WifiAddressData"];
         }
       }
       else{
@@ -252,7 +251,7 @@ void initPrefFile(){
         if (buletooth!=nil&&([buletooth length]>0)) {
           buletooth = [buletooth stringByReplacingOccurrencesOfString:@":" withString:@""];
           NSData* data = dataFromHexString(buletooth);
-          [cf_device setValue:CFDataCreate(kCFAllocatorDefault, [data bytes], [data length]) forKey:@"BluetoothAddressData"];
+          [cf_device setValue:(__bridge id)CFDataCreate(kCFAllocatorDefault, [data bytes], [data length]) forKey:@"BluetoothAddressData"];
         }
       }
       else{
@@ -291,7 +290,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntrySearchCFProperty,
       SerialNumber = [cf_device objectForKey:@"SerialNumber"];
       if (SerialNumber!=nil&&(GetIdLength(SerialNumber)>0)&&IsCFString(SerialNumber)) {
         // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,result);
-        return CFStringCreateCopy(kCFAllocatorDefault,SerialNumber);
+        return CFStringCreateCopy(kCFAllocatorDefault,(__bridge CFStringRef)SerialNumber);
       }
     }
     if ([key_str compare:@"device-imei" options:mask]==NSOrderedSame) {
@@ -299,7 +298,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntrySearchCFProperty,
       CFTypeRef imei = [cf_device objectForKey:ss1];
       if (imei!=nil&&(GetIdLength(imei)>0)&&IsCFString(imei)) {
         // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,rv);
-        return CFStringCreateCopy(kCFAllocatorDefault,imei);
+        return CFStringCreateCopy(kCFAllocatorDefault,(__bridge CFStringRef)imei);
       }
     }
     if ([key_str compare:@"local-mac-address" options:mask]==NSOrderedSame) {
@@ -688,7 +687,7 @@ int replace_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *
   int ReturnValue = 0;
   ReturnValue = orig_sysctl(name, namelen, oldp, oldlenp, newp, newlen);
   if (namelen == 2 && name[0] == CTL_HW && (name[1] == HW_MACHINE || name[1] == HW_MODEL)) {
-    NSLog(@"hook_sysctl %s:%s", name, oldp);
+    NSLog(@"hook_sysctl name=%p oldp=%p", (void *)name, oldp);
   }
   return ReturnValue;
 }
