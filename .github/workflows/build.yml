@@ -1,7 +1,7 @@
 name: Build iDevice Lab and Rootless Core
 
 concurrency:
-  group: idevice-lab-main-${{ github.ref }}
+  group: idevice-lab-release-${{ github.ref }}
   cancel-in-progress: true
 
 on:
@@ -12,6 +12,7 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -54,6 +55,7 @@ jobs:
 
   rootless:
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Install build dependencies
