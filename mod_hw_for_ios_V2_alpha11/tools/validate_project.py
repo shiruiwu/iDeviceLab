@@ -29,6 +29,18 @@ check("RawPlistDocument" in manager and "regularFileWithContents: data" in manag
 check("TextField(" not in manager and "Toggle(" not in manager,
       "Manager has no configuration identity editing controls")
 check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "IPA build targets arm64 and verifies archive")
+filter_path = ROOT / "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist"
+if filter_path.is_file():
+    try:
+        filter_data = plistlib.loads(filter_path.read_bytes())
+        filter_root = filter_data.get("Filter", {})
+        executables = filter_root.get("Executables", [])
+        bundles = filter_root.get("Bundles", [])
+        check(executables == ["SpringBoard"] and bundles == ["com.apple.Preferences"],
+              "Tweak injection limited to SpringBoard and Settings; cloud daemons excluded")
+    except Exception as exc:
+        errors.append("Invalid tweak injection filter: " + str(exc))
+
 diagnostic = ROOT / "scripts/diagnose-config.sh"
 check(diagnostic.is_file(), "Read-only device diagnostic exists")
 if diagnostic.is_file():
