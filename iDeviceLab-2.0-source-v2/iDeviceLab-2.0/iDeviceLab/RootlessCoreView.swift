@@ -41,6 +41,8 @@ private struct InstalledAppsResponse: Decodable {
 }
 
 struct RootlessCoreView: View {
+    @EnvironmentObject private var store: ProfileStore
+    @State private var exchangeSummary = "尚未同步"
     @State private var serviceState = "正在检测"
     @State private var connectionDetail = ""
     @State private var version = ""
@@ -115,6 +117,21 @@ struct RootlessCoreView: View {
                     }
                     Text("仅枚举已安装应用信息，不读取应用私有数据。")
                         .font(.caption2).foregroundStyle(.secondary)
+                }
+
+                Section("配置同步（测试元数据）") {
+                    Text(exchangeSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        Task { await syncTestProfiles() }
+                    } label: {
+                        Label("同步管理器配置到核心", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(isBusy || serviceState != "已连接")
+                    Text("只同步设备型号、系统版本、语言、地区、时区、测试坐标、网络场景及 App 绑定元数据；不会驱动硬件身份 Hook。")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("本地配置记录") {
@@ -196,6 +213,14 @@ struct RootlessCoreView: View {
             selected = response.selected
             systemInfo = systemResponse
             installedApps = appsResponse.apps
+            if let exchangeURL = URL(string: "exchange/status", relativeTo: baseURL),
+               let (exchangeData, _) = try? await URLSession.shared.data(from: exchangeURL),
+               let summary = try? JSONSerialization.jsonObject(with: exchangeData) as? [String: Any] {
+                let synced = summary["synced"] as? Bool ?? false
+                let count = summary["profileCount"] as? Int ?? 0
+                let appCount = summary["managedAppCount"] as? Int ?? 0
+                exchangeSummary = synced ? "核心已接收：\\(count) 套测试配置、\\(appCount) 个 App 绑定" : "核心尚未收到配置"
+            }
         } catch {
             connectionDetail = error.localizedDescription
             serviceState = "未连接"
@@ -204,6 +229,30 @@ struct RootlessCoreView: View {
             selected = ""
             systemInfo = nil
             installedApps = []
+        }
+    }
+
+    @MainActor
+    private func syncTestProfiles() async {
+        do {
+            let payload = try store.exportFullBackupData()
+            var request = URLRequest(url: baseURL.appendingPathComponent("exchange/import"))
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = payload
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let result = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            guard result?["ok"] as? Bool == true else {
+                throw NSError(domain: "iDeviceLab.Exchange", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: result?["error"] as? String ?? "核心拒绝了配置包"])
+            }
+            let count = result?["profileCount"] as? Int ?? store.profiles.count
+            let appCount = result?["managedAppCount"] as? Int ?? store.managedApps.count
+            exchangeSummary = "核心已接收：\\(count) 套测试配置、\\(appCount) 个 App 绑定"
+            message = "测试配置已同步到 Rootless 核心。此操作只保存测试元数据，不会启用身份修改 Hook。"
+            await refresh()
+        } catch {
+            message = "同步失败：\\(error.localizedDescription)"
         }
     }
 
