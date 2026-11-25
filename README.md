@@ -1,6 +1,6 @@
 # iDeviceLab 2.0
 
-iOS 本地测试配置管理器与 Rootless Core，主要实机目标为 iPhone 12 / iOS 16.2。
+iOS 本地测试配置管理器与只读 Rootless Core（系统诊断、已安装 App 清单、Alpha11 plist 状态诊断），主要实机目标为 iPhone 12 / iOS 16.2。
 
 ## 工程组成
 
