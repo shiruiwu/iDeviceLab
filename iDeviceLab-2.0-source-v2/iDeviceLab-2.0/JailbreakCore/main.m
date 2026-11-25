@@ -183,6 +183,16 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
     NSString *exchangePath = [kRoot stringByAppendingPathComponent:@"test-profile-exchange.json"];
     if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/exchange/import"])
         return ValidateAndStoreExchange(body);
+    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/exchange/profiles"]) {
+        NSData *data = [NSData dataWithContentsOfFile:exchangePath];
+        id parsed = data ? [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil] : nil;
+        if (![parsed isKindOfClass:NSDictionary.class]) return @{@"ok":@YES, @"synced":@NO, @"profiles":@[], @"managedApps":@[]};
+        NSDictionary *archive = parsed;
+        return @{@"ok":@YES, @"synced":@YES, @"schemaVersion":archive[@"schemaVersion"] ?: @0,
+                 @"profiles":archive[@"profiles"] ?: @[], @"managedApps":archive[@"managedApps"] ?: @[],
+                 @"selectedID":archive[@"selectedID"] ?: [NSNull null]};
+    }
+
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/exchange/status"]) {
         NSDictionary *archive = [NSDictionary dictionaryWithContentsOfFile:exchangePath];
         if (!archive) {
@@ -301,7 +311,8 @@ int main(void) {
                         NSData *body = [requestData subdataWithRange:NSMakeRange(bodyStart, bodyLength)];
                         NSDictionary *result = ProcessRequest(method, target, body);
                         BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"] || [target hasPrefix:@"/exchange"];
-                        Reply(client, result, known ? 200 : 404);
+                        NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
+                        Reply(client, result, (int)httpStatus);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
                 }
             }
