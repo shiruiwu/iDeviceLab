@@ -10,7 +10,7 @@
 ### English
 - `src/mobile_gestalt/mobile_gestalt.m` centralizes hooks for `MGCopyAnswer`/`MGCopyMultipleAnswers`, `IORegistryEntry*`, `sysctl`, and identifier APIs such as `ASIdentifierManager` and `UIDevice`, injecting values sourced from `/var/mobile/Library/Preferences/com.modhw.ios.devices.plist` (with `/tmp/devices.plist` retained as a legacy fallback).
 - CoreTelephony `CTMobileEquipmentInfo` setters are overridden to cache and return deterministic IMEI/MEID data, keeping radio stack and UI in sync.
-- `src/captain_hook/hook.mm` leverages CaptainHook to sanitize `LakituResponse` and `EscrowGenericResponse`, which simplifies inspecting or mutating cloud backup metadata.
+- The optional `src/captain_hook/hook.mm` cloud-response filter source is retained for upstream reference, but is excluded from the current Rootless package build.
 - Scripts such as `frida/cloudd.js` attach to `akd`, `cloudd`, and other daemons to log selector invocations with stack traces.
 - The `txt` folder hosts MobileSubstrate `plist` templates, restart scripts, and sample device profiles, while the `Makefile` automates build, codesign, deployment, and daemon restarts.
 ### 中文
@@ -34,7 +34,7 @@
 ### 中文
 - `src/mobile_gestalt/`：核心 hook 与设备指纹注入逻辑，含 `mg_copy_answer_table.h` 的字段映射表。
 - `src/cydia_substrate_hook/`：对 Cydia Substrate 的轻量封装，提供 `HOOK_FUNCTION/HOOK_MESSAGE` 宏。
-- `src/captain_hook/`：网络层 hook、CaptainHook 模板代码。
+- `src/captain_hook/`：原作者网络层 hook 源码保留作参考；当前 Rootless 构建不编译该可选云端模块。
 - `src/code_obfuscator/`：字符串混淆辅助头，生成于 `test.auto_gen.h`。
 - `src/third_party/`：包含 choose、mongoose、IOKit headers 以及 UIDevice 扩展等第三方依赖。
 - `frida/`：调试脚本。
