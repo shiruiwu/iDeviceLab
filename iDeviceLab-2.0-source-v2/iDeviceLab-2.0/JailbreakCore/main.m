@@ -9,26 +9,7 @@
 #import <math.h>
 #import <sys/sysctl.h>
 
-static NSString * const kRoot = @"/var/mobile/Library/Application Support/iDeviceLab";
-static NSString * const kStore = @"/var/mobile/Library/Application Support/iDeviceLab/profiles.json";
 static const int kPort = 18080;
-
-static NSDictionary *ReadStore(void) {
-    NSData *data = [NSData dataWithContentsOfFile:kStore];
-    if (data.length) {
-        id value = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
-        if ([value isKindOfClass:NSDictionary.class]) return value;
-    }
-    return @{@"version": @1, @"selected": @"", @"profiles": @[]};
-}
-
-static BOOL WriteStore(NSDictionary *value) {
-    NSError *error = nil;
-    [[NSFileManager defaultManager] createDirectoryAtPath:kRoot withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:&error];
-    if (error) return NO;
-    NSData *data = [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingPrettyPrinted error:&error];
-    return data && !error && [data writeToFile:kStore options:NSDataWritingAtomic error:&error];
-}
 
 
 static NSString *SysctlString(const char *key) {
@@ -131,56 +112,15 @@ static NSDictionary *Alpha11ConfigStatus(void) {
              @"modifiedAt":@([attributes[NSFileModificationDate] timeIntervalSince1970])};
 }
 
-static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *body) {
+static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
-    NSMutableDictionary *query = [NSMutableDictionary dictionary];
-    if (parts.count > 1) {
-        for (NSString *pair in [parts[1] componentsSeparatedByString:@"&"]) {
-            NSArray *kv = [pair componentsSeparatedByString:@"="];
-            if (kv.count >= 2) query[kv[0]] = [kv[1] stringByRemovingPercentEncoding] ?: kv[1];
-        }
-    }
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
         return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.4", @"port":@(kPort)};
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/config/status"]) return Alpha11ConfigStatus();
 
-    NSDictionary *store = ReadStore();
-    NSArray *profiles = store[@"profiles"] ?: @[];
-    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/profiles"])
-        return @{@"ok":@YES, @"profiles":profiles, @"selected":store[@"selected"] ?: @""};
-
-    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/current"]) {
-        NSString *selected = store[@"selected"] ?: @"";
-        for (NSDictionary *profile in profiles)
-            if ([profile[@"id"] isEqualToString:selected]) return @{@"ok":@YES, @"profile":profile};
-        return @{@"ok":@YES, @"profile":[NSNull null]};
-    }
-
-    if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/profiles/new"]) {
-        NSString *name = [query[@"name"] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-        if (!name.length || name.length > 64) return @{@"ok":@NO, @"error":@"name must contain 1-64 characters"};
-        NSMutableArray *nextProfiles = [profiles mutableCopy];
-        NSDictionary *entry = @{@"id":NSUUID.UUID.UUIDString, @"name":name, @"createdAt":@([NSDate date].timeIntervalSince1970)};
-        [nextProfiles addObject:entry];
-        NSMutableDictionary *next = [store mutableCopy];
-        next[@"profiles"] = nextProfiles;
-        if (!WriteStore(next)) return @{@"ok":@NO, @"error":@"could not persist profile store"};
-        return @{@"ok":@YES, @"profile":entry};
-    }
-
-    if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/profiles/select"]) {
-        NSString *identifier = query[@"id"] ?: @"";
-        BOOL found = NO;
-        for (NSDictionary *profile in profiles) if ([profile[@"id"] isEqualToString:identifier]) found = YES;
-        if (!found) return @{@"ok":@NO, @"error":@"profile not found"};
-        NSMutableDictionary *next = [store mutableCopy];
-        next[@"selected"] = identifier;
-        if (!WriteStore(next)) return @{@"ok":@NO, @"error":@"could not persist selection"};
-        return @{@"ok":@YES, @"selected":identifier};
-    }
     return @{@"ok":@NO, @"error":@"not found"};
 }
 
@@ -249,8 +189,8 @@ int main(void) {
                         NSUInteger available = requestData.length > bodyStart ? requestData.length - bodyStart : 0;
                         NSUInteger bodyLength = MIN(expectedLength, available);
                         NSData *body = [requestData subdataWithRange:NSMakeRange(bodyStart, bodyLength)];
-                        NSDictionary *result = ProcessRequest(method, target, body);
-                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/config"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"];
+                        NSDictionary *result = ProcessRequest(method, target);
+                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/config"];
                         NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
                         Reply(client, result, (int)httpStatus);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
