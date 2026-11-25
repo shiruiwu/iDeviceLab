@@ -104,67 +104,6 @@ static NSArray *InstalledApplications(void) {
     return apps;
 }
 
-static NSDictionary *ValidateAndStoreExchange(NSData *body) {
-    if (body.length == 0 || body.length > 1024 * 1024) return @{@"ok":@NO, @"error":@"exchange payload must be 1 byte to 1 MiB"};
-    NSError *error = nil;
-    id root = [NSJSONSerialization JSONObjectWithData:body options:NSJSONReadingMutableContainers error:&error];
-    if (![root isKindOfClass:NSDictionary.class]) return @{@"ok":@NO, @"error":@"invalid JSON archive"};
-    NSDictionary *archive = root;
-    if ([archive[@"schemaVersion"] integerValue] != 1) return @{@"ok":@NO, @"error":@"unsupported schemaVersion"};
-    NSArray *profiles = [archive[@"profiles"] isKindOfClass:NSArray.class] ? archive[@"profiles"] : nil;
-    NSArray *apps = [archive[@"managedApps"] isKindOfClass:NSArray.class] ? archive[@"managedApps"] : nil;
-    if (!profiles.count || profiles.count > 100 || apps.count > 500) return @{@"ok":@NO, @"error":@"profile/app count is outside supported limits"};
-
-    NSMutableSet *profileIDs = [NSMutableSet set];
-    for (id value in profiles) {
-        if (![value isKindOfClass:NSDictionary.class]) return @{@"ok":@NO, @"error":@"invalid profile entry"};
-        NSDictionary *profile = value;
-        NSString *identifier = [profile[@"id"] isKindOfClass:NSString.class] ? profile[@"id"] : @"";
-        NSString *name = [profile[@"name"] isKindOfClass:NSString.class] ? [profile[@"name"] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] : @"";
-        NSNumber *lat = [profile[@"latitude"] isKindOfClass:NSNumber.class] ? profile[@"latitude"] : nil;
-        NSNumber *lon = [profile[@"longitude"] isKindOfClass:NSNumber.class] ? profile[@"longitude"] : nil;
-        NSNumber *battery = [profile[@"batteryPercent"] isKindOfClass:NSNumber.class] ? profile[@"batteryPercent"] : nil;
-        NSNumber *memory = [profile[@"memoryGB"] isKindOfClass:NSNumber.class] ? profile[@"memoryGB"] : nil;
-        NSString *testID = [profile[@"testIdentifier"] isKindOfClass:NSString.class] ? profile[@"testIdentifier"] : @"";
-        if (!identifier.length || [profileIDs containsObject:identifier] || !name.length || !lat || !lon || !battery || !memory ||
-            !isfinite(lat.doubleValue) || !isfinite(lon.doubleValue) || lat.doubleValue < -90 || lat.doubleValue > 90 ||
-            lon.doubleValue < -180 || lon.doubleValue > 180 || battery.integerValue < 1 || battery.integerValue > 100 ||
-            memory.integerValue < 1 || memory.integerValue > 64 || !testID.length) {
-            return @{@"ok":@NO, @"error":@"profile validation failed"};
-        }
-        [profileIDs addObject:identifier];
-    }
-
-    NSMutableSet *appIDs = [NSMutableSet set];
-    NSMutableSet *bundleIDs = [NSMutableSet set];
-    for (id value in apps) {
-        if (![value isKindOfClass:NSDictionary.class]) return @{@"ok":@NO, @"error":@"invalid managed app entry"};
-        NSDictionary *app = value;
-        NSString *identifier = [app[@"id"] isKindOfClass:NSString.class] ? app[@"id"] : @"";
-        NSString *name = [app[@"name"] isKindOfClass:NSString.class] ? [app[@"name"] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] : @"";
-        NSString *bundle = [app[@"bundleIdentifier"] isKindOfClass:NSString.class] ? [app[@"bundleIdentifier"] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] : @"";
-        NSString *profileID = [app[@"profileID"] isKindOfClass:NSString.class] ? app[@"profileID"] : @"";
-        NSString *normalizedBundle = bundle.lowercaseString;
-        if (!identifier.length || [appIDs containsObject:identifier] || !name.length || !bundle.length ||
-            [bundleIDs containsObject:normalizedBundle] || ![profileIDs containsObject:profileID]) {
-            return @{@"ok":@NO, @"error":@"managed app validation failed"};
-        }
-        [appIDs addObject:identifier];
-        [bundleIDs addObject:normalizedBundle];
-    }
-
-    NSString *selected = [archive[@"selectedID"] isKindOfClass:NSString.class] ? archive[@"selectedID"] : @"";
-    if (selected.length && ![profileIDs containsObject:selected]) return @{@"ok":@NO, @"error":@"selected profile does not exist"};
-
-    NSFileManager *fm = NSFileManager.defaultManager;
-    NSError *writeError = nil;
-    [fm createDirectoryAtPath:kRoot withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:&writeError];
-    if (writeError || ![body writeToFile:[kRoot stringByAppendingPathComponent:@"test-profile-exchange.json"] options:NSDataWritingAtomic error:&writeError]) {
-        return @{@"ok":@NO, @"error":@"could not persist exchange archive"};
-    }
-    return @{@"ok":@YES, @"profileCount":@(profiles.count), @"managedAppCount":@(apps.count), @"selectedID":selected};
-}
-
 static NSDictionary *Alpha11ConfigStatus(void) {
     NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
     NSFileManager *fm = NSFileManager.defaultManager;
@@ -207,33 +146,6 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/config/status"]) return Alpha11ConfigStatus();
-
-    NSString *exchangePath = [kRoot stringByAppendingPathComponent:@"test-profile-exchange.json"];
-    if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/exchange/import"])
-        return ValidateAndStoreExchange(body);
-    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/exchange/profiles"]) {
-        NSData *data = [NSData dataWithContentsOfFile:exchangePath];
-        id parsed = data ? [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil] : nil;
-        if (![parsed isKindOfClass:NSDictionary.class]) return @{@"ok":@YES, @"synced":@NO, @"profiles":@[], @"managedApps":@[]};
-        NSDictionary *archive = parsed;
-        return @{@"ok":@YES, @"synced":@YES, @"schemaVersion":archive[@"schemaVersion"] ?: @0,
-                 @"profiles":archive[@"profiles"] ?: @[], @"managedApps":archive[@"managedApps"] ?: @[],
-                 @"selectedID":archive[@"selectedID"] ?: [NSNull null]};
-    }
-
-    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/exchange/status"]) {
-        NSDictionary *archive = [NSDictionary dictionaryWithContentsOfFile:exchangePath];
-        if (!archive) {
-            NSData *data = [NSData dataWithContentsOfFile:exchangePath];
-            id parsed = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-            archive = [parsed isKindOfClass:NSDictionary.class] ? parsed : nil;
-        }
-        if (!archive) return @{@"ok":@YES, @"synced":@NO, @"profileCount":@0, @"managedAppCount":@0};
-        NSArray *profiles = [archive[@"profiles"] isKindOfClass:NSArray.class] ? archive[@"profiles"] : @[];
-        NSArray *apps = [archive[@"managedApps"] isKindOfClass:NSArray.class] ? archive[@"managedApps"] : @[];
-        return @{@"ok":@YES, @"synced":@YES, @"profileCount":@(profiles.count), @"managedAppCount":@(apps.count),
-                 @"createdAt":archive[@"createdAt"] ?: @""};
-    }
 
     NSDictionary *store = ReadStore();
     NSArray *profiles = store[@"profiles"] ?: @[];
@@ -338,7 +250,7 @@ int main(void) {
                         NSUInteger bodyLength = MIN(expectedLength, available);
                         NSData *body = [requestData subdataWithRange:NSMakeRange(bodyStart, bodyLength)];
                         NSDictionary *result = ProcessRequest(method, target, body);
-                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/config"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"] || [target hasPrefix:@"/exchange"];
+                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/config"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"];
                         NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
                         Reply(client, result, (int)httpStatus);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
