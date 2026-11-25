@@ -355,7 +355,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntryCreateCFProperty,
     SerialNumber = [cf_device objectForKey:@"SerialNumber"];
     if (SerialNumber!=nil&&(GetIdLength(SerialNumber)>0)&&IsCFString(SerialNumber)) {
       // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,rv);
-      return CFStringCreateCopy(kCFAllocatorDefault,SerialNumber);
+      return CFStringCreateCopy(kCFAllocatorDefault,(__bridge CFStringRef)SerialNumber);
     }
   }
   else if([key_str compare:@"IOMacAddress" options:mask]==NSOrderedSame){
