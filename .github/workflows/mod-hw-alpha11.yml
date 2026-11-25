@@ -60,7 +60,7 @@ jobs:
           python3 - <<'PY'
           import subprocess
           p = subprocess.run(['ar', 't', 'release/mod_hw_for_ios_V2_diagnostics_FINAL.deb'], check=True, text=True, capture_output=True)
-          names = p.stdout.splitlines()
+          names = [n.rstrip('/') for n in p.stdout.splitlines()]
           assert names == ['debian-binary', 'control.tar.gz', 'data.tar.gz'], names
           print('DEB ar members verified:', ', '.join(names))
           PY
