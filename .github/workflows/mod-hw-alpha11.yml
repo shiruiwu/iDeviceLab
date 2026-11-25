@@ -39,6 +39,7 @@ jobs:
           bash -n scripts/build-trollstore-ipa.sh
           bash -n scripts/diagnose-config.sh
           bash -n scripts/build-release.sh
+          bash -n scripts/build-diagnostics-deb.sh
 
       - name: Build unsigned TrollStore IPA
         run: bash scripts/build-trollstore-ipa.sh
@@ -50,10 +51,26 @@ jobs:
           unzip -l release/mod_hw_manager_trollstore.ipa | grep -E 'Payload/ModHWManager.app/Info.plist$'
           unzip -l release/mod_hw_manager_trollstore.ipa | grep -E 'Payload/ModHWManager.app/[^/]+$'
 
-      - name: Upload IPA artifact
+      - name: Build read-only rootless diagnostics DEB
+        run: bash scripts/build-diagnostics-deb.sh
+
+      - name: Verify DEB package structure
+        run: |
+          test -s release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
+          python3 - <<'PY'
+          import subprocess
+          p = subprocess.run(['ar', 't', 'release/mod_hw_for_ios_V2_diagnostics_FINAL.deb'], check=True, text=True, capture_output=True)
+          names = p.stdout.splitlines()
+          assert names == ['debian-binary', 'control.tar.gz', 'data.tar.gz'], names
+          print('DEB ar members verified:', ', '.join(names))
+          PY
+
+      - name: Upload IPA and diagnostics DEB artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-trollstore-ipa
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
+          name: mod-hw-v2-final-safe-builds
+          path: |
+            mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
+            mod_hw_for_ios_V2_alpha11/release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
           if-no-files-found: error
           retention-days: 14
