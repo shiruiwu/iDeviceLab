@@ -106,8 +106,10 @@ static NSDictionary *Alpha11ConfigStatus(void) {
     for (id key in keys) {
         if ([key isKindOfClass:NSString.class]) [safeKeys addObject:key];
     }
-    // Deliberately return key names and parse diagnostics only, never identifier values.
-    return @{@"ok":@YES, @"exists":@YES, @"parseable":@YES, @"path":path,
+    // The Alpha11 loader requires this root key; report presence/type only, never its value.
+    BOOL schemaCompatible = [plist[@"UniqueDeviceID"] isKindOfClass:NSString.class];
+    // Deliberately return key names and diagnostics only, never identifier values.
+    return @{@"ok":@YES, @"exists":@YES, @"parseable":@YES, @"schemaCompatible":@(schemaCompatible), @"path":path,
              @"keyCount":@(safeKeys.count), @"keys":safeKeys,
              @"modifiedAt":@([attributes[NSFileModificationDate] timeIntervalSince1970])};
 }
