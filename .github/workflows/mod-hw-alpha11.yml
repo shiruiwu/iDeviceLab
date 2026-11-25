@@ -1,0 +1,51 @@
+name: Build mod_hw Alpha11 TrollStore IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'mod_hw_for_ios_V2_alpha11/**'
+      - '.github/workflows/mod-hw-alpha11.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mod_hw_for_ios_V2_alpha11
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Check Swift and build script syntax
+        run: |
+          swiftc -frontend -parse manager/ModHWManager/ModHWManagerApp.swift
+          bash -n scripts/build-trollstore-ipa.sh
+
+      - name: Build unsigned TrollStore IPA
+        run: bash scripts/build-trollstore-ipa.sh
+
+      - name: Verify IPA package
+        run: |
+          test -s release/mod_hw_manager_trollstore.ipa
+          unzip -t release/mod_hw_manager_trollstore.ipa
+          unzip -l release/mod_hw_manager_trollstore.ipa | grep -E 'Payload/ModHWManager.app/Info.plist$'
+          unzip -l release/mod_hw_manager_trollstore.ipa | grep -E 'Payload/ModHWManager.app/[^/]+$'
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-hw-manager-trollstore-ipa
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
+          if-no-files-found: error
+          retention-days: 14
