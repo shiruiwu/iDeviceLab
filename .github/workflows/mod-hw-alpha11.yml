@@ -73,4 +73,4 @@ jobs:
             mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
             mod_hw_for_ios_V2_alpha11/release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
