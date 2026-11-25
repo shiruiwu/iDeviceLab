@@ -687,8 +687,15 @@ static void hook_sysctlbyname() {
 //////////////////////////////////////////////////////////
 static int (*orig_sysctl)(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp, size_t newlen) = NULL;
 int replace_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
-  int ReturnValue = 0;
-  ReturnValue = orig_sysctl(name, namelen, oldp, oldlenp, newp, newlen);
+  if (name == NULL || namelen == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (orig_sysctl == NULL) {
+    errno = ENOSYS;
+    return -1;
+  }
+  int ReturnValue = orig_sysctl(name, namelen, oldp, oldlenp, newp, newlen);
   if (namelen == 2 && name[0] == CTL_HW && (name[1] == HW_MACHINE || name[1] == HW_MODEL)) {
     NSLog(@"hook_sysctl name=%p oldp=%p", (void *)name, oldp);
   }
