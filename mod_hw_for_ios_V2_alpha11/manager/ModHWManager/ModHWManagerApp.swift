@@ -79,15 +79,19 @@ struct ContentView: View {
                     Text("配置编辑器").font(.title2.bold())
                     Text("编辑并导出插件配置。导出后需通过越狱文件管理工具放入插件读取路径。")
                         .font(.footnote).foregroundStyle(.secondary)
-                    HStack {
+                    VStack(alignment: .leading, spacing: 10) {
                         Button("导入 plist") { importOpen = true }
-                        Spacer()
-                        Button("新建空白") { resetConfiguration() }
+                            .buttonStyle(.bordered)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("新建空白配置") { resetConfiguration() }
+                            .buttonStyle(.bordered)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         Button("检查并导出") {
                             validate()
                             if errors.isEmpty { exportOpen = true }
                         }
                         .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
 
