@@ -1,36 +1,63 @@
 #!/usr/bin/env python3
+"""Static checks for the V2 read-only diagnostics companion project."""
 from pathlib import Path
 import plistlib
 import sys
-root = Path(__file__).resolve().parents[1]
+
+ROOT = Path(__file__).resolve().parents[1]
 errors, checks = [], []
+
 def check(ok, message):
     (checks if ok else errors).append(message)
-makefile = (root / "Makefile").read_text()
-control = (root / "control").read_text()
-manager = (root / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
-project = (root / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
-ipa = (root / "scripts/build-trollstore-ipa.sh").read_text()
-check("Version: 2.0.0~alpha11" in control, "Alpha11 package metadata")
-check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package")
-check("src/captain_hook/hook.mm" in makefile, "CaptainHook source included")
-check("-fno-objc-arc" in makefile, "Manual-reference-counted source flags")
-check("CURRENT_PROJECT_VERSION = 7;" in project, "Manager build number")
-check("fileImporter" in manager and "fileExporter" in manager, "Manager plist import/export")
-check("extraValues = dictionary.filter" in manager, "Manager preserves unknown plist keys")
-check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "arm64 IPA and archive checks")
-for rel in ["src/mobile_gestalt/mobile_gestalt.m", "src/cydia_substrate_hook/HookUtil.m",
-            "src/captain_hook/hook.mm", "control",
-            "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist",
-            "layout/usr/share/mod_hw_for_ios/com.modhw.ios.devices.plist.example"]:
-    check((root / rel).is_file(), "Required file: " + rel)
-for path in root.rglob("*.plist"):
+
+makefile = (ROOT / "Makefile").read_text()
+control = (ROOT / "control").read_text()
+manager = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
+project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
+ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
+check("Version: 2.0.0~alpha11" in control, "Existing Alpha11 package metadata retained")
+check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
+check("src/captain_hook/hook.mm" in makefile, "Original source list retained")
+check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
+check("CURRENT_PROJECT_VERSION = 8;" in project, "Manager build number is 8")
+check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
+check("PropertyListSerialization.propertyList" in manager, "Manager parses plist structure")
+check("字段值未展示" in manager, "Manager does not display plist values")
+check("RawPlistDocument" in manager and "regularFileWithContents: data" in manager,
+      "Manager exports original bytes unchanged")
+check("TextField(" not in manager and "Toggle(" not in manager,
+      "Manager has no configuration identity editing controls")
+check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "IPA build targets arm64 and verifies archive")
+diagnostic = ROOT / "scripts/diagnose-config.sh"
+check(diagnostic.is_file(), "Read-only device diagnostic exists")
+if diagnostic.is_file():
+    diag = diagnostic.read_text()
+    check("plutil -lint" in diag, "Device diagnostic validates plist syntax")
+    check("UniqueDeviceID" not in diag, "Device diagnostic does not inspect identity fields")
+
+for rel in [
+    "src/mobile_gestalt/mobile_gestalt.m",
+    "src/cydia_substrate_hook/HookUtil.m",
+    "src/captain_hook/hook.mm",
+    "control",
+    "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist",
+    "layout/usr/share/mod_hw_for_ios/com.modhw.ios.devices.plist.example",
+    "manager/ModHWManager.xcodeproj/xcshareddata/xcschemes/ModHWManager.xcscheme",
+]:
+    check((ROOT / rel).is_file(), "Required file: " + rel)
+
+for path in ROOT.rglob("*.plist"):
+    if any(part in {".git", ".theos"} for part in path.parts):
+        continue
     try:
         plistlib.loads(path.read_bytes())
-        checks.append("Valid plist: " + str(path.relative_to(root)))
+        checks.append("Valid plist: " + str(path.relative_to(ROOT)))
     except Exception as exc:
-        errors.append("Invalid plist " + str(path.relative_to(root)) + ": " + str(exc))
+        errors.append("Invalid plist " + str(path.relative_to(ROOT)) + ": " + str(exc))
+
 print("Static checks: %d passed, %d failed" % (len(checks), len(errors)))
+for item in checks:
+    print("[OK]", item)
 for item in errors:
     print("[FAIL]", item)
 sys.exit(1 if errors else 0)
