@@ -6,18 +6,6 @@ private struct RootlessStatus: Decodable {
     let version: String?
 }
 
-private struct RootlessProfile: Decodable, Identifiable {
-    let id: String
-    let name: String
-    let createdAt: Double?
-}
-
-private struct RootlessProfilesResponse: Decodable {
-    let ok: Bool
-    let profiles: [RootlessProfile]
-    let selected: String
-}
-
 private struct DeviceSystemInfo: Decodable {
     let productType: String
     let architecture: String
@@ -56,12 +44,9 @@ struct RootlessCoreView: View {
     @State private var serviceState = "正在检测"
     @State private var connectionDetail = ""
     @State private var version = ""
-    @State private var profiles: [RootlessProfile] = []
-    @State private var selected = ""
     @State private var systemInfo: DeviceSystemInfo?
     @State private var installedApps: [InstalledApp] = []
     @State private var appSearch = ""
-    @State private var newName = ""
     @State private var message: String?
     @State private var isBusy = false
 
@@ -127,7 +112,7 @@ struct RootlessCoreView: View {
                                 let isManaged = store.managedApps.contains { $0.bundleIdentifier.caseInsensitiveCompare(app.bundleIdentifier) == .orderedSame }
                                 Button {
                                     store.addManagedApp(name: app.name, bundleIdentifier: app.bundleIdentifier)
-                                    message = isManaged ? "该应用已经在管理列表中。" : "已添加应用绑定。请在配置管理中选择对应测试配置，再同步到 Rootless 核心。"
+                                    message = isManaged ? "该应用已经在管理列表中。" : "已添加应用绑定。绑定关系保存在管理器配置档案中，当前作为管理元数据使用。"
                                 } label: {
                                     Label(isManaged ? "已添加" : "添加绑定", systemImage: isManaged ? "checkmark.circle.fill" : "plus.circle")
                                         .font(.caption)
@@ -161,43 +146,8 @@ struct RootlessCoreView: View {
                         .font(.caption2).foregroundStyle(.secondary)
                 }
 
-                Section("本地配置记录") {
-                    HStack {
-                        TextField("新配置名称", text: $newName)
-                        Button("新增") {
-                            Task { await createProfile() }
-                        }
-                        .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isBusy || serviceState != "已连接")
-                    }
-
-                    if profiles.isEmpty {
-                        Text("核心服务中还没有配置记录")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(profiles) { profile in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(profile.name)
-                                    Text(profile.id).font(.caption2).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if selected == profile.id {
-                                    Label("当前", systemImage: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
-                                        .font(.caption)
-                                } else {
-                                    Button("切换") {
-                                        Task { await selectProfile(profile) }
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                            }
-                        }
-                    }
-                }
-
                 Section {
-                    Text("此 Rootless 核心目前提供本机配置记录与自动化接口。它不会伪造硬件标识，也不会修改其他应用的安全检测结果。")
+                    Text("此 Rootless 核心提供本机设备诊断、已安装应用清单和 Alpha11 plist 状态检查；配置档案由管理器本身保存。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -227,17 +177,12 @@ struct RootlessCoreView: View {
             connectionDetail = ""
             version = status.version ?? ""
 
-            async let profileResult = URLSession.shared.data(from: baseURL.appendingPathComponent("profiles"))
             async let systemResult = URLSession.shared.data(from: baseURL.appendingPathComponent("system"))
             async let appsResult = URLSession.shared.data(from: baseURL.appendingPathComponent("apps"))
-            let (profileData, _) = try await profileResult
             let (systemData, _) = try await systemResult
             let (appsData, _) = try await appsResult
-            let response = try JSONDecoder().decode(RootlessProfilesResponse.self, from: profileData)
             let systemResponse = try JSONDecoder().decode(DeviceSystemInfo.self, from: systemData)
             let appsResponse = try JSONDecoder().decode(InstalledAppsResponse.self, from: appsData)
-            profiles = response.profiles
-            selected = response.selected
             systemInfo = systemResponse
             installedApps = appsResponse.apps
             await refreshAlpha11Config()
@@ -245,8 +190,6 @@ struct RootlessCoreView: View {
             connectionDetail = error.localizedDescription
             serviceState = "未连接"
             version = ""
-            profiles = []
-            selected = ""
             systemInfo = nil
             installedApps = []
             alpha11Config = nil
@@ -272,39 +215,4 @@ struct RootlessCoreView: View {
         return days > 0 ? "\(days) 天 \(hours) 小时" : "\(hours) 小时 \(minutes) 分钟"
     }
 
-    @MainActor
-    private func createProfile() async {
-        guard var components = URLComponents(url: baseURL.appendingPathComponent("profiles/new"), resolvingAgainstBaseURL: false) else { return }
-        components.queryItems = [URLQueryItem(name: "name", value: newName)]
-        guard let url = components.url else { return }
-        await sendAction(url: url, success: "配置已创建")
-        newName = ""
-    }
-
-    @MainActor
-    private func selectProfile(_ profile: RootlessProfile) async {
-        guard var components = URLComponents(url: baseURL.appendingPathComponent("profiles/select"), resolvingAgainstBaseURL: false) else { return }
-        components.queryItems = [URLQueryItem(name: "id", value: profile.id)]
-        guard let url = components.url else { return }
-        await sendAction(url: url, success: "已切换到：\(profile.name)")
-    }
-
-    @MainActor
-    private func sendAction(url: URL, success: String) async {
-        isBusy = true
-        defer { isBusy = false }
-        do {
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            let (data, _) = try await URLSession.shared.data(for: request)
-            let result = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            guard result?["ok"] as? Bool == true else {
-                throw NSError(domain: "iDeviceLab", code: 1, userInfo: [NSLocalizedDescriptionKey: result?["error"] as? String ?? "操作失败"])
-            }
-            message = success
-            await refresh()
-        } catch {
-            message = "操作失败：\(error.localizedDescription)"
-        }
-    }
 }
