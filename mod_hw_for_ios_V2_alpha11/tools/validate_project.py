@@ -22,7 +22,7 @@ check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "arm64 IPA and archive checks"
 for rel in ["src/mobile_gestalt/mobile_gestalt.m", "src/cydia_substrate_hook/HookUtil.m",
             "src/captain_hook/hook.mm", "control",
             "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist",
-            "layout/var/mobile/Library/Preferences/com.modhw.ios.devices.plist.example"]:
+            "layout/usr/share/mod_hw_for_ios/com.modhw.ios.devices.plist.example"]:
     check((root / rel).is_file(), "Required file: " + rel)
 for path in root.rglob("*.plist"):
     try:
