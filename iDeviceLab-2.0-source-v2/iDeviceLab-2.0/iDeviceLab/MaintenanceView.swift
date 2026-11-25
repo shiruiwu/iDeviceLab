@@ -11,6 +11,7 @@ struct MaintenanceView: View {
     @State private var temporaryBytes: Int64 = 0
     @State private var message: String?
     @State private var isWorking = false
+    @State private var confirmCleanup = false
 
     private var totalBytes: Int64 { cacheBytes + temporaryBytes }
 
@@ -43,7 +44,7 @@ struct MaintenanceView: View {
                     Button { scan() } label: {
                         Label("重新扫描", systemImage: "arrow.clockwise")
                     }
-                    Button(role: .destructive) { clearOwnedTemporaryFiles() } label: {
+                    Button(role: .destructive) { confirmCleanup = true } label: {
                         Label("清理本应用缓存和临时文件", systemImage: "trash")
                     }
                     .disabled(isWorking || totalBytes == 0)
@@ -61,6 +62,12 @@ struct MaintenanceView: View {
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json, .data]) { result in
                 importBackup(result)
             }
+            .confirmationDialog("确认清理本应用缓存？", isPresented: $confirmCleanup, titleVisibility: .visible) {
+                Button("清理缓存和临时文件", role: .destructive) { clearOwnedTemporaryFiles() }
+                Button("取消", role: .cancel) { }
+            } message: {
+                Text("只删除 iDeviceLab 自身 Caches 和 tmp 目录内容，不会删除配置、备份文件或其他 App 数据。")
+            }
             .alert("iDeviceLab", isPresented: Binding(
                 get: { message != nil },
                 set: { if !$0 { message = nil } }
@@ -75,8 +82,11 @@ struct MaintenanceView: View {
     private func makeBackup() {
         do {
             let data = try store.exportFullBackupData()
-            let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("iDeviceLab-FullBackup-\(Int(Date().timeIntervalSince1970)).json")
+            let fm = FileManager.default
+            let documents = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let backupDirectory = documents.appendingPathComponent("iDeviceLabBackups", isDirectory: true)
+            try fm.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
+            let url = backupDirectory.appendingPathComponent("iDeviceLab-FullBackup-\(Int(Date().timeIntervalSince1970)).json")
             try data.write(to: url, options: .atomic)
             backupURL = url
             message = "完整备份已生成。请使用分享按钮保存到‘文件’或其他安全位置。"
