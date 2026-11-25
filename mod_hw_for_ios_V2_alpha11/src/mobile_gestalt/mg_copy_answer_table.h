@@ -679,5 +679,5 @@ static const struct tKeyMapping keyMappingTable[] =
   { "zPSNnYDFk+x5ebOtenb3Eg", "auto-focus" },
   { "znvmheFkjr6hiqIK9TrCVw", "pressure" },
   { "zxMIgVSILN6S5ee6MZhf+Q", "NFCRadio" },
-  NULL, NULL
+  { NULL, NULL }
 };
