@@ -8,6 +8,11 @@ struct ContentView: View {
                     Label("配置管理", systemImage: "slider.horizontal.3")
                 }
 
+            MaintenanceView()
+                .tabItem {
+                    Label("备份维护", systemImage: "archivebox")
+                }
+
             IPAEditorView()
                 .tabItem {
                     Label("IPA 多开", systemImage: "square.stack.3d.up")
