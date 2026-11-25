@@ -105,12 +105,25 @@ struct RootlessCoreView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(filtered) { app in
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(app.name)
-                                Text(app.bundleIdentifier).font(.caption2).foregroundStyle(.secondary)
-                                if !app.version.isEmpty {
-                                    Text("版本 \(app.version)").font(.caption2).foregroundStyle(.tertiary)
+                            HStack(alignment: .center, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(app.name)
+                                    Text(app.bundleIdentifier).font(.caption2).foregroundStyle(.secondary)
+                                    if !app.version.isEmpty {
+                                        Text("版本 \\(app.version)").font(.caption2).foregroundStyle(.tertiary)
+                                    }
                                 }
+                                Spacer(minLength: 8)
+                                let isManaged = store.managedApps.contains { $0.bundleIdentifier.caseInsensitiveCompare(app.bundleIdentifier) == .orderedSame }
+                                Button {
+                                    store.addManagedApp(name: app.name, bundleIdentifier: app.bundleIdentifier)
+                                    message = isManaged ? "该应用已经在管理列表中。" : "已添加应用绑定。请在配置管理中选择对应测试配置，再同步到 Rootless 核心。"
+                                } label: {
+                                    Label(isManaged ? "已添加" : "添加绑定", systemImage: isManaged ? "checkmark.circle.fill" : "plus.circle")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(isManaged || store.selectedProfile == nil)
                             }
                             .padding(.vertical, 2)
                         }
