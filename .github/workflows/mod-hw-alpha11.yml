@@ -1,5 +1,9 @@
 name: Build mod_hw Alpha11 TrollStore IPA
 
+concurrency:
+  group: idevice-lab-alpha11-manager-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
