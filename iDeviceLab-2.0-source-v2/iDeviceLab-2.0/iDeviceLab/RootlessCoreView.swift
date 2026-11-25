@@ -276,6 +276,13 @@ struct RootlessCoreView: View {
             guard count == store.profiles.count, appCount == store.managedApps.count else {
                 throw NSError(domain: "iDeviceLab.Exchange", code: 3, userInfo: [NSLocalizedDescriptionKey: "核心回读数量与管理器不一致"])
             }
+            let receivedProfileIDs = Set(receivedProfiles.compactMap { $0["id"] as? String })
+            let expectedProfileIDs = Set(store.profiles.map { $0.id.uuidString })
+            let receivedAppIDs = Set(receivedApps.compactMap { $0["id"] as? String })
+            let expectedAppIDs = Set(store.managedApps.map { $0.id.uuidString })
+            guard receivedProfileIDs == expectedProfileIDs, receivedAppIDs == expectedAppIDs else {
+                throw NSError(domain: "iDeviceLab.Exchange", code: 4, userInfo: [NSLocalizedDescriptionKey: "核心回读标识与管理器不一致"])
+            }
             exchangeSummary = "已回读验证：\(count) 套测试配置、\(appCount) 个 App 绑定"
             message = "核心已保存并回读验证测试配置包。该状态不代表第三方 App 运行时已应用配置。"
         } catch {
