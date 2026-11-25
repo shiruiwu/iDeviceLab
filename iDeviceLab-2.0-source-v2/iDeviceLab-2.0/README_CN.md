@@ -16,7 +16,14 @@
 - 全部参数一键随机，以及单项参数随机
 - 配置 JSON 导入、生成、系统分享/保存
 - 导入时检查配置版本、数量、空配置，并修正重复 ID 和越界坐标/数值
-- GitHub Actions 使用 macOS runner 生成未签名 IPA 构建产物
+- GitHub Actions 使用 macOS runner 编译、临时签名校验并打包 TrollStore IPA；同时构建 Rootless Core DEB
+
+## Alpha11 本地配置诊断
+
+- Rootless Core 通过本机回环接口检查 Alpha11 实际读取的 `/var/mobile/Library/Preferences/com.modhw.ios.devices.plist`。
+- 管理器显示文件是否存在、是否可解析、字段数量和字段名；不回传配置中的唯一标识具体值。
+- 这是只读诊断，不会把测试 Profile JSON 写成 Alpha11 plist，也不代表任何 Hook 已经生效。
+- 详细接口说明和完整验收表见仓库根目录 `ALPHA11_LOCAL_CONFIG.md`。
 
 ## 重要能力边界
 
@@ -31,10 +38,10 @@ TrollStore 不等于越狱，也不会自动赋予普通 App 任意修改 iOS �
 1. 将解压后的 `iDeviceLab-2.0` 文件夹内的全部内容上传到自己的 GitHub 仓库根目录（包括 `.github` 隐藏目录）。
 2. 打开仓库的 **Actions** 页面。
 3. 运行 **Build iDevice Lab IPA** 工作流，或向 `main` / `master` 分支推送提交。
-4. 工作流成功后，在运行详情页的 Artifacts 区域下载 `iDeviceLab-unsigned-ipa`。
+4. 工作流成功后，在运行详情页的 Artifacts 区域下载 `iDeviceLab-trollstore-ipa` 和 `iDeviceLab-rootless-deb`。Alpha11 tweak 使用单独的 Theos 工作流，下载 `mod-hw-alpha11-rootless-deb`。
 5. 将 IPA 传到 iPhone，再使用 TrollStore 尝试安装；如安装失败，请保留完整错误信息以便排查。
 
-注意：当前对话环境没有 macOS / Xcode iOS SDK，因此源码已做 Swift 语法解析，但尚未完成真实 Xcode 编译和 iPhone 安装验证。未签名 IPA 也不代表已经通过 TrollStore 安装测试。
+注意：CI 编译通过不等于 iPhone 实机安装、启动和 Hook 验证通过。IPA 经过 CI 临时签名与完整性检查，也仍需在 TrollStore 中完成实际安装验证。
 
 ## 本地开发
 
