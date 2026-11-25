@@ -208,10 +208,13 @@ static void Show(NSString* title,NSString* msg){
   [alert release];
 }
 void initPrefFile(){
-  static NSString* kPref = @"/tmp/devices.plist";
+  // Primary Rootless preference path shared with the manager and package layout.
+  static NSString* kPref = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
+  // Keep the original temporary path as a compatibility fallback for existing setups.
+  static NSString* legacyPref = @"/tmp/devices.plist";
   cf_device = [[NSMutableDictionary alloc] init];
   for (int i=0;i<3;i++) {
-    NSString *path = kPref;
+    NSString *path = [[NSFileManager defaultManager] fileExistsAtPath:kPref] ? kPref : legacyPref;
     NSMutableDictionary* aa = [[NSMutableDictionary alloc] init];
     aa = [[NSMutableDictionary alloc] initWithContentsOfFile:path];
     cf_device = [[NSMutableDictionary alloc] initWithDictionary:aa];
@@ -226,7 +229,7 @@ void initPrefFile(){
       CFIndex c = CFDataGetLength(a);
             //refences:http://blog.timac.org/?tag=mgcopyanswer
       CFBooleanRef cc = (CFBooleanRef)[aa objectForKey:@"UniqueDeviceIDData"];
-      if (CFBooleanGetValue(cc)==true) {
+      if (cc!=nil&&CFBooleanGetValue(cc)==true) {
         [cf_device setValue:(__bridge id)CFDataCreate(kCFAllocatorDefault, b, c) forKey:@"UniqueDeviceIDData"];
       }
       else{
