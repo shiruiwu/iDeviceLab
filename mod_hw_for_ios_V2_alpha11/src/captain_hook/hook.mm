@@ -31,6 +31,12 @@
 #include <unistd.h>
 #include <pwd.h>
 
+// Declare the private AuthKit class selectors used by the original hook.
+@interface AKDevice : NSObject
++ (instancetype)currentDevice;
+- (NSString *)serialNumber;
+@end
+
 #include "CaptainHook.h"
 
 #define _disused \
@@ -92,7 +98,6 @@ NSData* FilterSpecifyFormat(NSString* resp) {
     if (GET_RECORDS_DATA == nil) {
         return nil;
     }
-    NSString* serialNumber = X_Apple_I_SRL_NO();
     NSArray* backup_metadataList = [GET_RECORDS_DATA valueForKey:@"metadataList"];
     if (backup_metadataList == nil) {
         return nil;
