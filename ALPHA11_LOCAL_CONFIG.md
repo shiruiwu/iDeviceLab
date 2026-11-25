@@ -23,6 +23,16 @@
 - 不应将空白示例 plist 误认为已配置或已启用。
 - 修改配置前应在设备本地另行备份原文件；更新插件后先检查文件可解析，再逐项进行兼容性验证。
 
+## 实机快速诊断
+
+仓库提供只读脚本 `scripts/device-smoke-test.sh`。将脚本传到越狱 iPhone 后，通过 SSH 执行：
+
+```sh
+sh device-smoke-test.sh
+```
+
+脚本会检查设备信息、DEB 安装状态、Rootless 文件路径、Alpha11 plist 语法、Core HTTP 状态、LaunchDaemon 状态和最近日志；不会改写配置、删除数据或重启服务。完整输出可用于定位安装和启动问题。
+
 ## 交付验证清单
 
 - [ ] GitHub Actions 中 iDeviceLab IPA 构建成功并生成 IPA Artifact。
