@@ -22,6 +22,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("越狱核心", systemImage: "terminal")
                 }
+
+            CompatibilityView()
+                .tabItem {
+                    Label("设备诊断", systemImage: "stethoscope")
+                }
         }
     }
 }
