@@ -1,0 +1,9 @@
+Package: com.modhw.ios
+Name: mod_hw_for_ios V2 (Rootless build)
+Version: 2.0.0~alpha11
+Architecture: iphoneos-arm
+Description: Rootless Theos tweak and companion plist configuration manager.
+Maintainer: local-build
+Author: Original upstream authors; packaging updates
+Section: Tweaks
+Depends: mobilesubstrate

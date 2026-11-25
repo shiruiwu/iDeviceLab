@@ -1,0 +1,5 @@
+# Historical build recipe archived for reference.
+# The original included personal code-signing identity details, an embedded SSH
+# password, disabled SSH host-key checks, and automatic system-process kills.
+# Those deployment actions and credentials are intentionally not retained.
+# Use the Rootless Theos Makefile in this directory instead.
