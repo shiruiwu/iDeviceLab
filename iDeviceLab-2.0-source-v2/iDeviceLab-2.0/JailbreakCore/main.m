@@ -165,6 +165,33 @@ static NSDictionary *ValidateAndStoreExchange(NSData *body) {
     return @{@"ok":@YES, @"profileCount":@(profiles.count), @"managedAppCount":@(apps.count), @"selectedID":selected};
 }
 
+static NSDictionary *Alpha11ConfigStatus(void) {
+    NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
+    NSFileManager *fm = NSFileManager.defaultManager;
+    BOOL exists = [fm fileExistsAtPath:path];
+    if (!exists) {
+        return @{@"ok":@YES, @"exists":@NO, @"parseable":@NO, @"path":path,
+                 @"keyCount":@0, @"keys":@[]};
+    }
+    NSDictionary *attributes = [fm attributesOfItemAtPath:path error:nil] ?: @{};
+    NSDictionary *plist = [NSDictionary dictionaryWithContentsOfFile:path];
+    if (![plist isKindOfClass:NSDictionary.class]) {
+        return @{@"ok":@YES, @"exists":@YES, @"parseable":@NO, @"path":path,
+                 @"keyCount":@0, @"keys":@[], @"modifiedAt":@([attributes[NSFileModificationDate] timeIntervalSince1970])};
+    }
+    NSArray *keys = [[plist allKeys] sortedArrayUsingComparator:^NSComparisonResult(id a, id b) {
+        return [[a description] localizedCaseInsensitiveCompare:[b description]];
+    }];
+    NSMutableArray *safeKeys = [NSMutableArray arrayWithCapacity:keys.count];
+    for (id key in keys) {
+        if ([key isKindOfClass:NSString.class]) [safeKeys addObject:key];
+    }
+    // Deliberately return key names and parse diagnostics only, never identifier values.
+    return @{@"ok":@YES, @"exists":@YES, @"parseable":@YES, @"path":path,
+             @"keyCount":@(safeKeys.count), @"keys":safeKeys,
+             @"modifiedAt":@([attributes[NSFileModificationDate] timeIntervalSince1970])};
+}
+
 static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *body) {
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
@@ -179,6 +206,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
         return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.3", @"port":@(kPort)};
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
+    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/config/status"]) return Alpha11ConfigStatus();
 
     NSString *exchangePath = [kRoot stringByAppendingPathComponent:@"test-profile-exchange.json"];
     if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/exchange/import"])
@@ -310,7 +338,7 @@ int main(void) {
                         NSUInteger bodyLength = MIN(expectedLength, available);
                         NSData *body = [requestData subdataWithRange:NSMakeRange(bodyStart, bodyLength)];
                         NSDictionary *result = ProcessRequest(method, target, body);
-                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"] || [target hasPrefix:@"/exchange"];
+                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/config"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"] || [target hasPrefix:@"/exchange"];
                         NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
                         Reply(client, result, (int)httpStatus);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
