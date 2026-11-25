@@ -15,7 +15,19 @@ The Debian package is emitted under `packages/`.
 
 ## Configuration
 
-The intended Rootless preference location is `/var/mobile/Library/Preferences/com.modhw.ios.devices.plist`. Historical sample files remain under `txt/`; a blank template is packaged at `layout/var/mobile/Library/Preferences/com.modhw.ios.devices.plist.example`.
+The tweak reads its active configuration from:
+
+```
+/var/mobile/Library/Preferences/com.modhw.ios.devices.plist
+```
+
+This is a real mobile-user preference location and must **not** be prefixed with `/var/jb`. The package therefore places only a blank example template at:
+
+```
+/var/jb/usr/share/mod_hw_for_ios/com.modhw.ios.devices.plist.example
+```
+
+Use the manager to export a plist, then transfer it to the active preference path above with a file manager that has the required permissions. Alternatively, copy the example template to that active path and edit it there. The tweak retains `/tmp/devices.plist` as a legacy fallback only when the primary file does not exist.
 
 ## Manager
 
