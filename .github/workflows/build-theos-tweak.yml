@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-tweak:
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 45
     defaults:
       run:
