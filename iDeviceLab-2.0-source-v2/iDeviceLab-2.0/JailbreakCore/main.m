@@ -98,19 +98,19 @@ static BOOL IsSafeAlpha11ConfigValue(NSString *key, NSString *value) {
 
 static NSDictionary *ApplySafeAlpha11ConfigUpdate(NSData *body) {
     if (body.length == 0 || body.length > 32768)
-        return @{@ "ok":@NO, @ "error":@"empty or oversized configuration"};
+        return @{@"ok":@NO, @"error":@"empty or oversized configuration"};
     id input = [NSJSONSerialization JSONObjectWithData:body options:0 error:nil];
     if (![input isKindOfClass:NSDictionary.class])
-        return @{@ "ok":@NO, @ "error":@"configuration must be a JSON object"};
+        return @{@"ok":@NO, @"error":@"configuration must be a JSON object"};
 
     NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
     NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
     if (![attributes[NSFileType] isEqualToString:NSFileTypeRegular])
-        return @{@ "ok":@NO, @ "error":@"existing regular Alpha11 plist is required"};
+        return @{@"ok":@NO, @"error":@"existing regular Alpha11 plist is required"};
     NSMutableDictionary *current = [NSMutableDictionary dictionaryWithContentsOfFile:path];
     if (![current isKindOfClass:NSMutableDictionary.class] ||
         ![current[@"UniqueDeviceID"] isKindOfClass:NSString.class])
-        return @{@ "ok":@NO, @ "error":@"existing plist is invalid or missing Alpha11 root schema"};
+        return @{@"ok":@NO, @"error":@"existing plist is invalid or missing Alpha11 root schema"};
 
     NSSet *allowed = [NSSet setWithArray:@[
         @"HWModelStr", @"ProductVersion", @"BuildVersion", @"HardwarePlatform",
@@ -135,7 +135,7 @@ static NSDictionary *ApplySafeAlpha11ConfigUpdate(NSData *body) {
         [applied addObject:key];
     }
     if (applied.count == 0)
-        return @{@ "ok":@NO, @ "error":@"no valid supported fields were supplied", @ "ignoredKeys":ignored};
+        return @{@"ok":@NO, @"error":@"no valid supported fields were supplied", @"ignoredKeys":ignored};
 
     NSPropertyListFormat format = NSPropertyListXMLFormat_v1_0;
     NSData *oldData = [NSData dataWithContentsOfFile:path];
@@ -145,9 +145,9 @@ static NSDictionary *ApplySafeAlpha11ConfigUpdate(NSData *body) {
     NSError *writeError = nil;
     NSData *newData = [NSPropertyListSerialization dataWithPropertyList:current format:format options:0 error:&writeError];
     if (!newData || ![newData writeToFile:path options:NSDataWritingAtomic error:&writeError])
-        return @{@ "ok":@NO, @ "error":writeError.localizedDescription ?: @"unable to save plist"};
-    return @{@ "ok":@YES, @ "appliedKeys":[applied sortedArrayUsingSelector:@selector(compare:)],
-             @ "ignoredKeys":[ignored sortedArrayUsingSelector:@selector(compare:)], @ "path":path};
+        return @{@"ok":@NO, @"error":writeError.localizedDescription ?: @"unable to save plist"};
+    return @{@"ok":@YES, @"appliedKeys":[applied sortedArrayUsingSelector:@selector(compare:)],
+             @"ignoredKeys":[ignored sortedArrayUsingSelector:@selector(compare:)], @"path":path};
 }
 
 static NSDictionary *Alpha11ConfigStatus(void) {
@@ -183,7 +183,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
-        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.5", @"port":@(kPort)};
+        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.6", @"port":@(kPort)};
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/config/status"]) return Alpha11ConfigStatus();
