@@ -39,7 +39,7 @@ struct CompatibilityView: View {
         NavigationStack {
             List {
                 Section("设备识别") {
-                    LabeledContent("设备型号", value: UIDevice.current.model)
+                    LabeledContent("设备型号", value: Self.deviceName(for: hardware))
                     LabeledContent("硬件标识", value: hardware)
                     LabeledContent("系统版本", value: systemVersion)
                     LabeledContent("处理器架构", value: Self.architecture())
@@ -94,7 +94,7 @@ struct CompatibilityView: View {
         let values = storage
         let report = DeviceDiagnosticReport(
             generatedAt: Date(),
-            deviceModel: UIDevice.current.model,
+            deviceModel: Self.deviceName(for: hardware),
             hardwareIdentifier: hardware,
             systemVersion: systemVersion,
             architecture: Self.architecture(),
@@ -118,13 +118,23 @@ struct CompatibilityView: View {
     }
 
     private static func architecture() -> String {
-        var info = utsname()
-        uname(&info)
-        return withUnsafePointer(to: &info.machine) {
-            $0.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: info.machine)) {
-                String(cString: $0)
-            }
-        }
+        #if arch(arm64)
+        return "arm64"
+        #elseif arch(arm)
+        return "arm"
+        #else
+        return "unknown"
+        #endif
+    }
+
+    private static func deviceName(for identifier: String) -> String {
+        let known: [String: String] = [
+            "iPhone13,1": "iPhone 12 mini",
+            "iPhone13,2": "iPhone 12",
+            "iPhone13,3": "iPhone 12 Pro",
+            "iPhone13,4": "iPhone 12 Pro Max"
+        ]
+        return known[identifier] ?? identifier
     }
 
     private static func hardwareIdentifier() -> String {
