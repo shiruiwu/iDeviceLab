@@ -69,6 +69,13 @@ jobs:
           export THEOS="$HOME/theos"
           export THEOS_PACKAGE_SCHEME=rootless
           make package
+          PACKAGE="$(find packages -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$PACKAGE"
+          dpkg-deb --info "$PACKAGE"
+          dpkg-deb --contents "$PACKAGE" | tee package-contents.txt
+          grep -F 'idevelab-core' package-contents.txt
+          grep -F 'com.idevelab.core.plist' package-contents.txt
+          test "$(dpkg-deb -f "$PACKAGE" Package)" = "com.idevelab.core"
       - uses: actions/upload-artifact@v4
         with:
           name: iDeviceLab-rootless-deb
