@@ -3,7 +3,7 @@ name: Build iDevice Lab and Rootless Core
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, device-manager-pro-full ]
 
 jobs:
   build:
