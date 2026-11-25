@@ -47,13 +47,29 @@ static NSDictionary *SystemSummary(void) {
     NSDictionary *attributes = [fm attributesOfFileSystemForPath:@"/var" error:nil] ?: @{};
     unsigned long long total = [attributes[NSFileSystemSize] unsignedLongLongValue];
     unsigned long long free = [attributes[NSFileSystemFreeSize] unsignedLongLongValue];
+
+    // hw.cputype and hw.cpusubtype are integer sysctl values, not C strings.
+    int cpuType = 0;
+    int cpuSubtype = 0;
+    size_t cpuTypeSize = sizeof(cpuType);
+    size_t cpuSubtypeSize = sizeof(cpuSubtype);
+    BOOL hasCPUType = sysctlbyname("hw.cputype", &cpuType, &cpuTypeSize, NULL, 0) == 0;
+    BOOL hasCPUSubtype = sysctlbyname("hw.cpusubtype", &cpuSubtype, &cpuSubtypeSize, NULL, 0) == 0;
+    NSString *architecture = hasCPUType && cpuType == 0x0100000c
+        ? (hasCPUSubtype ? [NSString stringWithFormat:@"arm64 (subtype %d)", cpuSubtype] : @"arm64")
+        : @"Unknown";
+
     NSOperatingSystemVersion os = NSProcessInfo.processInfo.operatingSystemVersion;
     NSString *osVersion = [NSString stringWithFormat:@"%ld.%ld.%ld", (long)os.majorVersion, (long)os.minorVersion, (long)os.patchVersion];
+    BOOL rootlessDetected = [fm fileExistsAtPath:@"/var/jb"];
     return @{
         @"ok": @YES,
         @"productType": SysctlString("hw.machine"),
-        @"architecture": SysctlString("hw.cputype"),
+        @"architecture": architecture,
+        @"cpuType": hasCPUType ? @(cpuType) : [NSNull null],
+        @"cpuSubtype": hasCPUSubtype ? @(cpuSubtype) : [NSNull null],
         @"osVersion": osVersion,
+        @"rootlessDetected": @(rootlessDetected),
         @"hostname": NSProcessInfo.processInfo.hostName ?: @"",
         @"diskTotalBytes": @(total),
         @"diskFreeBytes": @(free),
@@ -99,7 +115,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     }
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
         return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.2", @"port":@(kPort)};
-    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/system"]) return SystemSummary();
+    if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
 
     NSDictionary *store = ReadStore();
@@ -174,7 +190,7 @@ int main(void) {
                     if (first.count >= 2) {
                         NSString *method = first[0], *target = first[1];
                         NSDictionary *result = ProcessRequest(method, target);
-                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"];
+                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/profiles"] || [target hasPrefix:@"/current"];
                         Reply(client, result, known ? 200 : 404);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
                 }
