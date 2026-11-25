@@ -44,7 +44,6 @@
 #include <CoreFoundation/CFData.h>
 #include <Foundation/Foundation.h>
 #include "mobile_gestalt/mobile_gestalt.h"
-#include "mobile_gestalt/NSCFData.h"
 #include "captain_hook/CaptainHook.h"
 #include "cydia_substrate_hook/HookUtil.h"
 #include "third_party/IOKit/IOKitLib.h"
