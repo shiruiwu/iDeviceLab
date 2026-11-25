@@ -66,6 +66,8 @@ jobs:
           SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
           ln -s "$SDK_PATH" "$HOME/theos/sdks/iPhoneOS${SDK_VERSION}.sdk"
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+      - name: Validate Rootless Core and local plist bridge
+        run: python3 tools/validate_rootless_core.py
       - name: Build Rootless package
         working-directory: iDeviceLab-2.0-source-v2/iDeviceLab-2.0/JailbreakCore
         run: |
