@@ -5,7 +5,7 @@
 ## 当前功能
 
 - 新增“备份与维护”页面：完整导出/导入配置档案、分 App 绑定关系与当前选择
-- Rootless Core 提供系统信息、已安装 App 清单和 Alpha11 实际 plist 文件状态诊断；配置档案统一由管理器保存
+- Rootless Core 提供系统信息、已安装 App 清单、Alpha11 plist 状态诊断和本地白名单字段更新；测试 Profile 档案仍由管理器保存
 - 还原前自动保存回滚快照，支持撤销最近一次还原
 - 扫描并清理 iDeviceLab 自身沙盒内的 Caches 与 tmp 文件
 - 清理前显示预计空间，清理后重新扫描；不删除其他 App 容器或系统数据
@@ -19,18 +19,20 @@
 - 导入时检查配置版本、数量、空配置，并修正重复 ID 和越界坐标/数值
 - GitHub Actions 使用 macOS runner 编译、临时签名校验并打包 TrollStore IPA；同时构建 Rootless Core DEB
 
-## Alpha11 本地配置诊断
+## Alpha11 本地 plist 管理
 
 - Rootless Core 通过本机回环接口检查 Alpha11 实际读取的 `/var/mobile/Library/Preferences/com.modhw.ios.devices.plist`。
-- 管理器显示文件是否存在、是否可解析、字段数量和字段名；不回传配置中的唯一标识具体值。
-- 这是只读诊断，不会把测试 Profile JSON 写成 Alpha11 plist，也不代表任何 Hook 已经生效。
+- 管理器可导入原作者 plist 文件，并通过本机 Rootless Core 更新 Alpha11 正在读取的 `/var/mobile/Library/Preferences/com.modhw.ios.devices.plist`。
+- 只允许更新 `HWModelStr`、`ProductVersion`、`BuildVersion`、`HardwarePlatform`、`ModelNumber`、`RegionInfo`、`RegionCode`、`ProductType` 八个经过格式校验的字段；其他字段忽略，原文件中的唯一标识值保持不变。
+- 写入前要求原 plist 已存在且符合 Alpha11 基本结构；更新采用原子写入。管理器只显示字段名和结果，不显示字段值。
+- 这不是把测试 Profile JSON 写成 Alpha11 plist，也不代表任何 Hook 或第三方 App 运行时行为已经验证成功。
 - 详细接口说明和完整验收表见仓库根目录 `ALPHA11_LOCAL_CONFIG.md`。
 
 ## 重要能力边界
 
 备份文件仅覆盖 iDeviceLab 自己管理的配置与绑定元数据，不是整机备份，也不包含其他 App 私有数据。缓存清理仅作用于本应用沙盒内的 Caches/tmp。越狱侧跨 App 数据维护必须通过独立授权、容器路径校验、清理预览和逐项确认实现；当前尚未宣称已实现通用跨 App 数据清理。
 
-本项目保存的是测试配置数据。它不会修改真实 IMEI、序列号、硬件 UDID，也不会让任意第三方 App 自动读取到这些模拟值。设备型号、系统版本、网络、定位、电量、内存等字段在本版本中是配置记录/测试输入，不是系统级伪装。
+本项目保存的是测试配置数据。Alpha11 plist 导入仅更新上面列出的八个非唯一字段，不会覆盖真实 IMEI、序列号、硬件 UDID、MAC、IDFA、IDFV 等唯一或追踪标识。设备型号/系统版本等字段是否被指定进程读取，仍取决于原作者 Hook 的加载范围和实机验证；不承诺任意第三方 App 自动采用这些值。
 
 TrollStore 不等于越狱，也不会自动赋予普通 App 任意修改 iOS 系统或其他 App 运行环境的能力。对第三方 IPA 的独立数据容器、Bundle ID、扩展和权限兼容性，需要逐个验证；本项目目前不承诺任意 App 通用克隆。
 
@@ -39,7 +41,7 @@ TrollStore 不等于越狱，也不会自动赋予普通 App 任意修改 iOS �
 1. 将解压后的 `iDeviceLab-2.0` 文件夹内的全部内容上传到自己的 GitHub 仓库根目录（包括 `.github` 隐藏目录）。
 2. 打开仓库的 **Actions** 页面。
 3. 运行 **Build iDevice Lab IPA** 工作流，或向 `main` / `master` 分支推送提交。
-4. 工作流成功后，在运行详情页的 Artifacts 区域下载 `iDeviceLab-trollstore-ipa` 和 `iDeviceLab-rootless-deb`。Alpha11 tweak 使用单独的 Theos 工作流，下载 `mod-hw-alpha11-rootless-deb`。
+4. 工作流成功后，在运行详情页的 Artifacts 区域下载 `iDeviceLab-trollstore-ipa` 和 `iDeviceLab-rootless-deb`。Alpha11 配置查看器与只读诊断包从 `mod-hw-v2-final-safe-builds` Artifact 下载。
 5. 将 IPA 传到 iPhone，再使用 TrollStore 尝试安装；如安装失败，请保留完整错误信息以便排查。
 
 注意：CI 编译通过不等于 iPhone 实机安装、启动和 Hook 验证通过。IPA 经过 CI 临时签名与完整性检查，也仍需在 TrollStore 中完成实际安装验证。
