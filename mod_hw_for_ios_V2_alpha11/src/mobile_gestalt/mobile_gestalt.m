@@ -809,7 +809,7 @@ __attribute__((__constructor__)) static void _MSInitialize(void) {
 
 HOOK_CORE_TELEPHONY(CFStringRef, _CTSettingCopyMyPhoneNumber) {
   // NSLog(@"xxxxxxx0");
-  return _CTSettingCopyMyPhoneNumber();
+  return __CTSettingCopyMyPhoneNumber ? __CTSettingCopyMyPhoneNumber() : NULL;
 }
 
 HOOK_CORE_TELEPHONY(CFStringRef, _CTSIMSupportGetSIMStatus) {
