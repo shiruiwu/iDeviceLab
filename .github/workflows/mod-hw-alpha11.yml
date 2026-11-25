@@ -8,7 +8,7 @@ on:
       - '.github/workflows/mod-hw-alpha11.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-ipa:
@@ -29,32 +29,6 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
-      - name: Sync complete upstream source snapshot
-        run: |
-          set -euo pipefail
-          git clone --depth 1 https://github.com/dengtao1st/mod_hw_for_ios.git "$RUNNER_TEMP/mod_hw_upstream"
-          rsync -a --exclude='.git' "$RUNNER_TEMP/mod_hw_upstream/" ./
-          cat > Makefile <<'MAKEFILE'
-          ARCHS = arm64
-          TARGET = iphone:clang:latest:14.0
-          THEOS_PACKAGE_SCHEME = rootless
-          INSTALL_TARGET_PROCESSES = SpringBoard
-          include $(THEOS)/makefiles/common.mk
-          TWEAK_NAME = mod_hw_for_ios
-          mod_hw_for_ios_FILES = src/mobile_gestalt/mobile_gestalt.m src/cydia_substrate_hook/HookUtil.m src/captain_hook/hook.mm
-          mod_hw_for_ios_CFLAGS = -fno-objc-arc -I$(THEOS_PROJECT_DIR)/src -I$(THEOS_PROJECT_DIR)/src/third_party
-          mod_hw_for_ios_CCFLAGS = -std=c++17 -fno-objc-arc -I$(THEOS_PROJECT_DIR)/src -I$(THEOS_PROJECT_DIR)/src/third_party
-          mod_hw_for_ios_FRAMEWORKS = Foundation CoreFoundation CoreTelephony Security SystemConfiguration
-          mod_hw_for_ios_LIBRARIES = substrate
-          include $(THEOS_MAKE_PATH)/tweak.mk
-          MAKEFILE
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
-          if ! git diff --cached --quiet; then
-            git commit -m "Sync complete upstream source into Alpha11 [skip ci]"
-            git push origin "HEAD:mod-hw-alpha11"
-          fi
 
       - name: Run static project checks
         run: python3 tools/validate_project.py
