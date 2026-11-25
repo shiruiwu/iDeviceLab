@@ -28,7 +28,7 @@ jobs:
       - name: Install Theos and iOS SDKs
         run: |
           set -euo pipefail
-          git clone --depth 1 https://github.com/theos/theos.git "$GITHUB_WORKSPACE/theos"
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/theos/theos.git "$GITHUB_WORKSPACE/theos"
           git clone --depth 1 https://github.com/theos/sdks.git "$RUNNER_TEMP/theos-sdks"
           rsync -a "$RUNNER_TEMP/theos-sdks/" "$GITHUB_WORKSPACE/theos/sdks/"
           test -d "$GITHUB_WORKSPACE/theos/sdks"
