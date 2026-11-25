@@ -77,7 +77,7 @@ struct RootlessCoreView: View {
                         Label("重新检测服务", systemImage: "arrow.clockwise")
                     }
                     if serviceState == "未连接" && !connectionDetail.isEmpty {
-                        Text("连接诊断：\\(connectionDetail)")
+                        Text("连接诊断：\(connectionDetail)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
@@ -219,7 +219,7 @@ struct RootlessCoreView: View {
                 let synced = summary["synced"] as? Bool ?? false
                 let count = summary["profileCount"] as? Int ?? 0
                 let appCount = summary["managedAppCount"] as? Int ?? 0
-                exchangeSummary = synced ? "核心已接收：\\(count) 套测试配置、\\(appCount) 个 App 绑定" : "核心尚未收到配置"
+                exchangeSummary = synced ? "核心已接收：\(count) 套测试配置、\(appCount) 个 App 绑定" : "核心尚未收到配置"
             }
         } catch {
             connectionDetail = error.localizedDescription
@@ -248,11 +248,11 @@ struct RootlessCoreView: View {
             }
             let count = result?["profileCount"] as? Int ?? store.profiles.count
             let appCount = result?["managedAppCount"] as? Int ?? store.managedApps.count
-            exchangeSummary = "核心已接收：\\(count) 套测试配置、\\(appCount) 个 App 绑定"
+            exchangeSummary = "核心已接收：\(count) 套测试配置、\(appCount) 个 App 绑定"
             message = "测试配置已同步到 Rootless 核心。此操作只保存测试元数据，不会启用身份修改 Hook。"
             await refresh()
         } catch {
-            message = "同步失败：\\(error.localizedDescription)"
+            message = "同步失败：\(error.localizedDescription)"
         }
     }
 
