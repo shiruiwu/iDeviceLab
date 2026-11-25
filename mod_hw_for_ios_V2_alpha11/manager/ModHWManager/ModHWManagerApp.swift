@@ -139,17 +139,17 @@ struct ContentView: View {
                 entries = dictionary.keys.sorted().map { key in
                     PlistEntry(key: key, typeName: Self.typeName(dictionary[key]))
                 }
-                status = "导入成功（\\(format == .binary ? "Binary" : "XML") plist）。已读取字段名称和类型；字段值未展示，导出保留原始字节。"
+                status = "导入成功（\(format == .binary ? "Binary" : "XML") plist）。已读取字段名称和类型；字段值未展示，导出保留原始字节。"
             } else if let array = object as? [Any] {
                 rootType = "Array"
                 entries = array.enumerated().map { index, value in
-                    PlistEntry(key: "[\\(index)]", typeName: Self.typeName(value))
+                    PlistEntry(key: "[\(index)]", typeName: Self.typeName(value))
                 }
-                status = "导入成功。根对象为 Array，共 \\(array.count) 项；导出保留原始字节。"
+                status = "导入成功。根对象为 Array，共 \(array.count) 项；导出保留原始字节。"
             } else {
                 rootType = Self.typeName(object)
                 entries = []
-                status = "导入成功。根对象类型：\\(rootType)。原始文件字节已保留。"
+                status = "导入成功。根对象类型：\(rootType)。原始文件字节已保留。"
             }
         } catch {
             importedData = nil
@@ -157,7 +157,7 @@ struct ContentView: View {
             rootType = "无法解析"
             isValid = false
             fileName = "导入失败"
-            status = "导入失败（\\(String(reflecting: type(of: error)))）：\\(error.localizedDescription)"
+            status = "导入失败（\(String(reflecting: type(of: error)))）：\(error.localizedDescription)"
         }
     }
 
