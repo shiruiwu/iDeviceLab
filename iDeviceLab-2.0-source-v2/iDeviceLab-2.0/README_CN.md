@@ -45,3 +45,8 @@ brew install xcodegen
 xcodegen generate
 xcodebuild -project iDeviceLab.xcodeproj -scheme iDeviceLab -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
 ```
+
+
+## Device Manager Pro 集成分支
+
+当前整合开发分支：`device-manager-pro-full`。备份中心已覆盖配置档案、分 App 绑定和当前选择，并提供还原前快照；维护页提供 iDeviceLab 自身缓存/tmp 的扫描与确认清理。该分支仍需 GitHub Actions 编译、设备安装和实际越狱环境验证后才能标记为正式可交付版本。
