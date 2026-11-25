@@ -6,6 +6,7 @@
 #import <signal.h>
 #import <errno.h>
 #import <string.h>
+#import <math.h>
 #import <sys/sysctl.h>
 
 static NSString * const kRoot = @"/var/mobile/Library/Application Support/iDeviceLab";
