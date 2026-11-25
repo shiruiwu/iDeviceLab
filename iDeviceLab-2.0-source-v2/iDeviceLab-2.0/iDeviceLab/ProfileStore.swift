@@ -154,7 +154,8 @@ final class ProfileStore: ObservableObject {
         }
         guard !imported.isEmpty else { throw ProfileError.emptyArchive }
         guard imported.count <= 100 else { throw ProfileError.tooManyProfiles }
-        profiles = Self.normalized(imported)
+        try Self.validateProfiles(imported)
+        profiles = imported
         selectedID = profiles.first?.id
     }
 
@@ -175,18 +176,8 @@ final class ProfileStore: ObservableObject {
         guard archive.schemaVersion == 1 else { throw ProfileError.unsupportedVersion }
         guard !archive.profiles.isEmpty else { throw ProfileError.emptyArchive }
         guard archive.profiles.count <= 100, archive.managedApps.count <= 500 else { throw ProfileError.tooManyProfiles }
-        let profileIDs = archive.profiles.map(\.id)
-        guard Set(profileIDs).count == profileIDs.count else { throw ProfileError.duplicateIdentifiers }
-        let appIDs = archive.managedApps.map(\.id)
-        guard Set(appIDs).count == appIDs.count else { throw ProfileError.duplicateManagedAppIdentifiers }
-        let bundleIDs = archive.managedApps.map { $0.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        guard Set(bundleIDs).count == bundleIDs.count else { throw ProfileError.duplicateBundleIdentifiers }
-        let validIDs = Set(profileIDs)
-        for app in archive.managedApps {
-            guard !app.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  !app.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  validIDs.contains(app.profileID) else { throw ProfileError.invalidManagedApp }
-        }
+        try Self.validateProfiles(archive.profiles)
+        try Self.validateManagedApps(archive.managedApps, profiles: archive.profiles)
         if let rollback = try? exportFullBackupData() {
             UserDefaults.standard.set(rollback, forKey: "iDeviceLabPreRestoreBackupV1")
         }
@@ -204,22 +195,40 @@ final class ProfileStore: ObservableObject {
         guard archive.schemaVersion == 1 else { throw ProfileError.unsupportedVersion }
         guard !archive.profiles.isEmpty else { throw ProfileError.emptyArchive }
         guard archive.profiles.count <= 100, archive.managedApps.count <= 500 else { throw ProfileError.tooManyProfiles }
-        let profileIDs = archive.profiles.map(\.id)
-        guard Set(profileIDs).count == profileIDs.count else { throw ProfileError.duplicateIdentifiers }
-        let appIDs = archive.managedApps.map(\.id)
-        guard Set(appIDs).count == appIDs.count else { throw ProfileError.duplicateManagedAppIdentifiers }
-        let bundleIDs = archive.managedApps.map { $0.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        guard Set(bundleIDs).count == bundleIDs.count else { throw ProfileError.duplicateBundleIdentifiers }
-        let validIDs = Set(profileIDs)
-        for app in archive.managedApps {
-            guard !app.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  !app.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  validIDs.contains(app.profileID) else { throw ProfileError.invalidManagedApp }
-        }
+        try Self.validateProfiles(archive.profiles)
+        try Self.validateManagedApps(archive.managedApps, profiles: archive.profiles)
         profiles = Self.normalized(archive.profiles)
         managedApps = archive.managedApps
         selectedID = archive.selectedID.flatMap { validIDs.contains($0) ? $0 : nil } ?? profiles[0].id
     }
+    private static func validateProfiles(_ profiles: [DeviceProfile]) throws {
+        let ids = profiles.map(\.id)
+        guard Set(ids).count == ids.count else { throw ProfileError.duplicateIdentifiers }
+        for profile in profiles {
+            let name = profile.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty,
+                  profile.latitude.isFinite, (-90...90).contains(profile.latitude),
+                  profile.longitude.isFinite, (-180...180).contains(profile.longitude),
+                  (1...100).contains(profile.batteryPercent),
+                  (1...64).contains(profile.memoryGB),
+                  !profile.testIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { throw ProfileError.invalidProfile }
+        }
+    }
+
+    private static func validateManagedApps(_ apps: [ManagedApp], profiles: [DeviceProfile]) throws {
+        let appIDs = apps.map(\.id)
+        guard Set(appIDs).count == appIDs.count else { throw ProfileError.duplicateManagedAppIdentifiers }
+        let bundleIDs = apps.map { $0.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        guard Set(bundleIDs).count == bundleIDs.count else { throw ProfileError.duplicateBundleIdentifiers }
+        let validProfileIDs = Set(profiles.map(\.id))
+        for app in apps {
+            guard !app.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !app.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  validProfileIDs.contains(app.profileID) else { throw ProfileError.invalidManagedApp }
+        }
+    }
+
     private static func normalized(_ input: [DeviceProfile]) -> [DeviceProfile] {
         var seen = Set<UUID>()
         return input.map { original in
@@ -242,7 +251,7 @@ struct FullBackupArchive: Codable {
 }
 
 enum ProfileError: LocalizedError {
-    case unsupportedVersion, emptyArchive, tooManyProfiles, duplicateIdentifiers, duplicateManagedAppIdentifiers, duplicateBundleIdentifiers, invalidManagedApp, noRollbackSnapshot
+    case unsupportedVersion, emptyArchive, tooManyProfiles, duplicateIdentifiers, duplicateManagedAppIdentifiers, duplicateBundleIdentifiers, invalidProfile, invalidManagedApp, noRollbackSnapshot
     var errorDescription: String? {
         switch self {
         case .unsupportedVersion: return "不支持此配置文件版本"
@@ -251,6 +260,7 @@ enum ProfileError: LocalizedError {
         case .duplicateIdentifiers: return "备份包含重复的配置标识符"
         case .duplicateManagedAppIdentifiers: return "备份包含重复的应用绑定标识符"
         case .duplicateBundleIdentifiers: return "备份包含重复的应用 Bundle ID"
+        case .invalidProfile: return "配置包含空名称、无效坐标或超出范围的测试数值"
         case .invalidManagedApp: return "备份包含无效的应用绑定或指向不存在的配置"
         case .noRollbackSnapshot: return "没有可用的还原前自动备份"
         }
