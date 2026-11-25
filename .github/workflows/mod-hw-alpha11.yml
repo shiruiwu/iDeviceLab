@@ -33,11 +33,11 @@ jobs:
       - name: Run static project checks
         run: python3 tools/validate_project.py
 
-      - name: Check Swift and build script syntax
+      - name: Check Swift and shell syntax
         run: |
           swiftc -frontend -parse manager/ModHWManager/ModHWManagerApp.swift
           bash -n scripts/build-trollstore-ipa.sh
-          bash -n scripts/install-config.sh
+          bash -n scripts/diagnose-config.sh
           bash -n scripts/build-release.sh
 
       - name: Build unsigned TrollStore IPA
