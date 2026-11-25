@@ -1,249 +1,157 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import CoreFoundation
 
 @main
 struct ModHWManagerApp: App {
-    var body: some Scene {
-        WindowGroup { ContentView() }
-    }
+    var body: some Scene { WindowGroup { ContentView() } }
 }
 
-struct ConfigDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.propertyList] }
-    var values: [String: Any]
-
-    init(values: [String: Any] = [:]) { self.values = values }
-
-    init(configuration: ReadConfiguration) throws {
-        guard let data = configuration.file.regularFileContents,
-              let dictionary = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        values = dictionary
-    }
-
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = try PropertyListSerialization.data(fromPropertyList: values, format: .xml, options: 0)
-        return FileWrapper(regularFileWithContents: data)
-    }
-}
-
-private struct Field: Identifiable {
+private struct PlistEntry: Identifiable {
     let key: String
-    let title: String
+    let typeName: String
     var id: String { key }
 }
 
 struct ContentView: View {
-    private let fields = [
-        Field(key: "HWModelStr", title: "硬件模型"),
-        Field(key: "ProductType", title: "产品类型"),
-        Field(key: "ProductVersion", title: "系统版本"),
-        Field(key: "BuildVersion", title: "系统构建号"),
-        Field(key: "HardwarePlatform", title: "硬件平台"),
-        Field(key: "ModelNumber", title: "销售型号"),
-        Field(key: "RegionInfo", title: "区域信息"),
-        Field(key: "RegionCode", title: "区域代码"),
-        Field(key: "SerialNumber", title: "序列号"),
-        Field(key: "UniqueDeviceID", title: "设备标识（十六进制）"),
-        Field(key: "UniqueChipId", title: "芯片标识（十六进制）"),
-        Field(key: "ProductId", title: "产品标识（十六进制）"),
-        Field(key: "WifiAddress", title: "Wi-Fi 地址"),
-        Field(key: "BluetoothAddress", title: "蓝牙地址"),
-        Field(key: "EthernetMacAddress", title: "以太网地址"),
-        Field(key: "MLBSerialNumber", title: "主板序列号"),
-        Field(key: "InternationalMobileEquipmentIdentity", title: "IMEI"),
-        Field(key: "MobileEquipmentIdentifier", title: "MEID"),
-        Field(key: "IDFA", title: "广告标识"),
-        Field(key: "IDFV", title: "供应商标识")
-    ]
-
-    @State private var values: [String: String] = [:]
-    @State private var flags: [String: Bool] = [
-        "UniqueDeviceIDData": false,
-        "WifiAddressData": false,
-        "BluetoothAddressData": false
-    ]
-    @State private var extraValues: [String: Any] = [:]
-    @State private var originalKnownValues: [String: Any] = [:]
-    @State private var importedDisplayValues: [String: String] = [:]
     @State private var importOpen = false
     @State private var exportOpen = false
-    @State private var status = "新建配置，或导入现有 plist。"
-    @State private var errors: [String] = []
+    @State private var importedData: Data?
+    @State private var fileName = "尚未导入配置"
+    @State private var status = "导入 plist 后，可检查文件结构并导出原始备份。"
+    @State private var entries: [PlistEntry] = []
+    @State private var isValid = false
+    @State private var rootType = "未知"
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Text("配置编辑器").font(.title2.bold())
-                    Text("编辑并导出插件配置。导出后需通过越狱文件管理工具放入插件读取路径。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("配置文件检查器", systemImage: "doc.text.magnifyingglass").font(.title2.bold())
+                        Text("只读检查 plist 文件结构、字段名称与数据类型。不会修改设备身份字段，也不会向系统服务写入配置。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    HStack {
                         Button("导入 plist") { importOpen = true }
-                            .buttonStyle(.bordered)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Button("新建空白配置") { resetConfiguration() }
-                            .buttonStyle(.bordered)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Button("检查并导出") {
-                            validate()
-                            if errors.isEmpty { exportOpen = true }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Spacer()
+                        Button("导出原始备份") { exportOpen = true }
+                            .disabled(importedData == nil).buttonStyle(.borderedProminent)
                     }
                 }
-
-                Section("设备与系统字段") {
-                    ForEach(fields) { field in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(field.title).font(.caption).foregroundStyle(.secondary)
-                            TextField(field.key, text: Binding(
-                                get: { values[field.key, default: ""] },
-                                set: { values[field.key] = $0 }
-                            ))
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                Section("文件状态") {
+                    LabeledContent("文件", value: fileName)
+                    LabeledContent("根对象", value: rootType)
+                    LabeledContent("字段数量", value: entries.isEmpty ? "—" : "\(entries.count)")
+                    HStack {
+                        Text("格式检查")
+                        Spacer()
+                        if importedData == nil {
+                            Text("等待导入").foregroundStyle(.secondary)
+                        } else {
+                            Label(isValid ? "有效" : "无效", systemImage: isValid ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                                .foregroundStyle(isValid ? .green : .red)
                         }
                     }
                 }
-
-                Section("数据格式开关") {
-                    Toggle("设备标识按 Data 输出", isOn: flag("UniqueDeviceIDData"))
-                    Toggle("Wi-Fi 地址按 Data 输出", isOn: flag("WifiAddressData"))
-                    Toggle("蓝牙地址按 Data 输出", isOn: flag("BluetoothAddressData"))
-                }
-
-                if !errors.isEmpty {
-                    Section("格式错误") {
-                        ForEach(errors, id: \.self) { error in
-                            Text(error).foregroundStyle(.red)
+                if !entries.isEmpty {
+                    Section("字段清单（不显示字段值）") {
+                        ForEach(entries) { entry in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(entry.key).font(.body.monospaced())
+                                Text(entry.typeName).font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
-
-                Section("状态") {
+                Section("运行说明") {
                     Text(status).font(.footnote).foregroundStyle(.secondary)
+                    Text("本工具仅检查用户选取的文件。iOS 沙盒不会自动授予它读取越狱目录的权限；请通过文件管理器手动导入需要检查的 plist。")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("mod_hw 管理器")
             .fileImporter(isPresented: $importOpen, allowedContentTypes: [.propertyList]) { result in
-                importConfiguration(result)
+                importPlist(result)
             }
             .fileExporter(
                 isPresented: $exportOpen,
-                document: ConfigDocument(values: output()),
+                document: RawPlistDocument(data: importedData ?? Data()),
                 contentType: .propertyList,
-                defaultFilename: "com.modhw.ios.devices.plist"
+                defaultFilename: backupName
             ) { result in
                 switch result {
-                case .success(let url): status = "已导出：\(url.lastPathComponent)"
-                case .failure(let error): status = "导出失败：\(error.localizedDescription)"
+                case .success(let url): status = "原始备份已导出：\(url.lastPathComponent)"
+                case .failure(let error): status = "备份导出失败：\(error.localizedDescription)"
                 }
             }
         }
     }
 
-    private func flag(_ key: String) -> Binding<Bool> {
-        Binding(get: { flags[key, default: false] }, set: { flags[key] = $0 })
+    private var backupName: String {
+        let base = URL(fileURLWithPath: fileName).deletingPathExtension().lastPathComponent
+        return base.isEmpty ? "plist-backup" : "\(base)-backup"
     }
 
-    private func importConfiguration(_ result: Result<URL, Error>) {
+    private func importPlist(_ result: Result<URL, Error>) {
         do {
             let url = try result.get()
             let hasAccess = url.startAccessingSecurityScopedResource()
             defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
             let data = try Data(contentsOf: url)
-            guard let dictionary = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
-                throw CocoaError(.fileReadCorruptFile)
-            }
-
-            let knownKeys = Set(fields.map(\.key) + Array(flags.keys))
-            extraValues = dictionary.filter { !knownKeys.contains($0.key) }
-            originalKnownValues = dictionary.filter { knownKeys.contains($0.key) }
-            importedDisplayValues = [:]
-            for field in fields {
-                let display = Self.displayValue(dictionary[field.key])
-                values[field.key] = display
-                if dictionary[field.key] != nil { importedDisplayValues[field.key] = display }
-            }
-            for key in Array(flags.keys) { flags[key] = dictionary[key] as? Bool ?? false }
-            errors = []
-            status = "已导入：\(url.lastPathComponent)；未知字段已保留。"
-        } catch {
-            status = "导入失败：\(error.localizedDescription)"
-        }
-    }
-
-    private func resetConfiguration() {
-        values = [:]
-        for field in fields { values[field.key] = "" }
-        flags = ["UniqueDeviceIDData": false, "WifiAddressData": false, "BluetoothAddressData": false]
-        extraValues = [:]
-        originalKnownValues = [:]
-        importedDisplayValues = [:]
-        errors = []
-        status = "已新建空白配置。"
-    }
-
-    private func output() -> [String: Any] {
-        var dictionary = extraValues
-        for field in fields {
-            let current = values[field.key, default: ""]
-            if let imported = importedDisplayValues[field.key], imported == current,
-               let original = originalKnownValues[field.key] {
-                dictionary[field.key] = original
+            var format = PropertyListSerialization.PropertyListFormat.xml
+            let object = try PropertyListSerialization.propertyList(from: data, options: [], format: &format)
+            importedData = data
+            fileName = url.lastPathComponent
+            if let dictionary = object as? [String: Any] {
+                rootType = "Dictionary"
+                entries = dictionary.keys.sorted().map { key in
+                    PlistEntry(key: key, typeName: Self.typeName(dictionary[key]))
+                }
+                isValid = true
+                status = "导入成功。已读取字段名称和类型；字段值未展示、未更改，导出时保留原始文件字节。"
             } else {
-                dictionary[field.key] = current
+                rootType = String(describing: type(of: object))
+                entries = []
+                isValid = false
+                status = "plist 可以解析，但根对象不是 Dictionary 结构。"
             }
-        }
-        for (key, value) in flags { dictionary[key] = value }
-        return dictionary
-    }
-
-    private static func displayValue(_ value: Any?) -> String {
-        guard let value else { return "" }
-        if let string = value as? String { return string }
-        if let number = value as? NSNumber { return number.stringValue }
-        if let data = value as? Data {
-            return data.map { String(format: "%02X", $0) }.joined()
-        }
-        return "<\(type(of: value))：保留原值，编辑后将转为文本>"
-    }
-
-    private static func isASCIIHex(_ value: String) -> Bool {
-        !value.isEmpty && value.unicodeScalars.allSatisfy { scalar in
-            (48...57).contains(scalar.value) ||
-            (65...70).contains(scalar.value) ||
-            (97...102).contains(scalar.value)
+        } catch {
+            importedData = nil
+            entries = []
+            rootType = "无法解析"
+            isValid = false
+            fileName = "导入失败"
+            status = "文件读取或 plist 解析失败：\(error.localizedDescription)"
         }
     }
 
-    private func validate() {
-        var found: [String] = []
-        let uid = values["UniqueDeviceID", default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
-        if uid.isEmpty {
-            found.append("UniqueDeviceID 不能为空：原插件在该字段缺失时会提前停止加载配置。")
-        } else if uid.count % 2 != 0 || !Self.isASCIIHex(uid) {
-            found.append("UniqueDeviceID 必须是偶数长度的十六进制字符串。")
+    private static func typeName(_ value: Any?) -> String {
+        guard let value else { return "缺失" }
+        if value is String { return "String" }
+        if value is Data { return "Data" }
+        if value is Date { return "Date" }
+        if let number = value as? NSNumber {
+            return CFGetTypeID(number) == CFBooleanGetTypeID() ? "Boolean" : "Number"
         }
+        if value is [String: Any] { return "Dictionary" }
+        if value is [Any] { return "Array" }
+        return String(describing: type(of: value))
+    }
+}
 
-        for key in ["ProductId", "UniqueChipId"] {
-            let value = values[key, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
-            if !value.isEmpty && (value.count % 2 != 0 || !Self.isASCIIHex(value)) {
-                found.append("\(key) 必须是偶数长度的十六进制字符串。")
-            }
+struct RawPlistDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.propertyList] }
+    let data: Data
+    init(data: Data) { self.data = data }
+    init(configuration: ReadConfiguration) throws {
+        guard let contents = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
         }
-
-        for key in ["WifiAddress", "BluetoothAddress", "EthernetMacAddress"] {
-            let value = values[key, default: ""].replacingOccurrences(of: ":", with: "").replacingOccurrences(of: "-", with: "")
-            if !value.isEmpty && (value.count != 12 || !Self.isASCIIHex(value)) {
-                found.append("\(key) 应为 6 组十六进制地址（可带冒号或短横线）。")
-            }
-        }
-
-        errors = found
-        status = found.isEmpty ? "基础格式检查通过，请核对配置内容。" : "发现格式问题，请修正后重新导出。"
+        _ = try PropertyListSerialization.propertyList(from: contents, options: [], format: nil)
+        data = contents
+    }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
