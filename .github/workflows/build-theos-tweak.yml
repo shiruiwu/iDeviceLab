@@ -1,0 +1,45 @@
+name: Build mod_hw Alpha11 Theos tweak
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'mod_hw_for_ios_V2_alpha11/**'
+      - '.github/workflows/build-theos-tweak.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-tweak:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mod_hw_for_ios_V2_alpha11
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Theos and iOS SDKs
+        uses: Randomblock1/theos-action@v1
+        with:
+          theos-dir: theos
+          theos-src: https://github.com/theos/theos
+          theos-sdks: https://github.com/theos/sdks
+          theos-sdks-branch: master
+
+      - name: Build Rootless tweak package
+        run: |
+          set -euo pipefail
+          export THEOS="$GITHUB_WORKSPACE/theos"
+          make clean package FINALPACKAGE=1
+          find packages -maxdepth 1 -type f -name '*.deb' -print -quit | grep -q .
+
+      - name: Upload Rootless Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-hw-alpha11-rootless-deb
+          path: mod_hw_for_ios_V2_alpha11/packages/*.deb
+          if-no-files-found: error
+          retention-days: 14
