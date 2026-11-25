@@ -47,4 +47,4 @@ jobs:
           name: mod-hw-manager-trollstore-ipa
           path: release/mod_hw_manager_trollstore.ipa
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
