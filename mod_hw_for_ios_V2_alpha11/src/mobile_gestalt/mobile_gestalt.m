@@ -640,43 +640,41 @@ void initGlobalSysCtl() {
 //////////////////////////////////////////////////////////
 static int (*orig_sysctlbyname)(const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen) = NULL;
 static int replace_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen){
-  int ReturnValue = 0;
-  if(oldp && oldlenp) {
-    if(!strcmp(name, "hw.model") && ModelDataLen) {
-      strlcpy(oldp, ModelData, ModelDataLen);
-      *oldlenp = ModelDataLen;
-      return ReturnValue;
-    } 
-    else if(!strcmp(name, "hw.machine") && MachineDataLen) {
-      strlcpy(oldp, MachineData, MachineDataLen);
-      *oldlenp = MachineDataLen;
-      return ReturnValue;
-    }
-  } 
-  else if(!oldp && oldlenp) {
-    if(!strcmp(name, "hw.model") && ModelDataLen) {
-      *oldlenp = ModelDataLen;
-      return ReturnValue;
-    } 
-    else if(!strcmp(name, "hw.machine") && MachineDataLen) {
-      *oldlenp = MachineDataLen;
-      return ReturnValue;
-    }
+  if (name == NULL) {
+    errno = EINVAL;
+    return -1;
   }
-  // size_t size;
-  // orig_sysctlbyname(name, NULL, &size, NULL, 0);
-  ReturnValue = orig_sysctlbyname(name, oldp, oldlenp, newp, newlen);
-  // if (oldp != NULL) {
-  //   NSLog(@"hook_sysctlbyname %s:%s", name, oldp);
-  // }
-  // if (name!=NULL && (!strcmp(name, "hw.machine") || !strcmp(name, "hw.product") || !strcmp(name, "hw.model") || !strcmp(name, "hw.target"))){
-  //   char *machine = malloc(*oldlenp + 1);
-  //   memset(machine, 0, *oldlenp + 1);
-  //   strlcpy(machine, oldp, size);
-  //   NSLog(@"hook_sysctlbyname %s:%s:%d\0", name, machine, size);
-  //   free(machine);
-  // }
-  return ReturnValue;
+
+  const char *replacement = NULL;
+  size_t required = 0;
+  if (!strcmp(name, "hw.model") && ModelDataLen > 0) {
+    replacement = ModelData;
+    required = (size_t)ModelDataLen;
+  } else if (!strcmp(name, "hw.machine") && MachineDataLen > 0) {
+    replacement = MachineData;
+    required = (size_t)MachineDataLen;
+  }
+
+  if (replacement != NULL && oldlenp != NULL) {
+    if (oldp == NULL) {
+      *oldlenp = required;
+      return 0;
+    }
+    if (*oldlenp < required) {
+      *oldlenp = required;
+      errno = ENOMEM;
+      return -1;
+    }
+    memcpy(oldp, replacement, required);
+    *oldlenp = required;
+    return 0;
+  }
+
+  if (orig_sysctlbyname == NULL) {
+    errno = ENOSYS;
+    return -1;
+  }
+  return orig_sysctlbyname(name, oldp, oldlenp, newp, newlen);
 }
 
 static void hook_sysctlbyname() {
@@ -809,7 +807,7 @@ __attribute__((__constructor__)) static void _MSInitialize(void) {
 
 HOOK_CORE_TELEPHONY(CFStringRef, _CTSettingCopyMyPhoneNumber) {
   // NSLog(@"xxxxxxx0");
-  return CFSTR("972-364-4415");
+  return _CTSettingCopyMyPhoneNumber();
 }
 
 HOOK_CORE_TELEPHONY(CFStringRef, _CTSIMSupportGetSIMStatus) {
