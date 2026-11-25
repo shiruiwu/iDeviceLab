@@ -85,6 +85,71 @@ static NSArray *InstalledApplications(void) {
     return apps;
 }
 
+static BOOL IsSafeAlpha11ConfigValue(NSString *key, NSString *value) {
+    if (![value isKindOfClass:NSString.class] || value.length == 0 || value.length > 64) return NO;
+    NSString *pattern = @"^[A-Za-z0-9 ._/-]+$";
+    if ([key isEqualToString:@"ProductVersion"])
+        pattern = @"^[0-9]{1,2}(\\.[0-9]{1,2}){1,2}$";
+    else if ([key isEqualToString:@"BuildVersion"])
+        pattern = @"^[A-Za-z0-9]{1,32}$";
+    NSPredicate *valid = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", pattern];
+    return [valid evaluateWithObject:value];
+}
+
+static NSDictionary *ApplySafeAlpha11ConfigUpdate(NSData *body) {
+    if (body.length == 0 || body.length > 32768)
+        return @{@ "ok":@NO, @ "error":@"empty or oversized configuration"};
+    id input = [NSJSONSerialization JSONObjectWithData:body options:0 error:nil];
+    if (![input isKindOfClass:NSDictionary.class])
+        return @{@ "ok":@NO, @ "error":@"configuration must be a JSON object"};
+
+    NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
+    NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
+    if (![attributes[NSFileType] isEqualToString:NSFileTypeRegular])
+        return @{@ "ok":@NO, @ "error":@"existing regular Alpha11 plist is required"};
+    NSMutableDictionary *current = [NSMutableDictionary dictionaryWithContentsOfFile:path];
+    if (![current isKindOfClass:NSMutableDictionary.class] ||
+        ![current[@"UniqueDeviceID"] isKindOfClass:NSString.class])
+        return @{@ "ok":@NO, @ "error":@"existing plist is invalid or missing Alpha11 root schema"};
+
+    NSSet *allowed = [NSSet setWithArray:@[
+        @"HWModelStr", @"ProductVersion", @"BuildVersion", @"HardwarePlatform",
+        @"ModelNumber", @"RegionInfo", @"RegionCode", @"ProductType"
+    ]];
+    NSMutableArray *applied = [NSMutableArray array];
+    NSMutableArray *ignored = [NSMutableArray array];
+    for (id rawKey in input) {
+        if (![rawKey isKindOfClass:NSString.class]) continue;
+        NSString *key = rawKey;
+        id rawValue = input[key];
+        if (![allowed containsObject:key] || ![rawValue isKindOfClass:NSString.class]) {
+            [ignored addObject:key];
+            continue;
+        }
+        NSString *value = rawValue;
+        if (!IsSafeAlpha11ConfigValue(key, value)) {
+            [ignored addObject:key];
+            continue;
+        }
+        current[key] = value;
+        [applied addObject:key];
+    }
+    if (applied.count == 0)
+        return @{@ "ok":@NO, @ "error":@"no valid supported fields were supplied", @ "ignoredKeys":ignored};
+
+    NSPropertyListFormat format = NSPropertyListXMLFormat_v1_0;
+    NSData *oldData = [NSData dataWithContentsOfFile:path];
+    if (oldData) {
+        [NSPropertyListSerialization propertyListWithData:oldData options:NSPropertyListMutableContainersAndLeaves format:&format error:nil];
+    }
+    NSError *writeError = nil;
+    NSData *newData = [NSPropertyListSerialization dataWithPropertyList:current format:format options:0 error:&writeError];
+    if (!newData || ![newData writeToFile:path options:NSDataWritingAtomic error:&writeError])
+        return @{@ "ok":@NO, @ "error":writeError.localizedDescription ?: @"unable to save plist"};
+    return @{@ "ok":@YES, @ "appliedKeys":[applied sortedArrayUsingSelector:@selector(compare:)],
+             @ "ignoredKeys":[ignored sortedArrayUsingSelector:@selector(compare:)], @ "path":path};
+}
+
 static NSDictionary *Alpha11ConfigStatus(void) {
     NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
     NSFileManager *fm = NSFileManager.defaultManager;
@@ -114,7 +179,7 @@ static NSDictionary *Alpha11ConfigStatus(void) {
              @"modifiedAt":@([attributes[NSFileModificationDate] timeIntervalSince1970])};
 }
 
-static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
+static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *body) {
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
@@ -122,6 +187,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/config/status"]) return Alpha11ConfigStatus();
+    if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/config/update"]) return ApplySafeAlpha11ConfigUpdate(body);
 
     return @{@"ok":@NO, @"error":@"not found"};
 }
@@ -187,9 +253,12 @@ int main(void) {
                     NSArray *first = lines.firstObject ? [lines.firstObject componentsSeparatedByString:@" "] : @[];
                     if (first.count >= 2 && range.location != NSNotFound) {
                         NSString *method = first[0], *target = first[1];
-                        NSDictionary *result = ProcessRequest(method, target);
+                        NSData *body = nil;
+                        if (headerEnd != NSNotFound && requestData.length >= headerEnd)
+                            body = [requestData subdataWithRange:NSMakeRange(headerEnd, requestData.length - headerEnd)];
+                        NSDictionary *result = ProcessRequest(method, target, body);
                         NSString *requestPath = [[target componentsSeparatedByString:@"?"] firstObject] ?: target;
-                        BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/config/status"] containsObject:requestPath];
+                        BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/config/status", @"/config/update"] containsObject:requestPath];
                         NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
                         Reply(client, result, (int)httpStatus);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
