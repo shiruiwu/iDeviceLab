@@ -113,7 +113,7 @@ struct CompatibilityView: View {
             reportURL = url
             reportMessage = "报告已生成，可通过分享菜单保存"
         } catch {
-            reportMessage = "生成失败：\\(error.localizedDescription)"
+            reportMessage = "生成失败：\(error.localizedDescription)"
         }
     }
 
