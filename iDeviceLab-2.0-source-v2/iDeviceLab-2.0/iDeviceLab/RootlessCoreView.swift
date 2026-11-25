@@ -40,9 +40,19 @@ private struct InstalledAppsResponse: Decodable {
     let apps: [InstalledApp]
 }
 
+private struct Alpha11ConfigStatus: Decodable {
+    let ok: Bool
+    let exists: Bool
+    let parseable: Bool
+    let path: String
+    let keyCount: Int
+    let keys: [String]
+    let modifiedAt: Double?
+}
+
 struct RootlessCoreView: View {
     @EnvironmentObject private var store: ProfileStore
-    @State private var exchangeSummary = "尚未同步"
+    @State private var alpha11Config: Alpha11ConfigStatus?
     @State private var serviceState = "正在检测"
     @State private var connectionDetail = ""
     @State private var version = ""
@@ -132,19 +142,23 @@ struct RootlessCoreView: View {
                         .font(.caption2).foregroundStyle(.secondary)
                 }
 
-                Section("配置同步（测试元数据）") {
-                    Text(exchangeSummary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Button {
-                        Task { await syncTestProfiles() }
-                    } label: {
-                        Label("同步管理器配置到核心", systemImage: "arrow.triangle.2.circlepath")
+                Section("Alpha11 本地配置文件（只读诊断）") {
+                    if let config = alpha11Config {
+                        LabeledContent("文件状态", value: !config.exists ? "尚未创建" : (config.parseable ? "存在且可解析" : "文件格式异常"))
+                        LabeledContent("字段数量", value: "\(config.keyCount)")
+                        Text(config.path).font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
+                        if !config.keys.isEmpty {
+                            Text("检测到字段").font(.caption).foregroundStyle(.secondary)
+                            Text(config.keys.joined(separator: "、")).font(.caption2).textSelection(.enabled)
+                        }
+                    } else {
+                        Text("尚未取得配置文件诊断结果").foregroundStyle(.secondary)
                     }
-                    .disabled(isBusy || serviceState != "已连接")
-                    Text("只同步设备型号、系统版本、语言、地区、时区、测试坐标、网络场景及 App 绑定元数据；不会驱动硬件身份 Hook。")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Button { Task { await refreshAlpha11Config() } } label: {
+                        Label("重新检查 Alpha11 配置", systemImage: "arrow.clockwise")
+                    }
+                    Text("此处直接检查 Alpha11 正在读取的本地 plist，只显示文件状态和字段名，不读取或展示设备唯一标识的具体值。")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
 
                 Section("本地配置记录") {
@@ -226,14 +240,7 @@ struct RootlessCoreView: View {
             selected = response.selected
             systemInfo = systemResponse
             installedApps = appsResponse.apps
-            if let exchangeURL = URL(string: "exchange/status", relativeTo: baseURL),
-               let (exchangeData, _) = try? await URLSession.shared.data(from: exchangeURL),
-               let summary = try? JSONSerialization.jsonObject(with: exchangeData) as? [String: Any] {
-                let synced = summary["synced"] as? Bool ?? false
-                let count = summary["profileCount"] as? Int ?? 0
-                let appCount = summary["managedAppCount"] as? Int ?? 0
-                exchangeSummary = synced ? "核心已接收：\(count) 套测试配置、\(appCount) 个 App 绑定" : "核心尚未收到配置"
-            }
+            await refreshAlpha11Config()
         } catch {
             connectionDetail = error.localizedDescription
             serviceState = "未连接"
@@ -246,47 +253,13 @@ struct RootlessCoreView: View {
     }
 
     @MainActor
-    private func syncTestProfiles() async {
-        isBusy = true
-        defer { isBusy = false }
+    private func refreshAlpha11Config() async {
         do {
-            let payload = try store.exportFullBackupData()
-            var request = URLRequest(url: baseURL.appendingPathComponent("exchange/import"))
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = payload
-            let (data, _) = try await URLSession.shared.data(for: request)
-            let result = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            guard result?["ok"] as? Bool == true else {
-                throw NSError(domain: "iDeviceLab.Exchange", code: 1,
-                              userInfo: [NSLocalizedDescriptionKey: result?["error"] as? String ?? "核心拒绝了配置包"])
-            }
-            let readBackURL = baseURL.appendingPathComponent("exchange/profiles")
-            let (readBackData, _) = try await URLSession.shared.data(from: readBackURL)
-            guard let readBack = try JSONSerialization.jsonObject(with: readBackData) as? [String: Any],
-                  readBack["ok"] as? Bool == true,
-                  readBack["synced"] as? Bool == true,
-                  readBack["schemaVersion"] as? Int == 1,
-                  let receivedProfiles = readBack["profiles"] as? [[String: Any]],
-                  let receivedApps = readBack["managedApps"] as? [[String: Any]] else {
-                throw NSError(domain: "iDeviceLab.Exchange", code: 2, userInfo: [NSLocalizedDescriptionKey: "核心回读校验失败，未确认同步结果"])
-            }
-            let count = receivedProfiles.count
-            let appCount = receivedApps.count
-            guard count == store.profiles.count, appCount == store.managedApps.count else {
-                throw NSError(domain: "iDeviceLab.Exchange", code: 3, userInfo: [NSLocalizedDescriptionKey: "核心回读数量与管理器不一致"])
-            }
-            let receivedProfileIDs = Set(receivedProfiles.compactMap { $0["id"] as? String })
-            let expectedProfileIDs = Set(store.profiles.map { $0.id.uuidString })
-            let receivedAppIDs = Set(receivedApps.compactMap { $0["id"] as? String })
-            let expectedAppIDs = Set(store.managedApps.map { $0.id.uuidString })
-            guard receivedProfileIDs == expectedProfileIDs, receivedAppIDs == expectedAppIDs else {
-                throw NSError(domain: "iDeviceLab.Exchange", code: 4, userInfo: [NSLocalizedDescriptionKey: "核心回读标识与管理器不一致"])
-            }
-            exchangeSummary = "已回读验证：\(count) 套测试配置、\(appCount) 个 App 绑定"
-            message = "核心已保存并回读验证测试配置包。该状态不代表第三方 App 运行时已应用配置。"
+            let url = baseURL.appendingPathComponent("config/status")
+            let (data, _) = try await URLSession.shared.data(from: url)
+            alpha11Config = try JSONDecoder().decode(Alpha11ConfigStatus.self, from: data)
         } catch {
-            message = "同步失败：\(error.localizedDescription)"
+            alpha11Config = nil
         }
     }
 
