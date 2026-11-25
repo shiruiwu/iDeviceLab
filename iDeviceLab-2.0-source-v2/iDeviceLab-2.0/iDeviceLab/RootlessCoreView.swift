@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 private struct RootlessStatus: Decodable {
     let ok: Bool
@@ -42,6 +43,7 @@ private struct Alpha11ConfigStatus: Decodable {
 struct RootlessCoreView: View {
     @EnvironmentObject private var store: ProfileStore
     @State private var alpha11Config: Alpha11ConfigStatus?
+    @State private var configImporterPresented = false
     @State private var serviceState = "正在检测"
     @State private var connectionDetail = ""
     @State private var version = ""
@@ -140,10 +142,16 @@ struct RootlessCoreView: View {
                     } else {
                         Text("尚未取得配置文件诊断结果").foregroundStyle(.secondary)
                     }
-                    Button { Task { await refreshAlpha11Config() } } label: {
-                        Label("重新检查 Alpha11 配置", systemImage: "arrow.clockwise")
+                    HStack {
+                        Button { Task { await refreshAlpha11Config() } } label: {
+                            Label("重新检查", systemImage: "arrow.clockwise")
+                        }
+                        Button { configImporterPresented = true } label: {
+                            Label("导入安全字段", systemImage: "square.and.arrow.down")
+                        }
+                        .disabled(serviceState != "已连接" || !((alpha11Config?.exists ?? false) && (alpha11Config?.schemaCompatible ?? false)))
                     }
-                    Text("此处直接检查 Alpha11 正在读取的本地 plist，只显示文件状态和字段名，不读取或展示设备唯一标识的具体值。")
+                    Text("可导入 HWModelStr、ProductVersion、BuildVersion、HardwarePlatform、ModelNumber、RegionInfo、RegionCode、ProductType。其他字段一律忽略，原文件中的唯一标识字段保持不变。")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
 
@@ -155,6 +163,9 @@ struct RootlessCoreView: View {
             }
             .navigationTitle("Rootless 核心")
             .task { await refresh() }
+            .fileImporter(isPresented: $configImporterPresented, allowedContentTypes: [.propertyList]) { result in
+                Task { await importSafeAlpha11Fields(result) }
+            }
             .alert("iDeviceLab", isPresented: Binding(
                 get: { message != nil },
                 set: { if !$0 { message = nil } }
@@ -192,6 +203,49 @@ struct RootlessCoreView: View {
             systemInfo = nil
             installedApps = []
             alpha11Config = nil
+        }
+    }
+
+    @MainActor
+    private func importSafeAlpha11Fields(_ result: Result<URL, Error>) async {
+        do {
+            let url = try result.get()
+            let hasScope = url.startAccessingSecurityScopedResource()
+            defer { if hasScope { url.stopAccessingSecurityScopedResource() } }
+            let data = try Data(contentsOf: url)
+            let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+            guard let dictionary = object as? [String: Any] else {
+                throw NSError(domain: "iDeviceLab.ConfigImport", code: 1, userInfo: [NSLocalizedDescriptionKey: "所选 plist 根对象必须是 Dictionary"])
+            }
+            let allowed: Set<String> = ["HWModelStr", "ProductVersion", "BuildVersion", "HardwarePlatform", "ModelNumber", "RegionInfo", "RegionCode", "ProductType"]
+            var safeValues: [String: String] = [:]
+            for key in allowed {
+                if let value = dictionary[key] as? String, !value.isEmpty {
+                    safeValues[key] = value
+                }
+            }
+            guard !safeValues.isEmpty else {
+                throw NSError(domain: "iDeviceLab.ConfigImport", code: 2, userInfo: [NSLocalizedDescriptionKey: "文件中没有可导入的安全字段"])
+            }
+            let body = try JSONSerialization.data(withJSONObject: safeValues, options: [])
+            var request = URLRequest(url: baseURL.appendingPathComponent("config/update"))
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(String(body.count), forHTTPHeaderField: "Content-Length")
+            request.httpBody = body
+            let (responseData, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  let resultObject = try JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+                  resultObject["ok"] as? Bool == true else {
+                let errorObject = (try? JSONSerialization.jsonObject(with: responseData)) as? [String: Any]
+                throw NSError(domain: "iDeviceLab.ConfigImport", code: 3, userInfo: [NSLocalizedDescriptionKey: errorObject?["error"] as? String ?? "核心拒绝了配置更新"])
+            }
+            let applied = resultObject["appliedKeys"] as? [String] ?? []
+            let ignored = resultObject["ignoredKeys"] as? [String] ?? []
+            message = "已写入 Alpha11 本地 plist。更新字段：\(applied.joined(separator: "、"))。忽略字段：\(ignored.isEmpty ? "无" : ignored.joined(separator: "、"))。请重新启动目标进程后再检查读取状态。"
+            await refreshAlpha11Config()
+        } catch {
+            message = "配置导入失败：\(error.localizedDescription)"
         }
     }
 
