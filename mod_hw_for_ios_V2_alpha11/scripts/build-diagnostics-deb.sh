@@ -9,8 +9,8 @@ mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/bin" "$OUT"
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.modhw.ios.diagnostics
 Name: mod_hw_for_ios V2 Diagnostics
-Version: 2.0.0~final1
-Architecture: iphoneos-arm
+Version: 2.0.0~final2
+Architecture: iphoneos-arm64
 Description: Read-only configuration plist diagnostics for rootless iOS.
 Maintainer: mod_hw_for_ios contributors
 Section: Utilities
