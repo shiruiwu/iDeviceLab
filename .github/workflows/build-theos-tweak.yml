@@ -1,11 +1,7 @@
-name: Build mod_hw Alpha11 Theos tweak
+name: Manual upstream Alpha11 Theos build (not part of safe release)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'mod_hw_for_ios_V2_alpha11/**'
-      - '.github/workflows/build-theos-tweak.yml'
 
 permissions:
   contents: read

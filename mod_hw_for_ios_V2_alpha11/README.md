@@ -1,5 +1,10 @@
 # mod_hw_for_ios
 
+## 当前交付构建说明
+
+当前自动发布工作流构建的是 **Alpha11 plist 查看管理器 IPA** 与 **只读配置诊断 DEB**，Artifact 名称为 `mod-hw-v2-final-safe-builds`。原作者 Theos 动态库源码仍保留在仓库供源码审阅；其单独构建工作流改为手动触发，不会随常规提交自动生成运行时 Hook 安装包。Alpha11 配置文件管理通过 iDeviceLab Rootless Core 的白名单字段导入接口完成，详见仓库根目录 `ALPHA11_LOCAL_CONFIG.md`。
+
+
 ## 简介 | Overview
 ### English
 `mod_hw_for_ios` is a jailbreak-oriented dynamic library that hooks into `MobileGestalt`, `IOKit`, `sysctl`, and selected CoreTelephony entry points in order to rewrite hardware identifiers (serial number, IMEI/MEID, MAC addresses, IDFA/IDFV, and more) at runtime. It is primarily intended for research and debugging around device fingerprint synchronization, and ships with auxiliary Frida scripts plus response filters that expose the data exchanged with iCloud/Apple services.
