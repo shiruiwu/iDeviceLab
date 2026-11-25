@@ -71,7 +71,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("mod_hw 管理器")
-            .fileImporter(isPresented: $importOpen, allowedContentTypes: [.propertyList]) { result in
+            .fileImporter(isPresented: $importOpen, allowedContentTypes: [.propertyList, .data]) { result in
                 importPlist(result)
             }
             .fileExporter(
@@ -95,26 +95,61 @@ struct ContentView: View {
 
     private func importPlist(_ result: Result<URL, Error>) {
         do {
-            let url = try result.get()
-            let hasAccess = url.startAccessingSecurityScopedResource()
-            defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
-            let data = try Data(contentsOf: url)
+            let selectedURL = try result.get()
+            let hasSecurityScope = selectedURL.startAccessingSecurityScopedResource()
+            defer {
+                if hasSecurityScope { selectedURL.stopAccessingSecurityScopedResource() }
+            }
+
+            // Coordinate reads from Files, iCloud Drive, and third-party File Providers.
+            // Parse only a coordinated read URL while the security scope is active.
+            var coordinationError: NSError?
+            var readResult: Result<Data, Error>?
+            NSFileCoordinator(filePresenter: nil).coordinate(
+                readingItemAt: selectedURL,
+                options: [],
+                error: &coordinationError
+            ) { coordinatedURL in
+                readResult = Result {
+                    let values = try coordinatedURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
+                    guard values.isRegularFile == true, values.isDirectory != true else {
+                        throw CocoaError(.fileReadUnsupportedScheme)
+                    }
+                    return try Data(contentsOf: coordinatedURL, options: [.mappedIfSafe])
+                }
+            }
+            if let coordinationError { throw coordinationError }
+            guard let readResult else {
+                throw CocoaError(.fileReadUnknown)
+            }
+            let data = try readResult.get()
+
             var format = PropertyListSerialization.PropertyListFormat.xml
-            let object = try PropertyListSerialization.propertyList(from: data, options: [], format: &format)
+            let object = try PropertyListSerialization.propertyList(
+                from: data,
+                options: [],
+                format: &format
+            )
+
             importedData = data
-            fileName = url.lastPathComponent
+            fileName = selectedURL.lastPathComponent
+            isValid = true
             if let dictionary = object as? [String: Any] {
                 rootType = "Dictionary"
                 entries = dictionary.keys.sorted().map { key in
                     PlistEntry(key: key, typeName: Self.typeName(dictionary[key]))
                 }
-                isValid = true
-                status = "导入成功。已读取字段名称和类型；字段值未展示、未更改，导出时保留原始文件字节。"
+                status = "导入成功（\\(format == .binary ? "Binary" : "XML") plist）。已读取字段名称和类型；字段值未展示，导出保留原始字节。"
+            } else if let array = object as? [Any] {
+                rootType = "Array"
+                entries = array.enumerated().map { index, value in
+                    PlistEntry(key: "[\\(index)]", typeName: Self.typeName(value))
+                }
+                status = "导入成功。根对象为 Array，共 \\(array.count) 项；导出保留原始字节。"
             } else {
-                rootType = String(describing: type(of: object))
+                rootType = Self.typeName(object)
                 entries = []
-                isValid = false
-                status = "plist 可以解析，但根对象不是 Dictionary 结构。"
+                status = "导入成功。根对象类型：\\(rootType)。原始文件字节已保留。"
             }
         } catch {
             importedData = nil
@@ -122,7 +157,7 @@ struct ContentView: View {
             rootType = "无法解析"
             isValid = false
             fileName = "导入失败"
-            status = "文件读取或 plist 解析失败：\(error.localizedDescription)"
+            status = "导入失败（\\(String(reflecting: type(of: error)))）：\\(error.localizedDescription)"
         }
     }
 
