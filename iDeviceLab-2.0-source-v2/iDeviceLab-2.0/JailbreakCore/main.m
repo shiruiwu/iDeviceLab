@@ -185,10 +185,6 @@ int main(void) {
                     NSArray *first = lines.firstObject ? [lines.firstObject componentsSeparatedByString:@" "] : @[];
                     if (first.count >= 2 && range.location != NSNotFound) {
                         NSString *method = first[0], *target = first[1];
-                        NSUInteger bodyStart = NSMaxRange(range);
-                        NSUInteger available = requestData.length > bodyStart ? requestData.length - bodyStart : 0;
-                        NSUInteger bodyLength = MIN(expectedLength, available);
-                        NSData *body = [requestData subdataWithRange:NSMakeRange(bodyStart, bodyLength)];
                         NSDictionary *result = ProcessRequest(method, target);
                         BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/compatibility"] || [target hasPrefix:@"/apps"] || [target hasPrefix:@"/config"];
                         NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
