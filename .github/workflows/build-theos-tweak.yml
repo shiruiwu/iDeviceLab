@@ -29,7 +29,8 @@ jobs:
         run: |
           set -euo pipefail
           git clone --depth 1 https://github.com/theos/theos.git "$GITHUB_WORKSPACE/theos"
-          git clone --depth 1 https://github.com/theos/sdks.git "$GITHUB_WORKSPACE/theos/sdks"
+          git clone --depth 1 https://github.com/theos/sdks.git "$RUNNER_TEMP/theos-sdks"
+          rsync -a "$RUNNER_TEMP/theos-sdks/" "$GITHUB_WORKSPACE/theos/sdks/"
           test -d "$GITHUB_WORKSPACE/theos/sdks"
           find "$GITHUB_WORKSPACE/theos/sdks" -maxdepth 1 -type d -name 'iPhoneOS*.sdk' -print | head -5
           test -n "$(find "$GITHUB_WORKSPACE/theos/sdks" -maxdepth 1 -type d -name 'iPhoneOS*.sdk' -print -quit)"
