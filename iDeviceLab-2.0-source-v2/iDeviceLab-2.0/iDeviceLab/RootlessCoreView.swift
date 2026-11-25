@@ -249,6 +249,7 @@ struct RootlessCoreView: View {
             selected = ""
             systemInfo = nil
             installedApps = []
+            alpha11Config = nil
         }
     }
 
