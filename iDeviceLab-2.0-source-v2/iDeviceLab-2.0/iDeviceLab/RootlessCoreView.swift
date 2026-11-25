@@ -168,8 +168,6 @@ struct RootlessCoreView: View {
 
     @MainActor
     private func refresh() async {
-        isBusy = true
-        defer { isBusy = false }
         do {
             let (statusData, _) = try await URLSession.shared.data(from: baseURL.appendingPathComponent("status"))
             let status = try JSONDecoder().decode(RootlessStatus.self, from: statusData)
