@@ -215,8 +215,10 @@ void initPrefFile(){
   cf_device = [[NSMutableDictionary alloc] init];
   for (int i=0;i<3;i++) {
     NSString *path = [[NSFileManager defaultManager] fileExistsAtPath:kPref] ? kPref : legacyPref;
-    NSMutableDictionary* aa = [[NSMutableDictionary alloc] init];
-    aa = [[NSMutableDictionary alloc] initWithContentsOfFile:path];
+    NSMutableDictionary* aa = [[NSMutableDictionary alloc] initWithContentsOfFile:path];
+    if (aa == nil) {
+      aa = [[NSMutableDictionary alloc] init];
+    }
     cf_device = [[NSMutableDictionary alloc] initWithDictionary:aa];
     if ([cf_device count]) {
       CFDataRef a;
