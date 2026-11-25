@@ -7,7 +7,7 @@
 - Alpha11 的主配置文件路径：`/var/mobile/Library/Preferences/com.modhw.ios.devices.plist`。
 - Alpha11 在动态库初始化时调用 `initPrefFile()` 读取该文件；旧路径 `/tmp/devices.plist` 仅作为原项目兼容回退。
 - iDeviceLab Rootless Core 作为本机诊断服务运行，监听回环地址 `127.0.0.1:18080`，不会连接云端。
-- `GET /config/status` 检查主配置文件是否存在、是否可解析、字段数量、字段名和修改时间；不会返回配置值。
+- `GET /config/status` 检查主配置文件是否存在、是否可解析、Alpha11 加载器要求的 `UniqueDeviceID` 字段是否存在且为字符串、字段数量、字段名和修改时间；不会返回任何字段值。
 - 管理器的「Alpha11 本地配置文件」区域展示上述诊断结果。
 
 ## 重要区别
