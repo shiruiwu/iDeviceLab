@@ -183,6 +183,7 @@ final class ProfileStore: ObservableObject {
         }
         profiles = Self.normalized(archive.profiles)
         managedApps = archive.managedApps
+        let validIDs = Set(profiles.map(\.id))
         selectedID = archive.selectedID.flatMap { validIDs.contains($0) ? $0 : nil } ?? profiles[0].id
     }
 
@@ -199,6 +200,7 @@ final class ProfileStore: ObservableObject {
         try Self.validateManagedApps(archive.managedApps, profiles: archive.profiles)
         profiles = Self.normalized(archive.profiles)
         managedApps = archive.managedApps
+        let validIDs = Set(profiles.map(\.id))
         selectedID = archive.selectedID.flatMap { validIDs.contains($0) ? $0 : nil } ?? profiles[0].id
     }
     private static func validateProfiles(_ profiles: [DeviceProfile]) throws {
