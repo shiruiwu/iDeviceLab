@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-	<dict>
-		<key>UniqueDeviceID</key>
-		<string>dd7f64eec2fafe3c4c281d0f1b84f05a4340dd1b</string>
-		<key>UniqueDeviceIDData</key>
-		<true/>
-		<key>SerialNumber</key>
-		<string>C8PW43N3JC6G</string>
-	</dict>
+<dict>
+  <key>UniqueDeviceID</key><string></string>
+  <key>UniqueDeviceIDData</key><false/>
+  <key>SerialNumber</key><string></string>
+  <key>WifiAddress</key><string></string>
+  <key>WifiAddressData</key><false/>
+  <key>BluetoothAddress</key><string></string>
+  <key>BluetoothAddressData</key><false/>
+  <key>InternationalMobileEquipmentIdentity</key><string></string>
+  <key>MobileEquipmentIdentifier</key><string></string>
+  <key>IDFA</key><string></string>
+  <key>IDFV</key><string></string>
+</dict>
 </plist>
