@@ -20,7 +20,7 @@ iOS 本地测试配置管理器与只读 Rootless Core（系统诊断、已安�
 - `iDeviceLab-trollstore-ipa)：iDeviceLab 管理器 IPA。
 - `iDeviceLab-rootless-deb)：iDeviceLab Rootless Core DEB。
 - `mod-hw-alpha11-rootless-deb)：Alpha11 Rootless tweak DEB。
-- Alpha11 Manager IPA（如该 workflow run 同时上传该 Artifact）：仅作为原项目附带管理器。
+- `mod-hw-v2-final-safe-builds`：Alpha11 配置查看管理器 IPA + 只读诊断 DEB。
 
 ## 验收状态
 
