@@ -1,5 +1,9 @@
 name: Build iDevice Lab and Rootless Core
 
+concurrency:
+  group: idevice-lab-main-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
