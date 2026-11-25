@@ -87,7 +87,7 @@ static NSArray *InstalledApplications(void) {
 
 static BOOL IsSafeAlpha11ConfigValue(NSString *key, NSString *value) {
     if (![value isKindOfClass:NSString.class] || value.length == 0 || value.length > 64) return NO;
-    NSString *pattern = @"^[A-Za-z0-9 ._/-]+$";
+    NSString *pattern = @"^[A-Za-z0-9 ,._/-]+$";
     if ([key isEqualToString:@"ProductVersion"])
         pattern = @"^[0-9]{1,2}(\\.[0-9]{1,2}){1,2}$";
     else if ([key isEqualToString:@"BuildVersion"])
