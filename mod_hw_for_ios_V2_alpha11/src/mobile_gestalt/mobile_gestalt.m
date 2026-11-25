@@ -372,7 +372,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntryCreateCFProperty,
     data = [cf_device objectForKey:@"BluetoothAddress"];
     if (data!=nil&&[data length]>0) {
       // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,result);
-      result = (__bridge CFStringRef*)data;
+      result = (__bridge CFStringRef)data;
     }
   }
   else if(!memcmp(ssss,target_key_a,sizeof(target_key_a)-sizeof(char))){
