@@ -148,12 +148,35 @@ struct MaintenanceView: View {
         guard !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
+
         let fm = FileManager.default
-        let roots = [fm.urls(for: .cachesDirectory, in: .userDomainMask).first, fm.temporaryDirectory].compactMap { $0 }
+        let roots = [
+            fm.urls(for: .cachesDirectory, in: .userDomainMask).first,
+            fm.temporaryDirectory
+        ].compactMap { $0 }.map { $0.standardizedFileURL }
+
         do {
             for root in roots {
-                let children = try fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil, options: [])
-                for child in children { try fm.removeItem(at: child) }
+                // Only operate on the two known app-owned roots, and reject a redirected root.
+                guard root.resolvingSymlinksInPath().standardizedFileURL.path == root.path else {
+                    throw NSError(domain: "iDeviceLab.Maintenance", code: 1,
+                                  userInfo: [NSLocalizedDescriptionKey: "检测到缓存目录路径异常，已停止清理。"])
+                }
+
+                let children = try fm.contentsOfDirectory(
+                    at: root,
+                    includingPropertiesForKeys: [.isSymbolicLinkKey],
+                    options: []
+                )
+                for child in children {
+                    let candidate = child.standardizedFileURL
+                    guard candidate.deletingLastPathComponent().path == root.path else {
+                        throw NSError(domain: "iDeviceLab.Maintenance", code: 2,
+                                      userInfo: [NSLocalizedDescriptionKey: "检测到目录越界路径，已停止清理。"])
+                    }
+                    // FileManager removes a symlink itself rather than traversing its target.
+                    try fm.removeItem(at: candidate)
+                }
             }
             scan()
             message = "已清理本应用的缓存和临时文件。配置、备份及其他 App 数据未受影响。"
