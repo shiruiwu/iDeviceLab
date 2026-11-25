@@ -234,6 +234,8 @@ struct RootlessCoreView: View {
 
     @MainActor
     private func syncTestProfiles() async {
+        isBusy = true
+        defer { isBusy = false }
         do {
             let payload = try store.exportFullBackupData()
             var request = URLRequest(url: baseURL.appendingPathComponent("exchange/import"))
@@ -246,11 +248,23 @@ struct RootlessCoreView: View {
                 throw NSError(domain: "iDeviceLab.Exchange", code: 1,
                               userInfo: [NSLocalizedDescriptionKey: result?["error"] as? String ?? "核心拒绝了配置包"])
             }
-            let count = result?["profileCount"] as? Int ?? store.profiles.count
-            let appCount = result?["managedAppCount"] as? Int ?? store.managedApps.count
-            exchangeSummary = "核心已接收：\(count) 套测试配置、\(appCount) 个 App 绑定"
-            message = "测试配置已同步到 Rootless 核心。此操作只保存测试元数据，不会启用身份修改 Hook。"
-            await refresh()
+            let readBackURL = baseURL.appendingPathComponent("exchange/profiles")
+            let (readBackData, _) = try await URLSession.shared.data(from: readBackURL)
+            guard let readBack = try JSONSerialization.jsonObject(with: readBackData) as? [String: Any],
+                  readBack["ok"] as? Bool == true,
+                  readBack["synced"] as? Bool == true,
+                  readBack["schemaVersion"] as? Int == 1,
+                  let receivedProfiles = readBack["profiles"] as? [[String: Any]],
+                  let receivedApps = readBack["managedApps"] as? [[String: Any]] else {
+                throw NSError(domain: "iDeviceLab.Exchange", code: 2, userInfo: [NSLocalizedDescriptionKey: "核心回读校验失败，未确认同步结果"])
+            }
+            let count = receivedProfiles.count
+            let appCount = receivedApps.count
+            guard count == store.profiles.count, appCount == store.managedApps.count else {
+                throw NSError(domain: "iDeviceLab.Exchange", code: 3, userInfo: [NSLocalizedDescriptionKey: "核心回读数量与管理器不一致"])
+            }
+            exchangeSummary = "已回读验证：\(count) 套测试配置、\(appCount) 个 App 绑定"
+            message = "核心已保存并回读验证测试配置包。该状态不代表第三方 App 运行时已应用配置。"
         } catch {
             message = "同步失败：\(error.localizedDescription)"
         }
