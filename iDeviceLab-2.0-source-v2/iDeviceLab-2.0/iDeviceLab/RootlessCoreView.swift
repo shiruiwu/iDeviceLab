@@ -48,7 +48,6 @@ struct RootlessCoreView: View {
     @State private var installedApps: [InstalledApp] = []
     @State private var appSearch = ""
     @State private var message: String?
-    @State private var isBusy = false
 
     private let baseURL = URL(string: "http://127.0.0.1:18080")!
 
