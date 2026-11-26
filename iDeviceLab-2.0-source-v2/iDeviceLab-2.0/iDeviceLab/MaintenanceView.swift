@@ -19,6 +19,7 @@ struct MaintenanceView: View {
     @State private var orphanedContainerCount = 0
     @State private var orphanedContainers: [OrphanedContainerItem] = []
     @State private var inventoryScannedAt: Date?
+    @State private var inventoryLastError: String?
     @State private var lastAppCleanup: [String: Any]?
     @State private var appMaintenanceMessage = "尚未扫描"
     @State private var isCleaningApp = false
@@ -110,7 +111,10 @@ struct MaintenanceView: View {
                     }
                     LabeledContent("疑似卸载残留容器", value: "\(orphanedContainerCount) 个")
                     if let inventoryScannedAt {
-                        LabeledContent("最近扫描", value: inventoryScannedAt.formatted(date: .abbreviated, time: .shortened))
+                        LabeledContent("最近成功扫描", value: inventoryScannedAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    if let inventoryLastError {
+                        Text("最近扫描错误：\(inventoryLastError)").font(.caption2).foregroundStyle(.secondary)
                     }
                     if !orphanedContainers.isEmpty {
                         ForEach(orphanedContainers) { orphan in
@@ -129,6 +133,27 @@ struct MaintenanceView: View {
                     }
                     Text("仅清理所选已安装 App 容器内的 Library/Caches 和 tmp。疑似残留只列出供核查，不会自动删除。不会删除 Documents、数据库、偏好设置、钥匙串或登录凭据。清理前请先退出目标 App。")
                         .font(.caption).foregroundStyle(.secondary)
+                }
+
+                if let lastAppCleanup {
+                    Section("最近一次 App 清理记录") {
+                        let result = lastAppCleanup["result"] as? String
+                            ?? ((lastAppCleanup["partial"] as? Bool == true) ? "partial" : "unknown")
+                        let removed = (lastAppCleanup["removedBytes"] as? NSNumber)?.int64Value ?? 0
+                        let removedItems = (lastAppCleanup["removedItems"] as? NSNumber)?.intValue ?? 0
+                        LabeledContent("结果", value: result == "success" ? "完成" : (result == "partial" ? "部分完成" : "失败 / 旧记录"))
+                        LabeledContent("已处理项目", value: "\(removedItems)")
+                        LabeledContent("已处理容量", value: ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))
+                        if let failedArea = lastAppCleanup["failedArea"] as? String, !failedArea.isEmpty {
+                            LabeledContent("失败位置", value: failedArea)
+                        }
+                        if let error = lastAppCleanup["error"] as? String, !error.isEmpty {
+                            Text(error).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        if let completedAt = lastAppCleanup["completedAt"] as? String {
+                            Text(completedAt).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 Section("范围说明") {
@@ -181,7 +206,7 @@ struct MaintenanceView: View {
     }
 
     @MainActor
-    private func refreshAppInventory() async {
+    private func refreshAppInventory() async -> Bool {
         do {
             let (data, response) = try await URLSession.shared.data(from: coreURL.appendingPathComponent("maintenance/apps"))
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
@@ -193,12 +218,16 @@ struct MaintenanceView: View {
             orphanedContainerCount = result.orphanedContainerCount
             orphanedContainers = result.orphanedContainers ?? []
             inventoryScannedAt = Date()
+            inventoryLastError = nil
             if !appItems.contains(where: { $0.bundleIdentifier == selectedAppBundleID }) {
                 selectedAppBundleID = appItems.first?.bundleIdentifier ?? ""
             }
             appMaintenanceMessage = "已扫描 \(appItems.count) 个已安装应用"
+            return true
         } catch {
+            inventoryLastError = error.localizedDescription
             appMaintenanceMessage = "扫描失败：\(error.localizedDescription)"
+            return false
         }
     }
 
@@ -229,6 +258,7 @@ struct MaintenanceView: View {
                 "removedBytes": removed,
                 "removedItems": (object?["removedItems"] as? NSNumber)?.intValue ?? 0,
                 "partial": false,
+                "result": "success",
                 "completedAt": ISO8601DateFormatter().string(from: Date()),
                 "areas": ["Library/Caches", "tmp"]
             ]
@@ -247,6 +277,7 @@ struct MaintenanceView: View {
                     "removedBytes": removed,
                     "removedItems": removedItems,
                     "partial": partial,
+                    "result": partial ? "partial" : "failed",
                     "failedArea": result["failedArea"] as? String ?? "",
                     "error": result["error"] as? String ?? error.localizedDescription,
                     "completedAt": ISO8601DateFormatter().string(from: Date()),
@@ -265,7 +296,7 @@ struct MaintenanceView: View {
     @MainActor
     private func exportMaintenanceReport() async {
         scan()
-        await refreshAppInventory()
+        let inventoryFresh = await refreshAppInventory()
         let appInventory = appItems.map { app in
             [
                 "name": app.name,
@@ -298,6 +329,9 @@ struct MaintenanceView: View {
             "reportVersion": 2,
             "generatedAt": ISO8601DateFormatter().string(from: Date()),
             "inventoryScannedAt": inventoryScannedAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
+            "inventoryFresh": inventoryFresh,
+            "inventoryScanError": inventoryLastError ?? "",
+            "inventoryFreshnessNote": inventoryFresh ? "Current scan" : "Last successful scan retained; current refresh failed",
             "device": ["platform": "iOS", "app": "iDeviceLab"],
             "manager": ["profileCount": store.profiles.count, "managedAppBindingCount": store.managedApps.count],
             "appOwnedStorage": ["cachesBytes": cacheBytes, "temporaryBytes": temporaryBytes, "totalScannedBytes": totalBytes],

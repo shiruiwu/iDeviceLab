@@ -84,6 +84,9 @@ check('"installedAppInventory": appInventory' in MAINTENANCE and '"orphanedConta
 check("OrphanedContainerItem" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/Models.swift").read_text(), "Manager has typed orphan container response model")
 check('"diagnosticReason"' in MAIN and '"containerScanStatus"' in MAIN, "Core explains orphan candidate evidence and scan completeness")
 check("diagnosticReason" in MAINTENANCE and "containerScanStatus" in MAINTENANCE, "Manager displays orphan evidence and scan completeness")
+check("decodeIfPresent(String.self, forKey: .cachesScanStatus)" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/Models.swift").read_text(), "Manager decodes maintenance inventory from older Core versions")
+check("inventoryFresh" in MAINTENANCE and "inventoryScanError" in MAINTENANCE, "Maintenance report marks stale inventory when refresh fails")
+check('Section("最近一次 App 清理记录")' in MAINTENANCE and '"result": partial ? "partial" : "failed"' in MAINTENANCE, "Manager displays success, partial and failed cleanup history")
 
 check('Label("同步当前配置档案"' in SWIFT, "Manager exposes selected-profile sync to Alpha11 local plist")
 check('"HWModelStr": profile.deviceModel' in SWIFT and '"ProductVersion": profile.iosVersion' in SWIFT and '"RegionCode": profile.region' in SWIFT, "Profile sync maps only explicit safe profile fields")

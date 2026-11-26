@@ -54,6 +54,29 @@ struct AppMaintenanceItem: Identifiable, Codable, Equatable {
     let cachesScanError: String
     let temporaryScanError: String
     let cleanableBytes: Int64
+
+    private enum CodingKeys: String, CodingKey {
+        case name, bundleIdentifier, version, containerAvailable, cachesBytes, temporaryBytes
+        case cachesFileCount, temporaryFileCount, cachesScanStatus, temporaryScanStatus
+        case cachesScanError, temporaryScanError, cleanableBytes
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        bundleIdentifier = try values.decode(String.self, forKey: .bundleIdentifier)
+        name = try values.decodeIfPresent(String.self, forKey: .name) ?? bundleIdentifier
+        version = try values.decodeIfPresent(String.self, forKey: .version) ?? ""
+        containerAvailable = try values.decodeIfPresent(Bool.self, forKey: .containerAvailable) ?? false
+        cachesBytes = try values.decodeIfPresent(Int64.self, forKey: .cachesBytes) ?? 0
+        temporaryBytes = try values.decodeIfPresent(Int64.self, forKey: .temporaryBytes) ?? 0
+        cachesFileCount = try values.decodeIfPresent(Int.self, forKey: .cachesFileCount) ?? 0
+        temporaryFileCount = try values.decodeIfPresent(Int.self, forKey: .temporaryFileCount) ?? 0
+        cachesScanStatus = try values.decodeIfPresent(String.self, forKey: .cachesScanStatus) ?? "unknown"
+        temporaryScanStatus = try values.decodeIfPresent(String.self, forKey: .temporaryScanStatus) ?? "unknown"
+        cachesScanError = try values.decodeIfPresent(String.self, forKey: .cachesScanError) ?? ""
+        temporaryScanError = try values.decodeIfPresent(String.self, forKey: .temporaryScanError) ?? ""
+        cleanableBytes = try values.decodeIfPresent(Int64.self, forKey: .cleanableBytes) ?? (cachesBytes + temporaryBytes)
+    }
 }
 
 struct OrphanedContainerItem: Identifiable, Codable, Equatable {
@@ -65,6 +88,23 @@ struct OrphanedContainerItem: Identifiable, Codable, Equatable {
     let containerScanStatus: String
     let containerScanError: String
     let diagnosticReason: String
+
+    private enum CodingKeys: String, CodingKey {
+        case bundleIdentifier, containerUUID, accessible, containerBytes
+        case containerScanStatus, containerScanError, diagnosticReason
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        bundleIdentifier = try values.decode(String.self, forKey: .bundleIdentifier)
+        containerUUID = try values.decode(String.self, forKey: .containerUUID)
+        accessible = try values.decodeIfPresent(Bool.self, forKey: .accessible) ?? false
+        containerBytes = try values.decodeIfPresent(Int64.self, forKey: .containerBytes) ?? 0
+        containerScanStatus = try values.decodeIfPresent(String.self, forKey: .containerScanStatus) ?? "unknown"
+        containerScanError = try values.decodeIfPresent(String.self, forKey: .containerScanError) ?? ""
+        diagnosticReason = try values.decodeIfPresent(String.self, forKey: .diagnosticReason)
+            ?? "该结果来自旧版 Core，未提供残留判定依据。"
+    }
 }
 
 struct AppMaintenanceResponse: Codable {
