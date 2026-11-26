@@ -67,7 +67,7 @@ See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the so
 
 ## 运行机制 | Runtime Behavior
 - The tweak loads its configured plist during initialization and contains hooks in the source tree. Actual hook coverage depends on target process, OS version, substrate environment, and runtime testing.
-- The manager is sandboxed and handles user-selected files. It can export the current plist using the selected installed App's Bundle ID as the filename, but import/export does not itself grant access to privileged jailbreak directories. Rootless backup commands are separate privileged tools and require an explicit bundle identifier.
+- The manager is sandboxed and handles user-selected files. It can export the current plist using the selected installed App's Bundle ID as the filename. Before per-app export, it validates the original Hook's required 40-character hexadecimal `UniqueDeviceID` and any enabled 12-character MAC-address data fields. Import/export does not itself grant access to privileged jailbreak directories. Rootless backup commands are separate privileged tools and require an explicit bundle identifier.
 - The original Hook now resolves a per-app plist by the current process Bundle ID before falling back to the global plist. Create the profile directory manually as `/var/mobile/Library/Preferences/com.modhw.ios.profiles/` and place one validated plist per Bundle ID. This is source-level profile selection; target-process injection and runtime isolation still require device verification.
 - Alpha11 now packages a separate read-only Rootless Core on `127.0.0.1:18081`; the manager can test its `/status` endpoint. It does not yet consume legacy profiles or apply per-app configuration to the tweak.
 
