@@ -138,7 +138,7 @@ if app_cleanup.is_file():
     src = app_cleanup.read_text()
     check("mod-hw-app-backup" in src and "mod-hw-app-backup-verify" in src and "cleanup-snapshots" in src and "--confirm" in src and "tar -tvzf" in src,
           "App cleanup creates and verifies a backup and rollback snapshot before clearing data")
-    check('if pgrep -x "$EXECUTABLE"' in src and '[ "$PGP_STATUS" -eq 1 ]' in src,
+    check('if killall -0 "$EXECUTABLE"' in src and '[ "$KILLALL_STATUS" -eq 1 ]' in src,
           "App cleanup distinguishes a stopped process from a pgrep execution error")
     check('tar -tvzf "$ARCHIVE_PATH" > "$DETAIL_LIST"' in src and "END { exit bad }" in src,
           "App cleanup propagates archive-listing failures instead of masking them in a pipeline")
@@ -188,7 +188,7 @@ check('mod-hw-config-backup' in package_builder and 'mod-hw-config-restore' in p
       "Rootless utility DEB packages config backup and restore commands")
 check('mod-hw-app-backup' in package_builder and 'mod-hw-app-restore' in package_builder and 'mod-hw-app-clean' in package_builder and 'mod-hw-app-backup-verify' in package_builder and 'mod-hw-selftest' in package_builder and 'mod-hw-keychain-diagnose' in package_builder,
       "Rootless utility DEB packages app-container backup and verification commands")
-check("Depends: coreutils, procps" in package_builder, "Backup/restore tooling declares SHA-256 and process-inspection dependencies")
+check("Depends: coreutils" in package_builder and "procps" not in package_builder, "Backup/restore tooling avoids an unavailable procps package dependency")
 
 for rel in [
     "src/mobile_gestalt/mobile_gestalt.m",
