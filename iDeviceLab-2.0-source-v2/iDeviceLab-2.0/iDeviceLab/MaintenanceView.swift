@@ -89,6 +89,8 @@ struct MaintenanceView: View {
                             LabeledContent("应用容器", value: app.containerAvailable ? "可访问" : "不可访问")
                             LabeledContent("Caches", value: ByteCountFormatter.string(fromByteCount: Int64(app.cachesBytes), countStyle: .file))
                             LabeledContent("tmp", value: ByteCountFormatter.string(fromByteCount: Int64(app.temporaryBytes), countStyle: .file))
+                            LabeledContent("Caches 文件数", value: "\(app.cachesFileCount)")
+                            LabeledContent("tmp 文件数", value: "\(app.temporaryFileCount)")
                             LabeledContent("预计可清理", value: ByteCountFormatter.string(fromByteCount: Int64(app.cleanableBytes), countStyle: .file))
                             Button { Task { await refreshAppInventory() } } label: {
                                 Label("重新扫描应用数据", systemImage: "arrow.clockwise")
@@ -228,6 +230,8 @@ struct MaintenanceView: View {
                 "containerAvailable": app.containerAvailable,
                 "cachesBytes": app.cachesBytes,
                 "temporaryBytes": app.temporaryBytes,
+                "cachesFileCount": app.cachesFileCount,
+                "temporaryFileCount": app.temporaryFileCount,
                 "cleanableBytes": app.cleanableBytes
             ] as [String: Any]
         }

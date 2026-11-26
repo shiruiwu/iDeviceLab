@@ -138,12 +138,28 @@ static unsigned long long SafeDirectoryBytes(NSString *path) {
     return total;
 }
 
+static unsigned long long SafeDirectoryFileCount(NSString *path) {
+    struct stat rootInfo = {0};
+    if (lstat(path.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode)) return 0;
+    unsigned long long count = 0;
+    NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:[NSURL fileURLWithPath:path]
+        includingPropertiesForKeys:@[NSURLIsRegularFileKey, NSURLIsSymbolicLinkKey]
+        options:0 errorHandler:^BOOL(__unused NSURL *url, __unused NSError *error) { return YES; }];
+    for (NSURL *url in enumerator) {
+        NSNumber *isLink = nil, *isFile = nil;
+        [url getResourceValue:&isLink forKey:NSURLIsSymbolicLinkKey error:nil];
+        if (isLink.boolValue) { [enumerator skipDescendants]; continue; }
+        [url getResourceValue:&isFile forKey:NSURLIsRegularFileKey error:nil];
+        if (isFile.boolValue) count++;
+    }
+    return count;
+}
+
 static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath, unsigned long long *removedBytes, BOOL dryRun, NSError **error) {
     NSString *root = @"/var/mobile/Containers/Data/Application";
     NSString *canonicalContainer = container.stringByStandardizingPath;
     // Only a direct UUID child of the known app-data root is eligible.
     if (![canonicalContainer.stringByDeletingLastPathComponent isEqualToString:root]) return NO;
-    if ([[NSUUID alloc] initWithUUIDString:canonicalContainer.lastPathComponent] == nil) return NO;
     if ([[NSUUID alloc] initWithUUIDString:canonicalContainer.lastPathComponent] == nil) return NO;
     if (![canonicalContainer.stringByResolvingSymlinksInPath isEqualToString:canonicalContainer]) return NO;
     // Keep the deletion surface to the two explicitly supported cache locations.
@@ -182,8 +198,12 @@ static NSDictionary *AppMaintenanceInventory(void) {
         if (![bundleID isKindOfClass:NSString.class]) continue;
         [installedIDs addObject:bundleID];
         NSString *container = containers[bundleID];
-        unsigned long long caches = container ? SafeDirectoryBytes([container stringByAppendingPathComponent:@"Library/Caches"]) : 0;
-        unsigned long long temporary = container ? SafeDirectoryBytes([container stringByAppendingPathComponent:@"tmp"]) : 0;
+        NSString *cachesPath = container ? [container stringByAppendingPathComponent:@"Library/Caches"] : nil;
+        NSString *temporaryPath = container ? [container stringByAppendingPathComponent:@"tmp"] : nil;
+        unsigned long long caches = cachesPath ? SafeDirectoryBytes(cachesPath) : 0;
+        unsigned long long temporary = temporaryPath ? SafeDirectoryBytes(temporaryPath) : 0;
+        unsigned long long cachesFiles = cachesPath ? SafeDirectoryFileCount(cachesPath) : 0;
+        unsigned long long temporaryFiles = temporaryPath ? SafeDirectoryFileCount(temporaryPath) : 0;
         [apps addObject:@{
             @"name": app[@"name"] ?: bundleID,
             @"bundleIdentifier": bundleID,
@@ -191,6 +211,8 @@ static NSDictionary *AppMaintenanceInventory(void) {
             @"containerAvailable": @(container != nil),
             @"cachesBytes": @(caches),
             @"temporaryBytes": @(temporary),
+            @"cachesFileCount": @(cachesFiles),
+            @"temporaryFileCount": @(temporaryFiles),
             @"cleanableBytes": @(caches + temporary)
         }];
     }

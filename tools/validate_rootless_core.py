@@ -67,6 +67,8 @@ check('stringByDeletingLastPathComponent isEqualToString:root' in MAIN and 'rela
 check('initWithUUIDString:child' in MAIN and 'initWithUUIDString:canonicalContainer.lastPathComponent' in MAIN, "App cleanup inventory and deletion require UUID-named app containers")
 check('BOOL dryRun' in MAIN and 'cache cleanup preflight failed' in MAIN and 'NULL, YES' in MAIN, "App cleanup preflights both cache locations before deleting either")
 check('"runtimeInjectionVerified":@NO' in MAIN, "Hook status never falsely claims runtime injection is verified")
+check("SafeDirectoryFileCount" in MAIN and '"cachesFileCount"' in MAIN and '"temporaryFileCount"' in MAIN, "Core reports per-directory file counts for cleanup preview")
+check("cachesFileCount" in MAINTENANCE and "temporaryFileCount" in MAINTENANCE, "Manager displays per-directory cleanup preview counts")
 check("AppMaintenanceResponse" in MAINTENANCE and "clearSelectedAppCaches()" in MAINTENANCE, "Manager previews and executes selected app cache maintenance")
 check("orphanedContainerCount" in MAINTENANCE and "疑似卸载残留容器" in MAINTENANCE, "Manager reports possible orphaned app containers")
 check("Library/Caches" in MAINTENANCE and "Keychain" in MAINTENANCE, "Maintenance UI documents cleanup scope and credential exclusions")
