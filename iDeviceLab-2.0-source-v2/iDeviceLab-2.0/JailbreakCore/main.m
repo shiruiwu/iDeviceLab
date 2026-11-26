@@ -240,8 +240,8 @@ static NSDictionary *SafeDirectoryMetrics(NSString *path) {
     if (lstat(path.fileSystemRepresentation, &rootInfo) != 0) {
         int savedErrno = errno;
         return @{@"bytes":@0, @"fileCount":@0,
-                 @"status":@(savedErrno == ENOENT ? @"missing" : @"inaccessible"),
-                 @"error":@(savedErrno == ENOENT ? @"" : [NSString stringWithUTF8String:strerror(savedErrno)] ?: @"unable to inspect directory")};
+                 @"status":(savedErrno == ENOENT ? @"missing" : @"inaccessible"),
+                 @"error":(savedErrno == ENOENT ? @"" : ([NSString stringWithUTF8String:strerror(savedErrno)] ?: @"unable to inspect directory"))};
     }
     if (!S_ISDIR(rootInfo.st_mode))
         return @{@"bytes":@0, @"fileCount":@0, @"status":@"notDirectory", @"error":@"target is not a directory"};
@@ -279,7 +279,7 @@ static NSDictionary *SafeDirectoryMetrics(NSString *path) {
         }
     }
     return @{@"bytes":@(totalBytes), @"fileCount":@(totalFiles),
-             @"status":@(scanError ? @"partial" : @"complete"),
+             @"status":(scanError ? @"partial" : @"complete"),
              @"error":scanError.localizedDescription ?: @""};
 }
 
