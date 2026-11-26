@@ -27,6 +27,10 @@ It keeps `/tmp/devices.plist` as a legacy fallback. The manager companion curren
 
 See [ALPHA11_RUNTIME_AUDIT.md](ALPHA11_RUNTIME_AUDIT.md) for the source-to-build trace, inactive hook registrations, Filter scope, package boundaries, and verification requirements.
 
+## Hook utility compatibility notes
+
+The retained `HookUtil.m` currently resolves CydiaSubstrate through the legacy absolute path `/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate`. Its availability under the target Rootless bootstrap has not been demonstrated. The Objective-C message-hook fallback also assumes the requested class and selector exist before calling `method_setImplementation`. See `ALPHA11_RUNTIME_AUDIT.md`; these are unresolved runtime compatibility risks, not successful runtime verification.
+
 ## Validation
 
 Run:
