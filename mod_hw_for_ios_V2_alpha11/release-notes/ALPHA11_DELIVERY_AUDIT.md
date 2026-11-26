@@ -144,4 +144,4 @@ This section supersedes any earlier checkpoint above where the same feature is d
 - The manager validates the Core status response and renders the installed-app inventory. It does not yet edit or apply profiles.
 - The original tweak's preference loader still reads the global com.modhw.ios.devices.plist path (with a legacy fallback); no per-bundle profile lookup is present in the reviewed source.
 - The cleanup and restore scripts are source-implemented but have not been executed on the target device. Their rollback paths are not a substitute for fault-injection testing.
-- Current GitHub Actions runs for HEAD 24db7e1ee022f4a36c9f07efb702cbd1b50d1fe1 were observed as pending/queued at the time of this correction. Do not describe this HEAD as built until those runs complete.
+- The latest observed Theos and IPA Actions runs were pending/queued or in progress during this source review; check the branch's Actions page for their final conclusion before treating the latest source revision as built.
