@@ -30,6 +30,13 @@ The upstream Alpha11 implementation is retained, but the current installable del
 - The standalone Alpha11 audit workflow is intentionally static-only and does not build or upload a runtime tweak.
 - The Filter plist lists `SpringBoard` and `com.apple.Preferences`; this is not a per-third-party-app deployment matrix.
 
+## Hook utility and Rootless compatibility review
+
+- `HookUtil.m` resolves the Substrate entry points dynamically with `dlsym`, but it currently opens the literal path `/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate`.
+- That is a legacy absolute framework path. The repository does not contain a device-side proof that this path resolves under the intended Rootless bootstrap on iOS 16.2. The Theos package scheme and `-lsubstrate` link flag do not, by themselves, prove that this runtime `dlopen` succeeds.
+- The `_HookMessage` fallback calls `method_setImplementation(class_getInstanceMethod(cls, sel), hook)` without first checking that the class and method exist. If the late-loaded class or selector is unavailable, this fallback is unsafe.
+- These are compatibility and crash-risk findings, not evidence that the tweak loaded. They must remain explicit in the runtime checklist; no Rootless path rewrite should be claimed successful without validating it against the actual bootstrap and package environment.
+
 ## Manager capability boundary
 
 The current SwiftUI manager imports a plist, parses/validates its structure, displays diagnostic metadata, and exports the original bytes. It does not provide editable identity fields. Import/export success only confirms file handling; it does not confirm that a tweak consumed the file.
@@ -47,5 +54,7 @@ The current SwiftUI manager imports a plist, parses/validates its structure, dis
 - `MGCopyMultipleAnswers` hook registration is commented out.
 - `hook_sysctl()` is not invoked by the constructor.
 - `replace_sysctl()` currently calls the original function and logs selected hardware queries; it does not provide configured replacements.
+- `HookUtil.m` uses a hard-coded legacy CydiaSubstrate framework path; Rootless resolution is unverified.
+- The `_HookMessage` fallback does not guard a missing Objective-C class or selector before calling `method_setImplementation`.
 - The legacy README describes editing/deployment capabilities that do not match the current read-only manager and current CI outputs. The project documentation should follow the actual implementation.
 - Static checks and successful IPA/diagnostics-DEB builds are not substitutes for the runtime test matrix above.

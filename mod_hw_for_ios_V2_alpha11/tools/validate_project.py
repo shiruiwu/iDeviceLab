@@ -41,6 +41,12 @@ if filter_path.is_file():
     except Exception as exc:
         errors.append("Invalid tweak injection filter: " + str(exc))
 
+hook_util = (ROOT / "src/cydia_substrate_hook/HookUtil.m").read_text()
+check('dlopen("/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate"' in hook_util,
+      "Substrate helper still uses the legacy absolute framework path; Rootless resolution remains unverified")
+check("method_setImplementation(class_getInstanceMethod(cls, sel), hook)" in hook_util,
+      "HookMessage fallback implementation is present and requires class/selector availability")
+
 source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
 constructor_start = source.find("__attribute__((__constructor__))")
 constructor = source[constructor_start:] if constructor_start >= 0 else ""
