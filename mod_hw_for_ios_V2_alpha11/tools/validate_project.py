@@ -19,6 +19,7 @@ package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
 core_source = ROOT / "core/main.m"
 core_makefile = ROOT / "core/Makefile"
 core_control = ROOT / "core/control"
+core_control_text = core_control.read_text() if core_control.is_file() else ""
 core_daemon = ROOT / "core/layout/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
 if core_daemon.is_file():
     daemon = plistlib.loads(core_daemon.read_bytes())
@@ -52,7 +53,7 @@ if core_source.is_file():
     check('@"version": @"0.2.0-alpha11"' in core,
           "Alpha11 Core status reports its own version")
 if core_control.is_file():
-    check("Architecture: iphoneos-arm64" in core_control and "Version: 0.2.0~alpha11" in core_control,
+    check("Architecture: iphoneos-arm64" in core_control_text and "Version: 0.2.0~alpha11" in core_control_text,
           "Alpha11 Core package metadata targets Rootless arm64")
 
 diagnostic = ROOT / "scripts/diagnose-config.sh"
