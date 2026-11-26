@@ -58,6 +58,9 @@ jobs:
       - name: Build read-only rootless diagnostics DEB
         run: bash scripts/build-diagnostics-deb.sh
 
+      - name: Install Debian package inspection tools
+        run: brew install dpkg
+
       - name: Verify DEB package structure
         run: |
           test -s release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
