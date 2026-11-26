@@ -3,6 +3,7 @@
 set -u
 PASS=0
 FAIL=0
+SKIP=0
 check() {
   label="$1"
   shift
@@ -18,6 +19,7 @@ contains() {
   printf '%s' "$1" | grep -Fq "$2"
 }
 echo 'mod_hw Alpha11 device self-test (read-only)'
+check 'Run as root' test "$(id -u)" -eq 0
 echo "Model: $(sysctl -n hw.machine 2>/dev/null || echo unknown)"
 echo "OS build: $(sysctl -n kern.osversion 2>/dev/null || echo unknown)"
 check 'Rootless jailbreak path exists' test -d /var/jb
@@ -40,11 +42,11 @@ if command -v curl >/dev/null 2>&1; then
     FAIL=$((FAIL + 1))
   fi
 else
-  echo '[FAIL] curl is unavailable; cannot test the Core loopback endpoint'
-  FAIL=$((FAIL + 1))
+  echo '[SKIP] curl unavailable; use the manager app to test the Core endpoint'
+  SKIP=$((SKIP + 1))
 fi
 check 'App-container backup command installed' command -v mod-hw-app-backup
 check 'App-container backup verifier installed' command -v mod-hw-app-backup-verify
 check 'Config diagnostic command installed' command -v mod-hw-diagnose
-echo "Result: $PASS passed, $FAIL failed"
+echo "Result: $PASS passed, $FAIL failed, $SKIP skipped"
 [ "$FAIL" -eq 0 ]
