@@ -31,7 +31,7 @@ check("NSDataWritingAtomic" in MAIN, "Core writes plist atomically")
 check("body.length > 32768" in MAIN, "Core caps config update request size")
 check('@"POST"] && [path isEqualToString:@"/config/update"' in MAIN, "Core exposes local POST config update route")
 check('@"GET"] && [path isEqualToString:@"/config/status"' in MAIN, "Core exposes local read-only status route")
-check('@"version":@"0.1.7"' in MAIN and "Version: 0.1.7" in CONTROL, "Core API and Debian package versions match")
+check('@"version":@"0.1.8"' in MAIN and "Version: 0.1.8" in CONTROL, "Core API and Debian package versions match")
 check("config/update" in SWIFT and "URLRequest" in SWIFT and 'request.httpMethod = "POST"' in SWIFT, "Manager posts imported plist fields to local Core")
 check("fileImporter" in SWIFT and "allowed: Set<String>" in SWIFT, "Manager uses file import and matching safe-field allowlist")
 check("schemaCompatible" in SWIFT and "refreshAlpha11Config()" in SWIFT, "Manager refreshes plist compatibility after import")
@@ -49,6 +49,13 @@ check("Core rejects empty updates", "applied.count == 0" in MAIN, "Core rejects 
 check("Manager has a user-visible import action", 'Label("导入安全字段"' in SWIFT, "Manager exposes safe plist import")
 check("Manager refreshes after write", "await refreshAlpha11Config()" in SWIFT, "Manager refreshes plist status after import")
 check("Local networking ATS exception is configured", "NSAllowsLocalNetworking: true" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/project.yml").read_text(), "App transport security permits local Core connection")
+
+
+check("Core creates local rollback backup before update", '@" .idevelab-backup"' in MAIN or 'stringByAppendingString:@".idevelab-backup"' in MAIN, "Core backs up original plist before changes")
+check("Core restore validates backup schema", "RestoreAlpha11ConfigBackup" in MAIN and "backupPlist[@\"UniqueDeviceID\"]" in MAIN, "Core validates rollback backup schema")
+check("Core exposes restore route", '@"POST"] && [path isEqualToString:@"/config/restore"' in MAIN, "Core exposes local restore route")
+check("Manager exposes guarded restore action", "confirmationDialog" in SWIFT and "restoreAlpha11Backup()" in SWIFT, "Manager confirms local rollback restore")
+check("Manager reports backup availability", "backupParseable" in SWIFT, "Manager shows local rollback backup status")
 
 print(f"Rootless validation: {len(passed)} passed, {len(errors)} failed")
 for item in passed:
