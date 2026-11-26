@@ -52,6 +52,7 @@ jobs:
           bash -n scripts/diagnose-keychain-access.sh
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
+          bash -n scripts/build-core-deb.sh
 
       - name: Build unsigned TrollStore IPA
         run: bash scripts/build-trollstore-ipa.sh
@@ -106,12 +107,52 @@ jobs:
           print('DEB ar members, architecture, dependency, and all nine installed tools verified')
           PY
 
-      - name: Upload IPA and diagnostics DEB artifacts
+      - name: Build Alpha11 Core rootless DEB
+        run: bash scripts/build-core-deb.sh
+
+      - name: Verify Core DEB and LaunchDaemon payload
+        run: |
+          python3 - <<'PY'
+          import io, plistlib, tarfile
+          package = 'release/idevelab-core-alpha11.deb'
+          raw = open(package, 'rb').read()
+          assert raw[:8] == b'!<arch>\\n', repr(raw[:8])
+          members, offset = {}, 8
+          while offset < len(raw):
+              header = raw[offset:offset + 60]
+              assert len(header) == 60 and header[58:60] == bytes((96, 10)), repr(header[58:60])
+              name = header[:16].decode('ascii').strip().rstrip('/')
+              size = int(header[48:58].decode('ascii').strip())
+              start = offset + 60
+              members[name] = raw[start:start + size]
+              offset = start + size + (size % 2)
+          assert set(members) == {'debian-binary', 'control.tar.gz', 'data.tar.gz'}, sorted(members)
+          with tarfile.open(fileobj=io.BytesIO(members['control.tar.gz']), mode='r:gz') as archive:
+              control = next(m for m in archive.getmembers() if m.name.lstrip('./') == 'control')
+              metadata = archive.extractfile(control).read().decode()
+          assert 'Package: com.idevelab.core.alpha11' in metadata
+          assert 'Architecture: iphoneos-arm64' in metadata
+          with tarfile.open(fileobj=io.BytesIO(members['data.tar.gz']), mode='r:gz') as archive:
+              files = {m.name.lstrip('./'): m for m in archive.getmembers()}
+              binary_path = 'var/jb/usr/libexec/idevelab-core'
+              plist_path = 'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist'
+              assert binary_path in files and plist_path in files, sorted(files)
+              binary = archive.extractfile(files[binary_path]).read()
+              assert binary[:4] == bytes.fromhex('cffaedfe'), binary[:4].hex()
+              plist = plistlib.loads(archive.extractfile(files[plist_path]).read())
+              assert plist['Label'] == 'com.idevelab.core.alpha11'
+              assert plist['ProgramArguments'] == ['/var/jb/usr/libexec/idevelab-core']
+              assert plist['UserName'] == 'mobile' and plist['GroupName'] == 'mobile'
+          print('Core DEB, arm64 Mach-O, rootless install paths, and mobile LaunchDaemon verified')
+          PY
+
+      - name: Upload IPA, Core, and diagnostics DEB artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mod-hw-v2-final-safe-builds
           path: |
             mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
+            mod_hw_for_ios_V2_alpha11/release/idevelab-core-alpha11.deb
             mod_hw_for_ios_V2_alpha11/release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
           if-no-files-found: error
           retention-days: 14
