@@ -65,11 +65,11 @@ jobs:
           import io, tarfile
           package = 'release/mod_hw_for_ios_V2_diagnostics_FINAL.deb'
           raw = open(package, 'rb').read()
-          assert raw[:8] == b'!<arch>\\n'
+          assert raw[:8] == b'!<arch>\n', repr(raw[:8])
           members, offset = {}, 8
           while offset < len(raw):
               header = raw[offset:offset + 60]
-              assert len(header) == 60 and header[58:60] == b'`\\n', 'invalid ar header'
+              assert len(header) == 60 and header[58:60] == b'\`\n', repr(header[58:60])
               name = header[:16].decode('ascii').strip().rstrip('/')
               size = int(header[48:58].decode('ascii').strip())
               start = offset + 60
@@ -80,6 +80,7 @@ jobs:
               control_member = next(m for m in archive.getmembers() if m.name.lstrip('./') == 'control')
               metadata = archive.extractfile(control_member).read().decode()
           assert 'Architecture: iphoneos-arm64' in metadata, metadata
+          assert 'Depends: coreutils' in metadata, metadata
           with tarfile.open(fileobj=io.BytesIO(members['data.tar.gz']), mode='r:gz') as archive:
               installed = {m.name.lstrip('./') for m in archive.getmembers()}
           expected = {
@@ -90,7 +91,7 @@ jobs:
               'var/jb/usr/bin/mod-hw-app-backup-verify',
           }
           assert expected.issubset(installed), sorted(installed)
-          print('DEB ar members, architecture, and all five installed tools verified')
+          print('DEB ar members, architecture, dependency, and all five installed tools verified')
           PY
 
       - name: Upload IPA and diagnostics DEB artifacts
