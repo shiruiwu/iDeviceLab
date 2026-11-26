@@ -18,7 +18,7 @@ See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the so
 
 ## 功能亮点 | Feature Highlights
 ### English
-- `src/mobile_gestalt/mobile_gestalt.m` centralizes hooks for `MGCopyAnswer`/`MGCopyMultipleAnswers`, `IORegistryEntry*`, `sysctl`, and identifier APIs such as `ASIdentifierManager` and `UIDevice`, injecting values sourced from `/var/mobile/Library/Preferences/com.modhw.ios.devices.plist` (with `/tmp/devices.plist` retained as a legacy fallback).
+- `src/mobile_gestalt/mobile_gestalt.m` centralizes hooks for `MGCopyAnswer`/`MGCopyMultipleAnswers`, `IORegistryEntry*`, `sysctl`, and identifier APIs such as `ASIdentifierManager` and `UIDevice`. Configuration lookup is process-scoped: `/var/mobile/Library/Preferences/com.modhw.ios.profiles/<Bundle-ID>.plist` takes precedence, followed by the global `/var/mobile/Library/Preferences/com.modhw.ios.devices.plist`, then the legacy `/tmp/devices.plist` fallback. The selected profile is loaded at tweak initialization; changing a file does not hot-reload an already-running process.
 - CoreTelephony `CTMobileEquipmentInfo` setters are overridden to cache and return deterministic IMEI/MEID data, keeping radio stack and UI in sync.
 - `src/captain_hook/hook.mm` leverages CaptainHook to sanitize `LakituResponse` and `EscrowGenericResponse`, which simplifies inspecting or mutating cloud backup metadata.
 - Scripts such as `frida/cloudd.js` attach to `akd`, `cloudd`, and other daemons to log selector invocations with stack traces.
@@ -68,6 +68,7 @@ See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the so
 ## 运行机制 | Runtime Behavior
 - The tweak loads its configured plist during initialization and contains hooks in the source tree. Actual hook coverage depends on target process, OS version, substrate environment, and runtime testing.
 - The manager is sandboxed and currently handles user-selected files. Import/export does not itself grant access to privileged jailbreak directories. Rootless backup commands are separate privileged tools and require an explicit bundle identifier.
+- The original Hook now resolves a per-app plist by the current process Bundle ID before falling back to the global plist. Create the profile directory manually as `/var/mobile/Library/Preferences/com.modhw.ios.profiles/` and place one validated plist per Bundle ID. This is source-level profile selection; target-process injection and runtime isolation still require device verification.
 - Alpha11 now packages a separate read-only Rootless Core on `127.0.0.1:18081`; the manager can test its `/status` endpoint. It does not yet consume legacy profiles or apply per-app configuration to the tweak.
 
 ## 调试与扩展 | Debugging & Extension
