@@ -29,6 +29,15 @@ private struct InstalledAppsResponse: Decodable {
     let apps: [InstalledApp]
 }
 
+private struct HookInstallationStatus: Decodable {
+    let ok: Bool
+    let coreServiceRunning: Bool
+    let tweakLibraryFound: Bool
+    let tweakFilterFound: Bool
+    let runtimeInjectionVerified: Bool
+    let note: String
+}
+
 private struct Alpha11ConfigStatus: Decodable {
     let ok: Bool
     let exists: Bool
@@ -45,6 +54,7 @@ private struct Alpha11ConfigStatus: Decodable {
 struct RootlessCoreView: View {
     @EnvironmentObject private var store: ProfileStore
     @State private var alpha11Config: Alpha11ConfigStatus?
+    @State private var hookStatus: HookInstallationStatus?
     @State private var configImporterPresented = false
     @State private var confirmRestoreBackup = false
     @State private var serviceState = "正在检测"
@@ -132,6 +142,22 @@ struct RootlessCoreView: View {
                         .font(.caption2).foregroundStyle(.secondary)
                 }
 
+                Section("Alpha11 Hook 安装诊断") {
+                    if let hook = hookStatus {
+                        LabeledContent("Rootless 核心服务", value: hook.coreServiceRunning ? "运行中" : "未运行")
+                        LabeledContent("Hook 动态库文件", value: hook.tweakLibraryFound ? "已发现" : "未发现")
+                        LabeledContent("进程过滤配置", value: hook.tweakFilterFound ? "已发现" : "未发现")
+                        LabeledContent("目标进程注入", value: hook.runtimeInjectionVerified ? "已验证" : "尚未验证")
+                        Text(hook.note).font(.caption2).foregroundStyle(.secondary)
+                    } else {
+                        Text("尚未取得 Hook 安装诊断结果").foregroundStyle(.secondary)
+                    }
+                    Button { Task { await refreshHookStatus() } } label: {
+                        Label("检查 Hook 文件状态", systemImage: "stethoscope")
+                    }
+                    .disabled(serviceState != "已连接")
+                }
+
                 Section("Alpha11 本地配置文件") {
                     if let config = alpha11Config {
                         LabeledContent("文件状态", value: !config.exists ? "尚未创建" : (config.parseable ? "存在且可解析" : "文件格式异常"))
@@ -210,12 +236,15 @@ struct RootlessCoreView: View {
 
             async let systemResult = URLSession.shared.data(from: baseURL.appendingPathComponent("system"))
             async let appsResult = URLSession.shared.data(from: baseURL.appendingPathComponent("apps"))
+            async let hooksResult = URLSession.shared.data(from: baseURL.appendingPathComponent("hooks/status"))
             let (systemData, _) = try await systemResult
             let (appsData, _) = try await appsResult
+            let (hooksData, _) = try await hooksResult
             let systemResponse = try JSONDecoder().decode(DeviceSystemInfo.self, from: systemData)
             let appsResponse = try JSONDecoder().decode(InstalledAppsResponse.self, from: appsData)
             systemInfo = systemResponse
             installedApps = appsResponse.apps
+            hookStatus = try JSONDecoder().decode(HookInstallationStatus.self, from: hooksData)
             await refreshAlpha11Config()
         } catch {
             connectionDetail = error.localizedDescription
@@ -224,6 +253,21 @@ struct RootlessCoreView: View {
             systemInfo = nil
             installedApps = []
             alpha11Config = nil
+            hookStatus = nil
+        }
+    }
+
+    @MainActor
+    private func refreshHookStatus() async {
+        do {
+            let (data, response) = try await URLSession.shared.data(from: baseURL.appendingPathComponent("hooks/status"))
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                throw URLError(.badServerResponse)
+            }
+            hookStatus = try JSONDecoder().decode(HookInstallationStatus.self, from: data)
+        } catch {
+            hookStatus = nil
+            message = "Hook 状态检查失败：\(error.localizedDescription)"
         }
     }
 
