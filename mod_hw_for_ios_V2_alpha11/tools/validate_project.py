@@ -178,8 +178,10 @@ if app_backup.is_file():
           "App-container backup selects one bundle ID, archives data, and records SHA-256")
     check("Keychain" in src and "App Groups" in src,
           "App-container backup documents excluded system-managed stores")
-    check('[ ! -L "$BACKUP_ROOT" ]' in src and 'BACKUP_OWNER="$(stat -f' in src and 'chmod 0700 "$BACKUP_ROOT"' in src,
-          "App-container backup rejects symlink roots and requires root-owned private storage")
+    check('[ ! -L "$BACKUP_ROOT" ]' in src and 'BACKUP_OWNER="$(stat -f' in src and
+          'chown root:mobile "$BACKUP_ROOT"' in src and 'chmod 0750 "$BACKUP_ROOT"' in src and
+          'chmod 0640 "$TMP"' in src and 'chmod 0640 "$MANIFEST_TMP"' in src,
+          "App-container backup keeps root-only writes while granting the mobile Core read-only inventory access")
     check('MANIFEST_TMP="$MANIFEST.tmp.$$"' in src and 'mv "$MANIFEST_TMP" "$MANIFEST"' in src and 'COMMITTED=1' in src,
           "App-container backup commits manifest last and removes incomplete archive pairs")
     check("trap 'cleanup_backup' EXIT" in src and "trap 'exit 130' INT" in src and "trap 'exit 143' TERM" in src,
@@ -211,6 +213,8 @@ if app_cleanup.is_file():
           "App cleanup documents Keychain and App Groups as excluded")
 if app_restore.is_file():
     src = app_restore.read_text()
+    check('chown root:mobile "$BACKUP_ROOT"' in src and 'chmod 0750 "$BACKUP_ROOT"' in src,
+          "App restore preserves read-only mobile Core access to the backup inventory")
     check("--confirm" in src and "restore-snapshots" in src and "killall -0" in src,
           "App restore requires explicit confirmation, closed app, and rollback snapshot")
     check("cleanup_restore()" in src and "trap 'exit 130' INT" in src and
