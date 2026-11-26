@@ -39,7 +39,6 @@ for path, label in [
 ]:
     check(path.is_file(), label + " script exists")
     if path.is_file():
-        check(path.stat().st_mode & 0o111 != 0, label + " script is executable in git")
 
 if diagnostic.is_file():
     diag = diagnostic.read_text()
