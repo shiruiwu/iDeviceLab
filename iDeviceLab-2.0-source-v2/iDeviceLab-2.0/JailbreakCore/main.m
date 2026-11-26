@@ -155,6 +155,17 @@ static unsigned long long SafeDirectoryFileCount(NSString *path) {
     return count;
 }
 
+static unsigned long long SafePathBytes(NSString *path, const struct stat *info) {
+    if (S_ISREG(info->st_mode)) return (unsigned long long)MAX((off_t)0, info->st_size);
+    if (S_ISDIR(info->st_mode)) return SafeDirectoryBytes(path);
+    return 0;
+}
+
+static void SetMaintenanceError(NSError **error, NSInteger code, NSString *description) {
+    if (error && !*error) *error = [NSError errorWithDomain:@"iDeviceLab.AppMaintenance" code:code
+        userInfo:@{NSLocalizedDescriptionKey:description ?: @"maintenance operation failed"}];
+}
+
 static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath,
     unsigned long long *removedBytes, unsigned long long *removedItems, BOOL dryRun,
     NSString **failedAt, NSError **error) {
@@ -283,16 +294,6 @@ static NSDictionary *SafeDirectoryMetrics(NSString *path) {
              @"error":scanError.localizedDescription ?: @""};
 }
 
-static unsigned long long SafePathBytes(NSString *path, const struct stat *info) {
-    if (S_ISREG(info->st_mode)) return (unsigned long long)MAX((off_t)0, info->st_size);
-    if (S_ISDIR(info->st_mode)) return SafeDirectoryBytes(path);
-    return 0;
-}
-
-static void SetMaintenanceError(NSError **error, NSInteger code, NSString *description) {
-    if (error && !*error) *error = [NSError errorWithDomain:@"iDeviceLab.AppMaintenance" code:code
-        userInfo:@{NSLocalizedDescriptionKey:description ?: @"maintenance operation failed"}];
-}
 
 static NSDictionary *AppMaintenanceInventory(void) {
     NSDictionary *containers = AppDataContainerIndex();
