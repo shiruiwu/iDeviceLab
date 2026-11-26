@@ -124,7 +124,7 @@ if app_backup.is_file():
           "App-container backup documents excluded system-managed stores")
     check('[ ! -L "$BACKUP_ROOT" ]' in src and 'BACKUP_OWNER="$(stat -f' in src and 'chmod 0700 "$BACKUP_ROOT"' in src,
           "App-container backup rejects symlink roots and requires root-owned private storage")
-    check('    check('MANIFEST_TMP="$MANIFEST.tmp.$$"' in src and 'mv "$MANIFEST_TMP" "$MANIFEST"' in src and 'COMMITTED=1' in src,
+    check('MANIFEST_TMP="$MANIFEST.tmp.$$"' in src and 'mv "$MANIFEST_TMP" "$MANIFEST"' in src and 'COMMITTED=1' in src,
           "App-container backup commits manifest last and removes incomplete archive pairs")
     check("trap 'cleanup_backup' EXIT" in src and "trap 'exit 130' INT" in src and "trap 'exit 143' TERM" in src,
           "App-container backup exits on signals so EXIT cleanup removes incomplete archive pairs")
