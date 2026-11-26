@@ -45,8 +45,8 @@ done
 [ "$APP_COUNT" -eq 1 ] || fail '无法唯一定位已安装 App。'
 EXECUTABLE="$(plutil -extract CFBundleExecutable raw -o - "$APP_MATCH" 2>/dev/null || true)"
 [ -n "$EXECUTABLE" ] || fail '无法读取 App 可执行文件名称。'
-command -v pgrep >/dev/null 2>&1 || fail '缺少 pgrep。'
-if pgrep -x "$EXECUTABLE" >/dev/null 2>&1; then fail '目标 App 仍在运行。'; else PGP_STATUS=$?; [ "$PGP_STATUS" -eq 1 ] || fail '无法可靠确认 App 进程状态。'; fi
+command -v killall >/dev/null 2>&1 || fail '缺少系统 killall。'
+if killall -0 "$EXECUTABLE" >/dev/null 2>&1; then fail '目标 App 仍在运行。'; else KILLALL_STATUS=$?; [ "$KILLALL_STATUS" -eq 1 ] || fail '无法可靠确认 App 进程状态。'; fi
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 STAGE="$BACKUP_ROOT/.restore-stage.$$"; LIST="$BACKUP_ROOT/.restore-list.$$"; DETAIL="$BACKUP_ROOT/.restore-detail.$$"
 SNAPSHOT=''; SNAPSHOT_READY=0; RESTORE_STARTED=0; SUCCESS=0
