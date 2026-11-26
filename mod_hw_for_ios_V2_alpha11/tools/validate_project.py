@@ -53,6 +53,9 @@ check("fileImporter" in manager and "fileExporter" in manager, "Manager imports 
 check("selectedProfileBundleID" in manager and "导出为所选 App 的独立配置" in manager and
       "com.modhw.ios.profiles" in manager and "exportAsPerAppProfile" in manager,
       "Manager can export the imported plist under a selected installed App's Bundle ID")
+check("canExportPerAppProfile" in manager and '"UniqueDeviceID"' in manager and
+      "udid.count == 40" in manager and "normalized.count == 12" in manager,
+      "Manager validates the Hook-required UDID and enabled MAC address fields before per-app export")
 check("PropertyListSerialization.propertyList" in manager, "Manager parses plist structure")
 check("字段值未展示" in manager, "Manager does not display plist values")
 check('http://127.0.0.1:18081/status' in manager and 'http://127.0.0.1:18081/apps' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "read-only"' in manager,
