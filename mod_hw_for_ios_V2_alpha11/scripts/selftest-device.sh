@@ -78,8 +78,19 @@ else
 fi
 BACKUP_ROOT='/var/mobile/Library/Application Support/mod_hw_for_ios/app-container-backups'
 if [ -d "$BACKUP_ROOT" ]; then
-  check 'Backup directory is root-owned' test "$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null)" = 0
-  check 'Backup directory is readable by mobile group' test -r "$BACKUP_ROOT"
+  MOBILE_GID="$(id -g mobile 2>/dev/null || echo unknown)"
+  BACKUP_DIR_META="$(stat -f '%u:%g:%Lp' "$BACKUP_ROOT" 2>/dev/null || echo invalid)"
+  check 'Backup directory is root-owned and mobile-group traversable (0750)' test "$BACKUP_DIR_META" = "0:$MOBILE_GID:750"
+  for ARCHIVE in "$BACKUP_ROOT"/*.tar.gz; do
+    [ -f "$ARCHIVE" ] || continue
+    META="$(stat -f '%u:%g:%Lp' "$ARCHIVE" 2>/dev/null || echo invalid)"
+    check "Archive is root:mobile read-only (0640): $(basename "$ARCHIVE")" test "$META" = "0:$MOBILE_GID:640"
+    MANIFEST="${ARCHIVE%.tar.gz}.txt"
+    if [ -f "$MANIFEST" ]; then
+      META="$(stat -f '%u:%g:%Lp' "$MANIFEST" 2>/dev/null || echo invalid)"
+      check "Manifest is root:mobile read-only (0640): $(basename "$MANIFEST")" test "$META" = "0:$MOBILE_GID:640"
+    fi
+  done
 else
   echo '[SKIP] Backup directory not created yet; create a test backup before checking permissions'
   SKIP=$((SKIP + 1))
