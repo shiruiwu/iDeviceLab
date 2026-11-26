@@ -69,7 +69,7 @@ struct ContentView: View {
                 Section("越狱 Core 连接（只读检测）") {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("127.0.0.1:18080")
+                            Text("127.0.0.1:18081")
                                 .font(.system(.body, design: .monospaced))
                             Text(coreStatus)
                                 .font(.footnote)
@@ -114,7 +114,7 @@ struct ContentView: View {
         Task {
             defer { coreChecking = false }
             do {
-                var request = URLRequest(url: URL(string: "http://127.0.0.1:18080/status")!)
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:18081/status")!)
                 request.httpMethod = "GET"
                 request.timeoutInterval = 3
                 request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -126,7 +126,7 @@ struct ContentView: View {
                 guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                       payload["ok"] as? Bool == true,
                       let service = payload["service"] as? String,
-                      let version = payload["version"] as? String else {
+                      let version = payload["version"] as? String,\n                      payload["mode"] as? String == "read-only" else {
                     coreStatus = "响应格式不匹配（不是预期的 Core 服务）"
                     return
                 }
