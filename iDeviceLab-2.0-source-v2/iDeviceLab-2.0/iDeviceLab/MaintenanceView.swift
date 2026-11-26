@@ -42,7 +42,7 @@ struct MaintenanceView: View {
                             Label("分享 / 保存备份文件", systemImage: "square.and.arrow.up")
                         }
                     }
-                    Button { exportMaintenanceReport() } label: {
+                    Button { Task { await exportMaintenanceReport() } } label: {
                         Label("生成维护诊断报告", systemImage: "doc.text.magnifyingglass")
                     }
                     if let reportURL {
@@ -127,7 +127,11 @@ struct MaintenanceView: View {
                 }
             }
             .navigationTitle("备份与维护")
-            .onAppear { scan(); Task { await refreshAppInventory() } }
+            .onAppear {
+                scan()
+                lastAppCleanup = UserDefaults.standard.dictionary(forKey: "iDeviceLabLastAppCleanupV1")
+                Task { await refreshAppInventory() }
+            }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json, .data]) { result in
                 importBackup(result)
             }
@@ -202,6 +206,7 @@ struct MaintenanceView: View {
                 "completedAt": ISO8601DateFormatter().string(from: Date()),
                 "areas": ["Library/Caches", "tmp"]
             ]
+            UserDefaults.standard.set(lastAppCleanup, forKey: "iDeviceLabLastAppCleanupV1")
             appMaintenanceMessage = "清理完成：\(ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))"
             await refreshAppInventory()
             message = "已清理 \(app.name) 的缓存和临时文件。没有删除应用文档、数据库、偏好设置或凭据。"
@@ -211,8 +216,10 @@ struct MaintenanceView: View {
         }
     }
 
-    private func exportMaintenanceReport() {
+    @MainActor
+    private func exportMaintenanceReport() async {
         scan()
+        await refreshAppInventory()
         let appInventory = appItems.map { app in
             [
                 "name": app.name,

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import CryptoKit
 
 @MainActor
 final class ProfileStore: ObservableObject {
@@ -163,46 +164,62 @@ final class ProfileStore: ObservableObject {
     func exportFullBackupData() throws -> Data {
         let archive = FullBackupArchive(schemaVersion: 1, createdAt: Date(), profiles: profiles, managedApps: managedApps, selectedID: selectedID)
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
-        return try encoder.encode(archive)
+        let payload = try encoder.encode(archive)
+        let digest = SHA256.hash(data: payload).map { String(format: "%02x", $0) }.joined()
+        let envelope = FullBackupEnvelope(format: "iDeviceLab.FullBackup", envelopeVersion: 1, sha256: digest, payload: payload)
+        let output = JSONEncoder()
+        output.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try output.encode(envelope)
     }
 
-    /// Validates the archive before changing persisted state and stores a rollback snapshot.
+    /// Checks integrity and schema before changing any persisted state. Legacy schema-1 backups remain importable.
     func restoreFullBackup(from data: Data) throws {
+        let archive = try decodeAndValidateBackup(data)
+        let rollback = try exportFullBackupData()
+        UserDefaults.standard.set(rollback, forKey: "iDeviceLabPreRestoreBackupV1")
+        apply(archive)
+    }
+
+    func restorePreRestoreSnapshot() throws {
+        guard let data = UserDefaults.standard.data(forKey: "iDeviceLabPreRestoreBackupV1") else {
+            throw ProfileError.noRollbackSnapshot
+        }
+        let archive = try decodeAndValidateBackup(data)
+        apply(archive)
+    }
+
+    private func decodeAndValidateBackup(_ data: Data) throws -> FullBackupArchive {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let archive = try decoder.decode(FullBackupArchive.self, from: data)
+        let archive: FullBackupArchive
+        if let envelope = try? decoder.decode(FullBackupEnvelope.self, from: data),
+           envelope.format == "iDeviceLab.FullBackup" {
+            guard envelope.envelopeVersion == 1 else { throw ProfileError.unsupportedVersion }
+            let actual = SHA256.hash(data: envelope.payload).map { String(format: "%02x", $0) }.joined()
+            guard actual.caseInsensitiveCompare(envelope.sha256) == .orderedSame else {
+                throw ProfileError.backupIntegrityFailure
+            }
+            archive = try decoder.decode(FullBackupArchive.self, from: envelope.payload)
+        } else {
+            archive = try decoder.decode(FullBackupArchive.self, from: data)
+        }
         guard archive.schemaVersion == 1 else { throw ProfileError.unsupportedVersion }
         guard !archive.profiles.isEmpty else { throw ProfileError.emptyArchive }
         guard archive.profiles.count <= 100, archive.managedApps.count <= 500 else { throw ProfileError.tooManyProfiles }
         try Self.validateProfiles(archive.profiles)
         try Self.validateManagedApps(archive.managedApps, profiles: archive.profiles)
-        if let rollback = try? exportFullBackupData() {
-            UserDefaults.standard.set(rollback, forKey: "iDeviceLabPreRestoreBackupV1")
-        }
+        return archive
+    }
+
+    private func apply(_ archive: FullBackupArchive) {
         profiles = Self.normalized(archive.profiles)
         managedApps = archive.managedApps
-        let validIDs = Set(profiles.map(\.id))
+        let validIDs = Set(profiles.map(\\.id))
         selectedID = archive.selectedID.flatMap { validIDs.contains($0) ? $0 : nil } ?? profiles[0].id
     }
 
-    /// Restores the most recent automatic pre-restore snapshot.
-    func restorePreRestoreSnapshot() throws {
-        guard let data = UserDefaults.standard.data(forKey: "iDeviceLabPreRestoreBackupV1") else { throw ProfileError.noRollbackSnapshot }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let archive = try decoder.decode(FullBackupArchive.self, from: data)
-        guard archive.schemaVersion == 1 else { throw ProfileError.unsupportedVersion }
-        guard !archive.profiles.isEmpty else { throw ProfileError.emptyArchive }
-        guard archive.profiles.count <= 100, archive.managedApps.count <= 500 else { throw ProfileError.tooManyProfiles }
-        try Self.validateProfiles(archive.profiles)
-        try Self.validateManagedApps(archive.managedApps, profiles: archive.profiles)
-        profiles = Self.normalized(archive.profiles)
-        managedApps = archive.managedApps
-        let validIDs = Set(profiles.map(\.id))
-        selectedID = archive.selectedID.flatMap { validIDs.contains($0) ? $0 : nil } ?? profiles[0].id
-    }
     private static func validateProfiles(_ profiles: [DeviceProfile]) throws {
         let ids = profiles.map(\.id)
         guard Set(ids).count == ids.count else { throw ProfileError.duplicateIdentifiers }
@@ -252,8 +269,15 @@ struct FullBackupArchive: Codable {
     var selectedID: UUID?
 }
 
+private struct FullBackupEnvelope: Codable {
+    var format: String
+    var envelopeVersion: Int
+    var sha256: String
+    var payload: Data
+}
+
 enum ProfileError: LocalizedError {
-    case unsupportedVersion, emptyArchive, tooManyProfiles, duplicateIdentifiers, duplicateManagedAppIdentifiers, duplicateBundleIdentifiers, invalidProfile, invalidManagedApp, noRollbackSnapshot
+    case unsupportedVersion, emptyArchive, tooManyProfiles, duplicateIdentifiers, duplicateManagedAppIdentifiers, duplicateBundleIdentifiers, invalidProfile, invalidManagedApp, noRollbackSnapshot, backupIntegrityFailure
     var errorDescription: String? {
         switch self {
         case .unsupportedVersion: return "不支持此配置文件版本"
@@ -265,6 +289,7 @@ enum ProfileError: LocalizedError {
         case .invalidProfile: return "配置包含空名称、无效坐标或超出范围的测试数值"
         case .invalidManagedApp: return "备份包含无效的应用绑定或指向不存在的配置"
         case .noRollbackSnapshot: return "没有可用的还原前自动备份"
+        case .backupIntegrityFailure: return "备份完整性校验失败，文件可能已损坏或被修改"
         }
     }
 }
