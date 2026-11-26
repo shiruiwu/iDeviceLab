@@ -78,7 +78,9 @@ struct ContentView: View {
                         }
                     }
                 }
-                Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("越狱 Core 连接（只读检测）")
+                        .font(.headline)
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("127.0.0.1:18081")
@@ -129,10 +131,8 @@ struct ContentView: View {
                     }
                     Text("仅请求只读 /status 和 /apps 接口；不会读取或切换配置，也不会修改设备数据。需要先在越狱环境安装并启动 Alpha11 Core。")
                         .font(.footnote).foregroundStyle(.secondary)
-                } header: {
-                    Text("越狱 Core 连接（只读检测）")
                 }
-                Section("运行说明") {
+                                Section("运行说明") {
                     Text(status).font(.footnote).foregroundStyle(.secondary)
                     Text("本工具仅检查用户选取的文件。iOS 沙盒不会自动授予它读取越狱目录的权限；请通过文件管理器手动导入需要检查的 plist。")
                         .font(.footnote).foregroundStyle(.secondary)
