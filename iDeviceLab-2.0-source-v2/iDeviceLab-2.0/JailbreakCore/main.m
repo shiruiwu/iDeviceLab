@@ -94,6 +94,7 @@ static NSDictionary *AppDataContainerIndex(void) {
         return @{};
     NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
     NSMutableDictionary *index = [NSMutableDictionary dictionary];
+    NSMutableSet *ambiguousBundleIDs = [NSMutableSet set];
     for (NSString *child in children) {
         if ([child hasPrefix:@"."] || [[NSUUID alloc] initWithUUIDString:child] == nil) continue;
         NSString *container = [root stringByAppendingPathComponent:child];
@@ -105,6 +106,13 @@ static NSDictionary *AppDataContainerIndex(void) {
         NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
         NSString *bundleID = metadata[@"MCMMetadataIdentifier"];
         if (![bundleID isKindOfClass:NSString.class] || bundleID.length == 0 || bundleID.length > 255) continue;
+        // Never select an arbitrary container if metadata maps one bundle ID more than once.
+        if ([ambiguousBundleIDs containsObject:bundleID]) continue;
+        if (index[bundleID] != nil) {
+            [index removeObjectForKey:bundleID];
+            [ambiguousBundleIDs addObject:bundleID];
+            continue;
+        }
         index[bundleID] = container;
     }
     return index;

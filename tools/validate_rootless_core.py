@@ -61,6 +61,7 @@ check('@"POST"] && [path isEqualToString:@"/maintenance/clear"' in MAIN, "Core e
 check('@"GET"] && [path isEqualToString:@"/hooks/status"' in MAIN, "Core exposes read-only Hook installation diagnostics")
 check('@"Library/Caches"' in MAIN and '@"tmp"' in MAIN and '@"Documents"' in MAIN, "App cleanup is limited to caches and tmp; documents are excluded")
 check("AppDataContainerIndex" in MAIN and "MCMMetadataIdentifier" in MAIN, "App containers are matched by system metadata bundle identifier")
+check('ambiguousBundleIDs' in MAIN and 'removeObjectForKey:bundleID' in MAIN, "Core refuses ambiguous duplicate bundle-ID container mappings")
 check("ClearDirectDirectoryContents" in MAIN and "lstat(" in MAIN, "App cleanup validates container paths and rejects symlink roots")
 check('stringByDeletingLastPathComponent isEqualToString:root' in MAIN and 'relativePath isEqualToString:@"Library/Caches"' in MAIN and 'target.stringByResolvingSymlinksInPath' in MAIN, "App cleanup is restricted to direct app-container children and rejects intermediate symlink escapes")
 check('initWithUUIDString:child' in MAIN and 'initWithUUIDString:canonicalContainer.lastPathComponent' in MAIN, "App cleanup inventory and deletion require UUID-named app containers")
