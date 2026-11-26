@@ -340,7 +340,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntrySearchCFProperty,
         mac = [mac stringByReplacingOccurrencesOfString:@":" withString:@""];
         NSData* data = dataFromHexString(mac);
         // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,rv);
-        return CFDataCreate(NULL, [data bytes],[data length]);
+        if (data != nil) return CFDataCreate(NULL, [data bytes],[data length]);
       }
     }
     if ([key_str compare:@"product-id" options:mask]==NSOrderedSame) {
@@ -348,7 +348,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntrySearchCFProperty,
       if (mac!=nil&&([mac length]>0)) {
         NSData* data = dataFromHexString(mac);
         // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,rv);
-        return CFDataCreate(NULL, [data bytes],[data length]);
+        if (data != nil) return CFDataCreate(NULL, [data bytes],[data length]);
       }
     }
     if ([key_str compare:@"unique-chip-id" options:mask]==NSOrderedSame) {
@@ -356,7 +356,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntrySearchCFProperty,
       if (mac!=nil&&([mac length]>0)) {
         NSData* data = dataFromHexString(mac);
         // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,rv);
-        return CFDataCreate(NULL, [data bytes],[data length]);
+        if (data != nil) return CFDataCreate(NULL, [data bytes],[data length]);
       }
     }
     // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,rv);
@@ -397,7 +397,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntryCreateCFProperty,
       mac = [mac stringByReplacingOccurrencesOfString:@":" withString:@""];
       NSData* data = dataFromHexString(mac);
       // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,result);
-      return CFDataCreate(NULL, [data bytes],[data length]);
+      if (data != nil) return CFDataCreate(NULL, [data bytes],[data length]);
     }
   }
   else if([key_str compare:@"local-mac-address" options:mask]==NSOrderedSame){
@@ -414,7 +414,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntryCreateCFProperty,
       mac = [mac stringByReplacingOccurrencesOfString:@":" withString:@""];
       NSData* data = dataFromHexString(mac);
       // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,result);
-      return CFDataCreate(NULL, [data bytes],[data length]);
+      if (data != nil) return CFDataCreate(NULL, [data bytes],[data length]);
     }
     return result;
   }
@@ -424,7 +424,7 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntryCreateCFProperty,
       mac = [mac stringByReplacingOccurrencesOfString:@":" withString:@""];
       NSData* data = dataFromHexString(mac);
       // NSLog(@"%s:hook_iokit: %@-%@",__func__,key,result);
-      return CFDataCreate(NULL, [data bytes],[data length]);
+      if (data != nil) return CFDataCreate(NULL, [data bytes],[data length]);
     }
     return result;
   }
