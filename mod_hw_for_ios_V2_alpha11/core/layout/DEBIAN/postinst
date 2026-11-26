@@ -9,7 +9,7 @@ if [ "$1" = "configure" ]; then
 
   # Rootless jailbreaks do not expose launchctl at one consistent path.
   LAUNCHCTL=""
-  for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/usr/bin/launchctl; do
+  for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/basebin/launchctl /var/jb/usr/bin/launchctl; do
     if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
   done
   if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
