@@ -26,6 +26,13 @@ check 'Rootless jailbreak path exists' test -d /var/jb
 check 'Alpha11 Core executable installed' test -x /var/jb/usr/libexec/idevelab-core
 check 'Alpha11 Core LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
 check 'Alpha11 Core LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
+if plutil -extract UserName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist 2>/dev/null | grep -qx mobile; then
+  echo '[PASS] Alpha11 Core runs as mobile (unprivileged)'
+  PASS=$((PASS + 1))
+else
+  echo '[FAIL] Alpha11 Core launchd UserName is not mobile'
+  FAIL=$((FAIL + 1))
+fi
 LAUNCHCTL=''
 for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/basebin/launchctl /var/jb/usr/bin/launchctl; do
   if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
@@ -56,6 +63,27 @@ check 'App-container backup command installed' command -v mod-hw-app-backup
 check 'App-container backup verifier installed' command -v mod-hw-app-backup-verify
 check 'Guarded App-container restore command installed' command -v mod-hw-app-restore
 check 'Backup-first App-container cleanup command installed' command -v mod-hw-app-clean
+if command -v curl >/dev/null 2>&1; then
+  BACKUPS_RESPONSE="$(curl --silent --show-error --fail --max-time 3 http://127.0.0.1:18081/backups 2>/dev/null || true)"
+  if contains "$BACKUPS_RESPONSE" '"ok":true' && contains "$BACKUPS_RESPONSE" '"backups":'; then
+    echo '[PASS] Backup inventory endpoint responds with a JSON backup list'
+    PASS=$((PASS + 1))
+  else
+    echo '[FAIL] Backup inventory endpoint is unavailable or malformed'
+    FAIL=$((FAIL + 1))
+  fi
+else
+  echo '[SKIP] curl unavailable; verify backup list in the manager app'
+  SKIP=$((SKIP + 1))
+fi
+BACKUP_ROOT='/var/mobile/Library/Application Support/mod_hw_for_ios/app-container-backups'
+if [ -d "$BACKUP_ROOT" ]; then
+  check 'Backup directory is root-owned' test "$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null)" = 0
+  check 'Backup directory is readable by mobile group' test -r "$BACKUP_ROOT"
+else
+  echo '[SKIP] Backup directory not created yet; create a test backup before checking permissions'
+  SKIP=$((SKIP + 1))
+fi
 check 'Config diagnostic command installed' command -v mod-hw-diagnose
 check 'Read-only Keychain entitlement diagnostic installed' command -v mod-hw-keychain-diagnose
 echo "Result: $PASS passed, $FAIL failed, $SKIP skipped"
