@@ -53,6 +53,8 @@ jobs:
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
           bash -n scripts/build-core-deb.sh
+          sh -n core/layout/DEBIAN/postinst
+          sh -n core/layout/DEBIAN/prerm
 
       - name: Build unsigned TrollStore IPA
         run: bash scripts/build-trollstore-ipa.sh
@@ -130,6 +132,10 @@ jobs:
           with tarfile.open(fileobj=io.BytesIO(members['control.tar.gz']), mode='r:gz') as archive:
               control = next(m for m in archive.getmembers() if m.name.lstrip('./') == 'control')
               metadata = archive.extractfile(control).read().decode()
+              control_files = {m.name.lstrip('./'): m for m in archive.getmembers()}
+              assert 'postinst' in control_files and 'prerm' in control_files
+              for hook in ('postinst', 'prerm'):
+                  assert archive.extractfile(control_files[hook]).read().startswith(b'#!/bin/sh')
           assert 'Package: com.idevelab.core.alpha11' in metadata
           assert 'Architecture: iphoneos-arm64' in metadata
           with tarfile.open(fileobj=io.BytesIO(members['data.tar.gz']), mode='r:gz') as archive:
