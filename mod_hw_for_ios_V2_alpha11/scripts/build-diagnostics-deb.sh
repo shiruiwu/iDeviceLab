@@ -11,13 +11,14 @@ Package: com.modhw.ios.diagnostics
 Name: mod_hw_for_ios V2 Config Tools
 Version: 2.0.0~final3
 Architecture: iphoneos-arm64
-Description: Rootless config diagnostics and reversible plist backup/restore tools.
+Description: Rootless config diagnostics, config backup/restore, and app-container backup tools.
 Maintainer: mod_hw_for_ios contributors
 Section: Utilities
 EOF
 install -m 0755 "$ROOT/scripts/diagnose-config.sh" "$PKG/var/jb/usr/bin/mod-hw-diagnose"
 install -m 0755 "$ROOT/scripts/backup-config.sh" "$PKG/var/jb/usr/bin/mod-hw-config-backup"
 install -m 0755 "$ROOT/scripts/restore-config.sh" "$PKG/var/jb/usr/bin/mod-hw-config-restore"
+install -m 0755 "$ROOT/scripts/backup-app-container.sh" "$PKG/var/jb/usr/bin/mod-hw-app-backup"
 printf '2.0\n' > "$WORK/debian-binary"
 (cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 .)
 (cd "$PKG/DEBIAN" && tar --format=ustar -czf "$WORK/control.tar.gz" --owner=0 --group=0 .)
