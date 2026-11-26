@@ -38,12 +38,15 @@ private struct Alpha11ConfigStatus: Decodable {
     let keyCount: Int
     let keys: [String]
     let modifiedAt: Double?
+    let backupExists: Bool?
+    let backupParseable: Bool?
 }
 
 struct RootlessCoreView: View {
     @EnvironmentObject private var store: ProfileStore
     @State private var alpha11Config: Alpha11ConfigStatus?
     @State private var configImporterPresented = false
+    @State private var confirmRestoreBackup = false
     @State private var serviceState = "正在检测"
     @State private var connectionDetail = ""
     @State private var version = ""
@@ -134,6 +137,7 @@ struct RootlessCoreView: View {
                         LabeledContent("文件状态", value: !config.exists ? "尚未创建" : (config.parseable ? "存在且可解析" : "文件格式异常"))
                         LabeledContent("结构检查", value: !config.exists ? "文件未创建" : (!config.parseable ? "无法解析" : (config.schemaCompatible == true ? "Alpha11 必需字段存在" : "缺少 Alpha11 必需字段")))
                         LabeledContent("字段数量", value: "\(config.keyCount)")
+                        LabeledContent("本地回滚备份", value: config.backupParseable == true ? "可恢复" : "尚无有效备份")
                         Text(config.path).font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
                         if !config.keys.isEmpty {
                             Text("检测到字段").font(.caption).foregroundStyle(.secondary)
@@ -150,6 +154,10 @@ struct RootlessCoreView: View {
                             Label("导入安全字段", systemImage: "square.and.arrow.down")
                         }
                         .disabled(serviceState != "已连接" || !((alpha11Config?.exists ?? false) && (alpha11Config?.schemaCompatible ?? false)))
+                        Button(role: .destructive) { confirmRestoreBackup = true } label: {
+                            Label("恢复上次备份", systemImage: "arrow.uturn.backward")
+                        }
+                        .disabled(serviceState != "已连接" || alpha11Config?.backupParseable != true)
                     }
                     Text("可导入 HWModelStr、ProductVersion、BuildVersion、HardwarePlatform、ModelNumber、RegionInfo、RegionCode、ProductType。其他字段一律忽略，原文件中的唯一标识字段保持不变。")
                         .font(.caption2).foregroundStyle(.secondary)
@@ -165,6 +173,12 @@ struct RootlessCoreView: View {
             .task { await refresh() }
             .fileImporter(isPresented: $configImporterPresented, allowedContentTypes: [.propertyList]) { result in
                 Task { await importSafeAlpha11Fields(result) }
+            }
+            .confirmationDialog("恢复导入前的 Alpha11 配置？", isPresented: $confirmRestoreBackup, titleVisibility: .visible) {
+                Button("恢复上次备份", role: .destructive) { Task { await restoreAlpha11Backup() } }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("将用本机保存的上一次导入前备份覆盖当前 plist。备份保留在设备本地，不会上传。")
             }
             .alert("iDeviceLab", isPresented: Binding(
                 get: { message != nil },
@@ -246,6 +260,25 @@ struct RootlessCoreView: View {
             await refreshAlpha11Config()
         } catch {
             message = "配置导入失败：\(error.localizedDescription)"
+        }
+    }
+
+    @MainActor
+    private func restoreAlpha11Backup() async {
+        do {
+            var request = URLRequest(url: baseURL.appendingPathComponent("config/restore"))
+            request.httpMethod = "POST"
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  object["ok"] as? Bool == true else {
+                let errorObject = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                throw NSError(domain: "iDeviceLab.ConfigRestore", code: 1, userInfo: [NSLocalizedDescriptionKey: errorObject?["error"] as? String ?? "核心拒绝恢复备份"])
+            }
+            message = "已从本机回滚备份恢复 Alpha11 plist。请重启需要重新读取配置的进程。"
+            await refreshAlpha11Config()
+        } catch {
+            message = "恢复备份失败：\(error.localizedDescription)"
         }
     }
 
