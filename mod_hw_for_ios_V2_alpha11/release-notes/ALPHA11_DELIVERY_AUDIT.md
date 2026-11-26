@@ -14,7 +14,7 @@
 | Rootless packaging | Theos Makefile sets `THEOS_PACKAGE_SCHEME = rootless`; package workflow builds and inspects a DEB | Cloud build previously passed; install/load not verified |
 | Configuration file | Example plist and read-only `diagnose-config.sh` exist; hook reads the primary preference path with a legacy fallback | Basic config path exists; end-to-end apply not verified |
 | TrollStore manager | SwiftUI app imports plist, validates plist syntax, lists top-level keys/types, and exports the original bytes | Read-only utility, not a full manager |
-| Backup / restore | Manager can export an imported plist byte-for-byte | Config-file backup only; no app-container backup/restore |
+| Backup / restore | Manager exports imported plist bytes; Rootless tools now include timestamped config backup and validated atomic config restore with pre-restore snapshot | Config-file backup/restore implemented; no app-container backup/restore |
 | Deep app cleanup | No Alpha11 app-data/keychain cleanup implementation found in the audited tree | Not implemented |
 | Profile manager | Older `iDeviceLab-2.0-source-v2` has local profile storage/API | Separate legacy code; not wired to Alpha11 tweak configuration |
 | Manager ↔ Core bridge | No integrated authenticated bridge between the Alpha11 manager, a privileged helper, and the tweak config path found | Not implemented |
@@ -33,6 +33,11 @@ A profile stored by the legacy Core is not automatically consumed by the Alpha11
 6. Treat cleanup as a reversible, scoped operation. Report protected/unavailable data rather than claiming a factory-reset-equivalent wipe; keychain and system-managed data require separate platform-level handling.
 7. Add integration tests for config parsing, process filtering, package layout, upgrade/uninstall behavior, and rollback.
 8. Run the Rootless DEB and TrollStore IPA workflows, install on the target device, inspect logs, and record observed results.
+
+## Work completed after the initial audit
+- Added `scripts/backup-config.sh` for timestamped, byte-preserving backups of the tweak plist.
+- Added `scripts/restore-config.sh` for plist validation, atomic restore, and a separate pre-restore rollback snapshot.
+- Included both commands in the Rootless config-tools DEB and added CI syntax/static checks.
 
 ## Not claimed
 This audit does not claim that deep cleanup, keychain erasure, app-data restoration, full manager/Core integration, or real-device spoofing validation is complete. No new device-side operation was performed by this audit.
