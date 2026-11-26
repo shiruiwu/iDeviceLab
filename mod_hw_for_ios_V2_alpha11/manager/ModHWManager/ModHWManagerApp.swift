@@ -69,7 +69,7 @@ struct ContentView: View {
                                 LabeledContent("设备型号", value: summary.productType)
                                 LabeledContent("系统版本", value: summary.osVersion)
                                 LabeledContent("架构", value: summary.architecture)
-                                LabeledContent("存储空间", value: "\\(ByteCountFormatter.string(fromByteCount: Int64(clamping: summary.diskFreeBytes), countStyle: .file)) 可用 / \\(ByteCountFormatter.string(fromByteCount: Int64(clamping: summary.diskTotalBytes), countStyle: .file))")
+                                LabeledContent("存储空间", value: "\(ByteCountFormatter.string(fromByteCount: Int64(clamping: summary.diskFreeBytes), countStyle: .file)) 可用 / \(ByteCountFormatter.string(fromByteCount: Int64(clamping: summary.diskTotalBytes), countStyle: .file))")
                             } else {
                                 Text(systemStatus).font(.footnote).foregroundStyle(.secondary)
                             }
@@ -351,7 +351,7 @@ struct ContentView: View {
                 systemStatus = "设备信息已更新"
             } catch {
                 deviceSummary = nil
-                systemStatus = "读取失败：\\(error.localizedDescription)"
+                systemStatus = "读取失败：\(error.localizedDescription)"
             }
         }
     }
