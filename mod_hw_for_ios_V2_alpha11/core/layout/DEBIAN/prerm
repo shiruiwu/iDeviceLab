@@ -1,5 +1,8 @@
 #!/bin/sh
-if [ -x /bin/launchctl ]; then
-  /bin/launchctl bootout system /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist >/dev/null 2>&1 || true
-fi
+for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/usr/bin/launchctl; do
+  if [ -x "$candidate" ]; then
+    "$candidate" bootout system /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist >/dev/null 2>&1 || true
+    break
+  fi
+done
 exit 0
