@@ -86,7 +86,7 @@ jobs:
           grep -E '(^|/)postinst$' package-control-files.txt
           grep -E '(^|/)prerm$' package-control-files.txt
           test "$(dpkg-deb -f "$PACKAGE" Package)" = "com.idevelab.core"
-          test "$(dpkg-deb -f "$PACKAGE" Version)" = "0.1.8"
+          test "$(dpkg-deb -f "$PACKAGE" Version)" = "0.1.9"
       - uses: actions/upload-artifact@v4
         with:
           name: iDeviceLab-rootless-deb
