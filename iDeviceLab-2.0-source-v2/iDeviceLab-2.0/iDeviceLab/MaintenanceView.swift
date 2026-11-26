@@ -148,7 +148,7 @@ struct MaintenanceView: View {
                             ?? ((lastAppCleanup["partial"] as? Bool == true) ? "partial" : "unknown")
                         let removed = (lastAppCleanup["removedBytes"] as? NSNumber)?.int64Value ?? 0
                         let removedItems = (lastAppCleanup["removedItems"] as? NSNumber)?.intValue ?? 0
-                        LabeledContent("结果", value: result == "success" ? "完成" : (result == "partial" ? "部分完成" : "失败 / 旧记录"))
+                        LabeledContent("结果", value: result == "success" ? "完成" : (result == "partial" ? "部分完成" : (result == "unknown" ? "结果未知（连接中断）" : "失败 / 旧记录")))
                         LabeledContent("已处理项目", value: "\(removedItems)")
                         LabeledContent("已处理容量", value: ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))
                         if let before = lastAppCleanup["beforeBytes"] as? NSNumber {
@@ -184,7 +184,7 @@ struct MaintenanceView: View {
                                 Text(record["appName"] as? String ?? record["bundleIdentifier"] as? String ?? "未知应用")
                                     .font(.subheadline)
                                 let result = record["result"] as? String ?? "unknown"
-                                Text("\(result == "success" ? "完成" : (result == "partial" ? "部分完成" : "失败")) · 已处理 \((record["removedItems"] as? NSNumber)?.intValue ?? 0) 项 · \(ByteCountFormatter.string(fromByteCount: (record["removedBytes"] as? NSNumber)?.int64Value ?? 0, countStyle: .file))")
+                                Text("\(result == "success" ? "完成" : (result == "partial" ? "部分完成" : (result == "unknown" ? "结果未知" : "失败"))) · 已处理 \((record["removedItems"] as? NSNumber)?.intValue ?? 0) 项 · \(ByteCountFormatter.string(fromByteCount: (record["removedBytes"] as? NSNumber)?.int64Value ?? 0, countStyle: .file))")
                                     .font(.caption2).foregroundStyle(.secondary)
                                 if let completedAt = record["completedAt"] as? String {
                                     Text(completedAt).font(.caption2).foregroundStyle(.tertiary)
@@ -304,8 +304,10 @@ struct MaintenanceView: View {
             let body = try JSONSerialization.data(withJSONObject: ["bundleIdentifier": app.bundleIdentifier])
             var request = URLRequest(url: coreURL.appendingPathComponent("maintenance/clear"))
             request.httpMethod = "POST"
+            request.timeoutInterval = 15
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
+            cleanupRequestStarted = true
             let (data, response) = try await URLSession.shared.data(for: request)
             let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             cleanupResponse = object
@@ -360,8 +362,41 @@ struct MaintenanceView: View {
                 if partial {
                     appMaintenanceMessage = "部分清理：已删除 \(removedItems) 项，\(ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))"
                 }
+            } else if cleanupRequestStarted {
+                // A timeout or broken connection does not prove that the Core did not finish.
+                persistAppCleanupRecord([
+                    "bundleIdentifier": app.bundleIdentifier,
+                    "appName": app.name,
+                    "removedBytes": 0,
+                    "removedItems": 0,
+                    "partial": false,
+                    "result": "unknown",
+                    "operationMayHaveCompleted": true,
+                    "error": error.localizedDescription,
+                    "startedAt": clientStartedAt,
+                    "completedAt": ISO8601DateFormatter().string(from: Date()),
+                    "areas": ["Library/Caches", "tmp"]
+                ])
+                appMaintenanceMessage = "连接中断：清理结果未知，请先重新扫描，不要立即重复执行"
+                message = "清理请求未收到可靠结果。Core 端可能已完成或部分完成；已记录为“结果未知”，请先重新扫描确认。"
+            } else {
+                persistAppCleanupRecord([
+                    "bundleIdentifier": app.bundleIdentifier,
+                    "appName": app.name,
+                    "removedBytes": 0,
+                    "removedItems": 0,
+                    "partial": false,
+                    "result": "failed",
+                    "error": error.localizedDescription,
+                    "startedAt": clientStartedAt,
+                    "completedAt": ISO8601DateFormatter().string(from: Date()),
+                    "areas": ["Library/Caches", "tmp"]
+                ])
+                message = "清理请求未发送：\(error.localizedDescription)"
             }
-            message = "App 缓存清理失败：\(error.localizedDescription)"
+            if cleanupResponse != nil {
+                message = "App 缓存清理失败：\(error.localizedDescription)"
+            }
             await refreshAppInventory()
         }
     }

@@ -140,6 +140,9 @@ check("CTMobileEquipmentInfo_setIMEI();" in constructor_body and "CTMobileEquipm
 
 check("removeItemAtPath:candidate" not in MAIN and "unlinkat(" in MAIN, "App cleanup has no pathname-based recursive deletion fallback")
 check("iDeviceLabAppCleanupHistoryV1" in MAINTENANCE and "persistAppCleanupRecord" in MAINTENANCE and "appCleanupHistory" in MAINTENANCE, "Manager persists and exports the latest 20 App cleanup records")
+check('request.timeoutInterval = 15' in MAINTENANCE, "Manager bounds per-app cleanup request wait time")
+check('"result": "unknown"' in MAINTENANCE and '"operationMayHaveCompleted": true' in MAINTENANCE, "Manager records an explicit unknown result when the cleanup response is lost")
+check('result == "unknown" ? "结果未知' in MAINTENANCE, "Manager distinguishes unknown cleanup outcomes in the UI")
 device_script = ROOT / "scripts/device_acceptance.sh"
 shell_syntax = subprocess.run(["sh", "-n", str(device_script)], capture_output=True, text=True)
 check(shell_syntax.returncode == 0, "Device acceptance script passes POSIX shell syntax validation")
