@@ -17,6 +17,9 @@ struct MaintenanceView: View {
     @State private var appItems: [AppMaintenanceItem] = []
     @State private var selectedAppBundleID = ""
     @State private var orphanedContainerCount = 0
+    @State private var orphanedContainers: [OrphanedContainerItem] = []
+    @State private var inventoryScannedAt: Date?
+    @State private var lastAppCleanup: [String: Any]?
     @State private var appMaintenanceMessage = "尚未扫描"
     @State private var isCleaningApp = false
 
@@ -100,7 +103,21 @@ struct MaintenanceView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     LabeledContent("疑似卸载残留容器", value: "\(orphanedContainerCount) 个")
-                    Text("仅清理所选已安装 App 容器内的 Library/Caches 和 tmp。不会删除 Documents、数据库、偏好设置、钥匙串或登录凭据。清理前请先退出目标 App。")
+                    if let inventoryScannedAt {
+                        LabeledContent("最近扫描", value: inventoryScannedAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    if !orphanedContainers.isEmpty {
+                        ForEach(orphanedContainers) { orphan in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(orphan.bundleIdentifier).font(.subheadline)
+                                Text("容器 UUID：\(orphan.containerUUID)")
+                                    .font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
+                                Text("\(orphan.accessible ? "可访问" : "不可访问") · \(ByteCountFormatter.string(fromByteCount: orphan.containerBytes, countStyle: .file))")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    Text("仅清理所选已安装 App 容器内的 Library/Caches 和 tmp。疑似残留只列出供核查，不会自动删除。不会删除 Documents、数据库、偏好设置、钥匙串或登录凭据。清理前请先退出目标 App。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -148,6 +165,8 @@ struct MaintenanceView: View {
             guard result.ok else { throw URLError(.cannotParseResponse) }
             appItems = result.apps
             orphanedContainerCount = result.orphanedContainerCount
+            orphanedContainers = result.orphanedContainers ?? []
+            inventoryScannedAt = Date()
             if !appItems.contains(where: { $0.bundleIdentifier == selectedAppBundleID }) {
                 selectedAppBundleID = appItems.first?.bundleIdentifier ?? ""
             }
@@ -176,6 +195,13 @@ struct MaintenanceView: View {
                               userInfo: [NSLocalizedDescriptionKey: object?["error"] as? String ?? "核心拒绝清理"])
             }
             let removed = (object?["removedBytes"] as? NSNumber)?.int64Value ?? 0
+            lastAppCleanup = [
+                "bundleIdentifier": app.bundleIdentifier,
+                "appName": app.name,
+                "removedBytes": removed,
+                "completedAt": ISO8601DateFormatter().string(from: Date()),
+                "areas": ["Library/Caches", "tmp"]
+            ]
             appMaintenanceMessage = "清理完成：\(ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))"
             await refreshAppInventory()
             message = "已清理 \(app.name) 的缓存和临时文件。没有删除应用文档、数据库、偏好设置或凭据。"
@@ -187,16 +213,40 @@ struct MaintenanceView: View {
 
     private func exportMaintenanceReport() {
         scan()
+        let appInventory = appItems.map { app in
+            [
+                "name": app.name,
+                "bundleIdentifier": app.bundleIdentifier,
+                "version": app.version,
+                "containerAvailable": app.containerAvailable,
+                "cachesBytes": app.cachesBytes,
+                "temporaryBytes": app.temporaryBytes,
+                "cleanableBytes": app.cleanableBytes
+            ] as [String: Any]
+        }
+        let orphanInventory = orphanedContainers.map { item in
+            [
+                "bundleIdentifier": item.bundleIdentifier,
+                "containerUUID": item.containerUUID,
+                "accessible": item.accessible,
+                "containerBytes": item.containerBytes
+            ] as [String: Any]
+        }
         let report: [String: Any] = [
-            "reportVersion": 1,
+            "reportVersion": 2,
             "generatedAt": ISO8601DateFormatter().string(from: Date()),
+            "inventoryScannedAt": inventoryScannedAt.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull(),
             "device": ["platform": "iOS", "app": "iDeviceLab"],
             "manager": ["profileCount": store.profiles.count, "managedAppBindingCount": store.managedApps.count],
             "appOwnedStorage": ["cachesBytes": cacheBytes, "temporaryBytes": temporaryBytes, "totalScannedBytes": totalBytes],
+            "installedAppInventory": appInventory,
+            "orphanedContainers": orphanInventory,
+            "orphanedContainerCount": orphanedContainerCount,
+            "lastAppCleanup": lastAppCleanup ?? NSNull(),
             "scope": [
-                "included": ["iDeviceLab Caches", "iDeviceLab tmp", "local profile counts"],
-                "notInspected": ["other app containers", "Keychain items", "account sessions", "cloud-side state", "whole-device backup"],
-                "note": "This report is a local maintenance inventory, not proof that third-party app data or credentials were erased."
+                "included": ["iDeviceLab Caches", "iDeviceLab tmp", "installed app cache and tmp sizes from the last Rootless scan", "orphan container identifiers and aggregate sizes", "local profile counts"],
+                "notInspected": ["app document contents", "Keychain items", "account sessions", "cloud-side state", "whole-device backup"],
+                "note": "Orphan containers are diagnostic candidates only. Inventory is a point-in-time scan and does not prove that any app data or credentials were erased."
             ]
         ]
         do {
