@@ -1,8 +1,12 @@
 #!/bin/sh
-for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/basebin/launchctl /var/jb/usr/bin/launchctl; do
+for candidate in /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /usr/libexec/launchctl /var/jb/bin/launchctl /var/jb/sbin/launchctl /var/jb/usr/sbin/launchctl /var/jb/usr/bin/launchctl /var/jb/usr/libexec/launchctl /var/jb/basebin/launchctl; do
   if [ -x "$candidate" ]; then
     "$candidate" bootout system /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist >/dev/null 2>&1 || true
     break
   fi
 done
+if ! command -v launchctl >/dev/null 2>&1; then
+  FOUND="$(find /var/jb -name launchctl -perm -111 -print -quit 2>/dev/null || true)"
+  [ -z "$FOUND" ] || "$FOUND" bootout system /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist >/dev/null 2>&1 || true
+fi
 exit 0
