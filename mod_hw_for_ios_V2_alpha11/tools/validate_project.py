@@ -109,7 +109,7 @@ if app_cleanup.is_file():
     src = app_cleanup.read_text()
     check("mod-hw-app-backup" in src and "mod-hw-app-backup-verify" in src and "cleanup-snapshots" in src and "--confirm" in src and "tar -tvzf" in src,
           "App cleanup creates and verifies a backup and rollback snapshot before clearing data")
-    check('PGP_STATUS=$?' in src and 'elif [ "$PGP_STATUS" -ne 1 ]' in src,
+    check('if pgrep -x "$EXECUTABLE"' in src and '[ "$PGP_STATUS" -eq 1 ]' in src,
           "App cleanup distinguishes a stopped process from a pgrep execution error")
     check("Keychain" in src and "App Groups" in src,
           "App cleanup documents Keychain and App Groups as excluded")
@@ -119,7 +119,7 @@ if app_restore.is_file():
           "App restore requires explicit confirmation, closed app, and rollback snapshot")
     check("tar -tvzf" in src and "tar -tzf" in src and "符号链接" in src,
           "App restore rejects unsafe archive paths and link/special-file entries")
-    check('PGP_STATUS=$?' in src and 'elif [ "$PGP_STATUS" -ne 1 ]' in src,
+    check('if pgrep -x "$EXECUTABLE"' in src and '[ "$PGP_STATUS" -eq 1 ]' in src,
           "App restore distinguishes a stopped process from a pgrep execution error")
 if app_verify.is_file():
     src = app_verify.read_text()
