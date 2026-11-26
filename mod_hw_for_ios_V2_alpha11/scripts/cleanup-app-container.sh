@@ -30,11 +30,12 @@ done
 [ "$APP_COUNT" -eq 1 ] || fail '无法唯一定位已安装 App。'
 EXECUTABLE="$(plutil -extract CFBundleExecutable raw -o - "$APP_MATCH" 2>/dev/null || true)"
 [ -n "$EXECUTABLE" ] || fail '无法读取 App 可执行文件名称。'
-if pgrep -x "$EXECUTABLE" >/dev/null 2>&1; then
+pgrep -x "$EXECUTABLE" >/dev/null 2>&1
+PGP_STATUS=$?
+if [ "$PGP_STATUS" -eq 0 ]; then
   fail '目标 App 仍在运行，请完全退出后重试。'
-else
-  PGP_STATUS=$?
-  [ "$PGP_STATUS" -eq 1 ] || fail '无法可靠确认 App 进程状态。'
+elif [ "$PGP_STATUS" -ne 1 ]; then
+  fail '无法可靠确认 App 进程状态。'
 fi
 
 MATCH=''
