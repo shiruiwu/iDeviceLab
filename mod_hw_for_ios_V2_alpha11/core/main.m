@@ -71,6 +71,27 @@ static NSArray *InstalledApplications(void) {
 }
 
 
+static NSArray *InstalledMaintenanceTools(void) {
+    NSArray<NSString *> *names = @[
+        @"mod-hw-diagnose",
+        @"mod-hw-config-backup",
+        @"mod-hw-config-restore",
+        @"mod-hw-app-backup",
+        @"mod-hw-app-backup-verify",
+        @"mod-hw-app-restore",
+        @"mod-hw-app-clean",
+        @"mod-hw-keychain-diagnose",
+        @"mod-hw-selftest"
+    ];
+    NSMutableArray *tools = [NSMutableArray arrayWithCapacity:names.count];
+    for (NSString *name in names) {
+        NSString *path = [@"/var/jb/usr/bin" stringByAppendingPathComponent:name];
+        BOOL installed = access(path.fileSystemRepresentation, X_OK) == 0;
+        [tools addObject:@{@"name": name, @"path": path, @"installed": @(installed)}];
+    }
+    return tools;
+}
+
 static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"/";
     if (![method isEqualToString:@"GET"]) {
@@ -81,6 +102,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     }
     if ([path isEqualToString:@"/system"]) return SystemSummary();
     if ([path isEqualToString:@"/apps"]) return @{@"ok": @YES, @"apps": InstalledApplications()};
+    if ([path isEqualToString:@"/tools"]) return @{@"ok": @YES, @"tools": InstalledMaintenanceTools()};
     return @{@"ok": @NO, @"error": @"not found"};
 }
 
@@ -143,7 +165,8 @@ int main(void) {
                         NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"";
                         BOOL known = [path isEqualToString:@"/status"] ||
                                      [path isEqualToString:@"/system"] ||
-                                     [path isEqualToString:@"/apps"];
+                                     [path isEqualToString:@"/apps"] ||
+                                     [path isEqualToString:@"/tools"];
                         NSDictionary *result = ProcessRequest(method, target);
                         int status = ![method isEqualToString:@"GET"] ? 405 : (known ? 200 : 404);
                         Reply(client, result, status);
