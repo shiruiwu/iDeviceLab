@@ -38,6 +38,8 @@ jobs:
           swiftc -frontend -parse manager/ModHWManager/ModHWManagerApp.swift
           bash -n scripts/build-trollstore-ipa.sh
           bash -n scripts/diagnose-config.sh
+          bash -n scripts/backup-config.sh
+          bash -n scripts/restore-config.sh
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
 
