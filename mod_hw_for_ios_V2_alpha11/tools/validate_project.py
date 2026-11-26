@@ -130,6 +130,10 @@ if core_source.is_file():
 
     check('@"version": @"0.2.0-alpha11"' in core,
           "Alpha11 Core status reports its own version")
+    check('validHash' in core and 'invalidIdentity' in core and
+          'manifestAttrs[NSFilePosixPermissions]' in core and
+          '[attrs[NSFileSize] unsignedLongLongValue] == 0' in core,
+          "Backup inventory rejects non-hex hashes, malformed identities, public manifest permissions, and empty archives")
 if core_control.is_file():
     check("Architecture: iphoneos-arm64" in core_control_text and "Version: 0.2.0~alpha11" in core_control_text,
           "Alpha11 Core package metadata targets Rootless arm64")
