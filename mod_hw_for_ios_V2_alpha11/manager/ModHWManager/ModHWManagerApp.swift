@@ -16,6 +16,13 @@ private struct CoreApp: Identifiable {
     var id: String { bundleIdentifier }
 }
 
+private struct MaintenanceTool: Decodable, Identifiable {
+    let name: String
+    let path: String
+    let installed: Bool
+    var id: String { name }
+}
+
 private struct DeviceSummary: Decodable {
     let productType: String
     let architecture: String
@@ -43,6 +50,8 @@ struct ContentView: View {
     @State private var coreStatus = "尚未检测 Core 服务"
     @State private var deviceSummary: DeviceSummary?
     @State private var systemStatus = "尚未读取设备信息"
+    @State private var maintenanceTools: [MaintenanceTool] = []
+    @State private var toolsStatus = "尚未检查维护工具"
     @State private var coreChecking = false
     @State private var appsLoading = false
     @State private var appInventoryStatus = "尚未读取 App 清单"
@@ -81,6 +90,7 @@ struct ContentView: View {
                             checkCore()
                             fetchInstalledApps()
                             fetchSystemSummary()
+                            fetchMaintenanceTools()
                         } label: {
                             Label(coreChecking || appsLoading ? "正在检查…" : "刷新设备状态", systemImage: "arrow.clockwise")
                                 .frame(maxWidth: .infinity)
@@ -138,6 +148,7 @@ struct ContentView: View {
             checkCore()
             fetchInstalledApps()
             fetchSystemSummary()
+            fetchMaintenanceTools()
         }
     }
 
@@ -248,6 +259,22 @@ struct ContentView: View {
                         Text(app.name)
                         Text(app.bundleIdentifier).font(.caption.monospaced()).foregroundStyle(.secondary)
                         if !app.version.isEmpty { Text("版本：\(app.version)").font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
+            }
+            Section("越狱维护工具") {
+                Text(toolsStatus).font(.footnote).foregroundStyle(.secondary)
+                Button("刷新工具安装状态") { fetchMaintenanceTools() }
+                ForEach(maintenanceTools) { tool in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tool.name).font(.subheadline.monospaced())
+                            Text(tool.path).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Label(tool.installed ? "已安装" : "缺失", systemImage: tool.installed ? "checkmark.circle.fill" : "xmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(tool.installed ? .green : .orange)
                     }
                 }
             }
@@ -387,6 +414,36 @@ struct ContentView: View {
             } catch {
                 installedApps = []
                 appInventoryStatus = "读取失败：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func fetchMaintenanceTools() {
+        toolsStatus = "正在检查越狱端工具…"
+        Task {
+            do {
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:18081/tools")!)
+                request.httpMethod = "GET"
+                request.timeoutInterval = 4
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                      let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      payload["ok"] as? Bool == true,
+                      let rows = payload["tools"] as? [[String: Any]] else {
+                    throw URLError(.cannotParseResponse)
+                }
+                maintenanceTools = rows.compactMap { row in
+                    guard let name = row["name"] as? String,
+                          let path = row["path"] as? String,
+                          let installed = row["installed"] as? Bool else { return nil }
+                    return MaintenanceTool(name: name, path: path, installed: installed)
+                }
+                let count = maintenanceTools.filter(\\.installed).count
+                toolsStatus = "已检测 \\(count)/\\(maintenanceTools.count) 个维护工具"
+            } catch {
+                maintenanceTools = []
+                toolsStatus = "检查失败：\\(error.localizedDescription)"
             }
         }
     }
