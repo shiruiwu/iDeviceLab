@@ -134,6 +134,10 @@ if core_source.is_file():
           'manifestAttrs[NSFilePosixPermissions]' in core and
           '[attrs[NSFileSize] unsignedLongLongValue] == 0' in core,
           "Backup inventory rejects non-hex hashes, malformed identities, public manifest permissions, and empty archives")
+    check('HasSecureBackupMetadata' in core and 'lstat(path.fileSystemRepresentation, &st)' in core and
+          'getpwnam("mobile")' in core and '(st.st_mode & 07777) == expectedMode' in core and
+          'st.st_gid == mobileGID' in core,
+          "Backup inventory rejects symlinks and requires exact root:mobile ownership and 0750/0640 modes")
 if core_control.is_file():
     check("Architecture: iphoneos-arm64" in core_control_text and "Version: 0.2.0~alpha11" in core_control_text,
           "Alpha11 Core package metadata targets Rootless arm64")
