@@ -31,6 +31,11 @@ if core_daemon.is_file():
 check("Version: 2.0.0~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
 check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
 check("src/captain_hook/hook.mm" in makefile, "Original hook source remains in target")
+hook_filter_path = ROOT / "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist"
+hook_filter = plistlib.loads(hook_filter_path.read_bytes())
+hook_filter_config = hook_filter.get("Filter", {})
+check(hook_filter_config.get("Mode") == "Any" and "com.apple.UIKit" in hook_filter_config.get("Bundles", []),
+      "Substrate filter loads the Hook in UIKit apps while retaining explicit daemon targets")
 check("IsHexStringOfLength(str, 12)" in gestalt_source and "IsHexStringOfLength(hex, 40)" in gestalt_source,
       "Hardware-address and UDID hex inputs require exact lengths and hexadecimal characters")
 check("PreferenceBooleanIsTrue" in gestalt_source and "a == NULL" in gestalt_source,
