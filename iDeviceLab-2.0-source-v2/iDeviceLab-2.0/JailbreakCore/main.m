@@ -86,6 +86,143 @@ static NSArray *InstalledApplications(void) {
     return apps;
 }
 
+
+static NSDictionary *AppDataContainerIndex(void) {
+    NSString *root = @"/var/mobile/Containers/Data/Application";
+    struct stat rootInfo = {0};
+    if (lstat(root.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode))
+        return @{};
+    NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    NSMutableDictionary *index = [NSMutableDictionary dictionary];
+    for (NSString *child in children) {
+        if ([child hasPrefix:@"."]) continue;
+        NSString *container = [root stringByAppendingPathComponent:child];
+        struct stat info = {0};
+        if (lstat(container.fileSystemRepresentation, &info) != 0 || !S_ISDIR(info.st_mode)) continue;
+        NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
+        struct stat metadataInfo = {0};
+        if (lstat(metadataPath.fileSystemRepresentation, &metadataInfo) != 0 || !S_ISREG(metadataInfo.st_mode)) continue;
+        NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
+        NSString *bundleID = metadata[@"MCMMetadataIdentifier"];
+        if (![bundleID isKindOfClass:NSString.class] || bundleID.length == 0 || bundleID.length > 255) continue;
+        index[bundleID] = container;
+    }
+    return index;
+}
+
+static unsigned long long SafeDirectoryBytes(NSString *path) {
+    struct stat rootInfo = {0};
+    if (lstat(path.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode)) return 0;
+    unsigned long long total = 0;
+    NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:[NSURL fileURLWithPath:path]
+        includingPropertiesForKeys:@[NSURLIsRegularFileKey, NSURLFileSizeKey, NSURLIsSymbolicLinkKey]
+        options:0 errorHandler:^BOOL(NSURL *url, NSError *error) { return YES; }];
+    for (NSURL *url in enumerator) {
+        NSNumber *isLink = nil, *isFile = nil, *size = nil;
+        [url getResourceValue:&isLink forKey:NSURLIsSymbolicLinkKey error:nil];
+        if (isLink.boolValue) { [enumerator skipDescendants]; continue; }
+        [url getResourceValue:&isFile forKey:NSURLIsRegularFileKey error:nil];
+        if (isFile.boolValue) {
+            [url getResourceValue:&size forKey:NSURLFileSizeKey error:nil];
+            total += size.unsignedLongLongValue;
+        }
+    }
+    return total;
+}
+
+static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath, unsigned long long *removedBytes, NSError **error) {
+    NSString *root = @"/var/mobile/Containers/Data/Application";
+    NSString *canonicalContainer = container.stringByStandardizingPath;
+    if (![canonicalContainer.stringByDeletingLastPathComponent isEqualToString:root] &&
+        ![canonicalContainer hasPrefix:[root stringByAppendingString:@"/"]]) return NO;
+    if (![canonicalContainer.stringByResolvingSymlinksInPath isEqualToString:canonicalContainer]) return NO;
+    NSString *target = [canonicalContainer stringByAppendingPathComponent:relativePath];
+    struct stat info = {0};
+    if (lstat(target.fileSystemRepresentation, &info) != 0) {
+        if (errno == ENOENT) return YES;
+        return NO;
+    }
+    if (!S_ISDIR(info.st_mode)) return NO;
+    unsigned long long before = SafeDirectoryBytes(target);
+    NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:target error:error];
+    if (!children) return NO;
+    for (NSString *child in children) {
+        if ([child isEqualToString:@"."] || [child isEqualToString:@".."] || [child containsString:@"/"]) return NO;
+        NSString *candidate = [target stringByAppendingPathComponent:child];
+        struct stat childInfo = {0};
+        if (lstat(candidate.fileSystemRepresentation, &childInfo) != 0) return NO;
+        // removeItemAtPath removes a symlink itself; it does not resolve its destination.
+        if (![NSFileManager.defaultManager removeItemAtPath:candidate error:error]) return NO;
+    }
+    if (removedBytes) *removedBytes += before;
+    return YES;
+}
+
+static NSDictionary *AppMaintenanceInventory(void) {
+    NSDictionary *containers = AppDataContainerIndex();
+    NSArray *installed = InstalledApplications();
+    NSMutableSet *installedIDs = [NSMutableSet set];
+    NSMutableArray *apps = [NSMutableArray array];
+    for (NSDictionary *app in installed) {
+        NSString *bundleID = app[@"bundleIdentifier"];
+        if (![bundleID isKindOfClass:NSString.class]) continue;
+        [installedIDs addObject:bundleID];
+        NSString *container = containers[bundleID];
+        unsigned long long caches = container ? SafeDirectoryBytes([container stringByAppendingPathComponent:@"Library/Caches"]) : 0;
+        unsigned long long temporary = container ? SafeDirectoryBytes([container stringByAppendingPathComponent:@"tmp"]) : 0;
+        [apps addObject:@{
+            @"name": app[@"name"] ?: bundleID,
+            @"bundleIdentifier": bundleID,
+            @"version": app[@"version"] ?: @"",
+            @"containerAvailable": @(container != nil),
+            @"cachesBytes": @(caches),
+            @"temporaryBytes": @(temporary),
+            @"cleanableBytes": @(caches + temporary)
+        }];
+    }
+    NSUInteger orphanCount = 0;
+    for (NSString *bundleID in containers) if (![installedIDs containsObject:bundleID]) orphanCount++;
+    return @{@"ok":@YES, @"apps":apps, @"orphanedContainerCount":@(orphanCount),
+             @"scope":@"Only Library/Caches and tmp are eligible for cleanup; app documents, preferences, databases and credentials are excluded."};
+}
+
+static NSDictionary *ClearAppCaches(NSData *body) {
+    if (body.length == 0 || body.length > 4096) return @{@"ok":@NO, @"error":@"invalid request body"};
+    id input = [NSJSONSerialization JSONObjectWithData:body options:0 error:nil];
+    NSString *bundleID = [input isKindOfClass:NSDictionary.class] ? input[@"bundleIdentifier"] : nil;
+    if (![bundleID isKindOfClass:NSString.class] || bundleID.length == 0 || bundleID.length > 255)
+        return @{@"ok":@NO, @"error":@"a valid bundleIdentifier is required"};
+    BOOL installed = NO;
+    for (NSDictionary *app in InstalledApplications()) {
+        if ([app[@"bundleIdentifier"] isEqualToString:bundleID]) { installed = YES; break; }
+    }
+    if (!installed) return @{@"ok":@NO, @"error":@"only currently installed applications can be selected"};
+    NSString *container = AppDataContainerIndex()[bundleID];
+    if (!container) return @{@"ok":@NO, @"error":@"app data container is not accessible"};
+    unsigned long long removed = 0;
+    NSError *error = nil;
+    if (!ClearDirectDirectoryContents(container, @"Library/Caches", &removed, &error) ||
+        !ClearDirectDirectoryContents(container, @"tmp", &removed, &error))
+        return @{@"ok":@NO, @"error":error.localizedDescription ?: @"cache cleanup failed; inspect permissions and container state"};
+    return @{@"ok":@YES, @"bundleIdentifier":bundleID, @"removedBytes":@(removed),
+             @"clearedAreas":@[@"Library/Caches", @"tmp"],
+             @"excludedAreas":@[@"Documents", @"Library/Preferences", @"Library/Application Support", @"Keychain", @"cloud state"]};
+}
+
+static NSDictionary *HookInstallationStatus(void) {
+    NSString *directory = @"/var/jb/Library/MobileSubstrate/DynamicLibraries";
+    NSString *dylib = [directory stringByAppendingPathComponent:@"mod_hw_for_ios.dylib"];
+    NSString *filter = [directory stringByAppendingPathComponent:@"mod_hw_for_ios.plist"];
+    return @{
+        @"ok":@YES,
+        @"coreServiceRunning":@YES,
+        @"tweakLibraryFound":@([NSFileManager.defaultManager fileExistsAtPath:dylib]),
+        @"tweakFilterFound":@([NSFileManager.defaultManager fileExistsAtPath:filter]),
+        @"runtimeInjectionVerified":@NO,
+        @"note":@"File presence is installation evidence only; this endpoint does not claim that a target process loaded the tweak."
+    };
+}
+
 static BOOL IsSafeAlpha11ConfigValue(NSString *key, NSString *value) {
     if (![value isKindOfClass:NSString.class] || value.length == 0 || value.length > 64) return NO;
     NSString *pattern = @"^[A-Za-z0-9 ,._/-]+$";
@@ -224,9 +361,12 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
-        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.8", @"port":@(kPort)};
+        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.9", @"port":@(kPort)};
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
+    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/maintenance/apps"]) return AppMaintenanceInventory();
+    if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/maintenance/clear"]) return ClearAppCaches(body);
+    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/hooks/status"]) return HookInstallationStatus();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/config/status"]) return Alpha11ConfigStatus();
     if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/config/update"]) return ApplySafeAlpha11ConfigUpdate(body);
     if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/config/restore"]) return RestoreAlpha11ConfigBackup();
@@ -300,7 +440,7 @@ int main(void) {
                             body = [requestData subdataWithRange:NSMakeRange(headerEnd, requestData.length - headerEnd)];
                         NSDictionary *result = ProcessRequest(method, target, body);
                         NSString *requestPath = [[target componentsSeparatedByString:@"?"] firstObject] ?: target;
-                        BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/config/status", @"/config/update", @"/config/restore"] containsObject:requestPath];
+                        BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/maintenance/apps", @"/maintenance/clear", @"/hooks/status", @"/config/status", @"/config/update", @"/config/restore"] containsObject:requestPath];
                         NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
                         Reply(client, result, (int)httpStatus);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
