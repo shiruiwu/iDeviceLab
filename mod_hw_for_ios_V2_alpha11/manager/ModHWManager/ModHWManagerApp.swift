@@ -130,9 +130,9 @@ struct ContentView: View {
                     coreStatus = "响应格式不匹配（不是预期的 Core 服务）"
                     return
                 }
-                coreStatus = "已连接：\\(service) · v\\(version)"
+                coreStatus = "已连接：\(service) · v\(version)"
             } catch {
-                coreStatus = "未连接：\\(error.localizedDescription)"
+                coreStatus = "未连接：\(error.localizedDescription)"
             }
         }
     }
