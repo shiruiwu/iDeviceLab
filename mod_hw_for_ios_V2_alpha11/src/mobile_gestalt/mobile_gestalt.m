@@ -155,6 +155,12 @@ static void CFShowType(CFTypeRef err_test){
 static bool IsNil(NSString* aString) {
   return !(aString && aString.length);
 }
+static BOOL PreferenceBooleanIsTrue(NSDictionary *dictionary, NSString *key) {
+  id value = dictionary[key];
+  if (!value) return NO;
+  CFTypeRef ref = (__bridge CFTypeRef)value;
+  return CFGetTypeID(ref) == CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)ref);
+}
 static bool IsCFData(CFTypeRef data){
   return (CFGetTypeID(data)==CFDataGetTypeID());
 }
@@ -217,18 +223,21 @@ void initPrefFile(){
         break;
       }
       a = APCopyDataFromHexString((__bridge CFStringRef)device_id);
+      if (a == NULL) {
+        NSLog(@"[mod_hw] Invalid UniqueDeviceID hex value; configuration ignored.");
+        [cf_device removeAllObjects];
+        break;
+      }
       const UInt8* b = CFDataGetBytePtr(a);
       CFIndex c = CFDataGetLength(a);
-            //refences:http://blog.timac.org/?tag=mgcopyanswer
-      CFBooleanRef cc = (CFBooleanRef)[aa objectForKey:@"UniqueDeviceIDData"];
-      if (cc!=nil&&CFBooleanGetValue(cc)==true) {
+      //refences:http://blog.timac.org/?tag=mgcopyanswer
+      if (PreferenceBooleanIsTrue(aa, @"UniqueDeviceIDData")) {
         [cf_device setValue:(__bridge id)CFDataCreate(kCFAllocatorDefault, b, c) forKey:@"UniqueDeviceIDData"];
       }
       else{
         [cf_device setValue:nil forKey:@"UniqueDeviceIDData"];
       }
-      CFBooleanRef dd = (CFBooleanRef)[aa objectForKey:@"WifiAddressData"];
-      if (dd!=nil&&CFBooleanGetValue(dd)==true) {
+      if (PreferenceBooleanIsTrue(aa, @"WifiAddressData")) {
         NSString* mac = (NSString*)[cf_device objectForKey:@"WifiAddress"];
         if (mac!=nil&&([mac length]>0)) {
           mac = [mac stringByReplacingOccurrencesOfString:@":" withString:@""];
@@ -239,8 +248,7 @@ void initPrefFile(){
       else{
         [cf_device setValue:nil forKey:@"WifiAddressData"];
       }
-      CFBooleanRef ee = (CFBooleanRef)[aa objectForKey:@"BluetoothAddressData"];
-      if (ee!=nil&&CFBooleanGetValue(ee)==true) {
+      if (PreferenceBooleanIsTrue(aa, @"BluetoothAddressData")) {
         NSString* ss1 = @"BluetoothAddress";
         NSString* buletooth = (NSString*)[cf_device objectForKey:ss1];
         if (buletooth!=nil&&([buletooth length]>0)) {
