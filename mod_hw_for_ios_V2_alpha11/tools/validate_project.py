@@ -29,8 +29,8 @@ check("CURRENT_PROJECT_VERSION = 8;" in project, "Manager build number is 8")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
 check("PropertyListSerialization.propertyList" in manager, "Manager parses plist structure")
 check("字段值未展示" in manager, "Manager does not display plist values")
-check('http://127.0.0.1:18081/status' in manager and 'request.httpMethod = "GET"' in manager,
-      "Manager performs a read-only loopback Core status request")
+check('http://127.0.0.1:18081/status' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "read-only"' in manager,
+      "Manager validates the read-only Alpha11 Core status response")
 check('NSAllowsLocalNetworking' in ipa and 'grep -q true' in ipa,
       "TrollStore IPA permits local-network ATS exception for loopback Core status")
 check("RawPlistDocument" in manager and "regularFileWithContents: data" in manager,
