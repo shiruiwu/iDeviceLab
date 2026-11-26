@@ -28,14 +28,14 @@ python3 - "$WORK/package.deb" "$WORK" <<'PY'
 import os, sys
 out, root = sys.argv[1:]
 with open(out, "wb") as f:
-    f.write(b"!<arch>\\n")
+    f.write(b"!<arch>\n")
     for name in ("debian-binary", "control.tar.gz", "data.tar.gz"):
         data = open(os.path.join(root, name), "rb").read()
-        header = (name + "/").ljust(16) + "0".ljust(12) + "0".ljust(6) + "0".ljust(6) + "100644".ljust(8) + str(len(data)).ljust(10) + "`\\n"
+        header = (name + "/").ljust(16) + "0".ljust(12) + "0".ljust(6) + "0".ljust(6) + "100644".ljust(8) + str(len(data)).ljust(10) + "`\n"
         f.write(header.encode("ascii"))
         f.write(data)
         if len(data) % 2:
-            f.write(b"\\n")
+            f.write(b"\n")
 PY
 cp "$WORK/package.deb" "$OUT/idevelab-core-alpha11.deb"
 test -s "$OUT/idevelab-core-alpha11.deb"
