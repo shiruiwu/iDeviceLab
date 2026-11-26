@@ -102,7 +102,7 @@ struct ContentView: View {
                                 Text(app.name)
                                 Text(app.bundleIdentifier).font(.caption.monospaced()).foregroundStyle(.secondary)
                                 if !app.version.isEmpty {
-                                    Text("版本：\\(app.version)").font(.caption).foregroundStyle(.secondary)
+                                    Text("版本：\(app.version)").font(.caption).foregroundStyle(.secondary)
                                 }
                             }
                         }
@@ -188,10 +188,10 @@ struct ContentView: View {
                           let bundle = row["bundleIdentifier"] as? String else { return nil }
                     return CoreApp(name: name, bundleIdentifier: bundle, version: row["version"] as? String ?? "")
                 }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                appInventoryStatus = "已读取 \\(installedApps.count) 个 App（只读清单）"
+                appInventoryStatus = "已读取 \(installedApps.count) 个 App（只读清单）"
             } catch {
                 installedApps = []
-                appInventoryStatus = "读取失败：\\(error.localizedDescription)"
+                appInventoryStatus = "读取失败：\(error.localizedDescription)"
             }
         }
     }
