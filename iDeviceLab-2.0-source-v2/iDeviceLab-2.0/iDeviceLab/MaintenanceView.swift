@@ -24,6 +24,7 @@ struct MaintenanceView: View {
     @State private var containerIndexScanStatus = "unknown"
     @State private var orphanScanStatus = "unknown"
     @State private var lastAppCleanup: [String: Any]?
+    @State private var appCleanupHistory: [[String: Any]] = []
     @State private var appMaintenanceMessage = "尚未扫描"
     @State private var isCleaningApp = false
 
@@ -175,6 +176,25 @@ struct MaintenanceView: View {
                     }
                 }
 
+                if !appCleanupHistory.isEmpty {
+                    Section("App 清理历史（最近 20 条）") {
+                        ForEach(Array(appCleanupHistory.enumerated()), id: \.offset) { item in
+                            let record = item.element
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(record["appName"] as? String ?? record["bundleIdentifier"] as? String ?? "未知应用")
+                                    .font(.subheadline)
+                                let result = record["result"] as? String ?? "unknown"
+                                Text("\(result == "success" ? "完成" : (result == "partial" ? "部分完成" : "失败")) · 已处理 \((record["removedItems"] as? NSNumber)?.intValue ?? 0) 项 · \(ByteCountFormatter.string(fromByteCount: (record["removedBytes"] as? NSNumber)?.int64Value ?? 0, countStyle: .file))")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                if let completedAt = record["completedAt"] as? String {
+                                    Text(completedAt).font(.caption2).foregroundStyle(.tertiary)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+
                 Section("范围说明") {
                     Text("完整备份包含本应用保存的配置、分 App 绑定关系和当前选中项。它不是整机备份，也不包含其他 App 的私有数据。")
                     Text("清理功能仅清理本应用缓存和临时文件。越狱环境下其他 App 容器的清理需要独立的授权、路径校验、预览和确认流程，不会在此处进行无差别删除。")
@@ -184,6 +204,10 @@ struct MaintenanceView: View {
             .onAppear {
                 scan()
                 lastAppCleanup = UserDefaults.standard.dictionary(forKey: "iDeviceLabLastAppCleanupV1")
+                appCleanupHistory = UserDefaults.standard.array(forKey: "iDeviceLabAppCleanupHistoryV1") as? [[String: Any]] ?? []
+                if appCleanupHistory.isEmpty, let lastAppCleanup {
+                    appCleanupHistory = [lastAppCleanup]
+                }
                 Task { await refreshAppInventory() }
             }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json, .data]) { result in
@@ -257,6 +281,20 @@ struct MaintenanceView: View {
     }
 
     @MainActor
+    private func persistAppCleanupRecord(_ record: [String: Any]) {
+        lastAppCleanup = record
+        var history = appCleanupHistory
+        if history.isEmpty {
+            history = UserDefaults.standard.array(forKey: "iDeviceLabAppCleanupHistoryV1") as? [[String: Any]] ?? []
+        }
+        history.insert(record, at: 0)
+        if history.count > 20 { history = Array(history.prefix(20)) }
+        appCleanupHistory = history
+        UserDefaults.standard.set(record, forKey: "iDeviceLabLastAppCleanupV1")
+        UserDefaults.standard.set(history, forKey: "iDeviceLabAppCleanupHistoryV1")
+    }
+
+    @MainActor
     private func clearSelectedAppCaches() async {
         guard let app = selectedApp, app.containerAvailable, !isCleaningApp else { return }
         isCleaningApp = true
@@ -277,7 +315,7 @@ struct MaintenanceView: View {
                               userInfo: [NSLocalizedDescriptionKey: object?["error"] as? String ?? "核心拒绝清理"])
             }
             let removed = (object?["removedBytes"] as? NSNumber)?.int64Value ?? 0
-            lastAppCleanup = [
+            persistAppCleanupRecord([
                 "bundleIdentifier": app.bundleIdentifier,
                 "appName": app.name,
                 "removedBytes": removed,
@@ -292,8 +330,7 @@ struct MaintenanceView: View {
                 "result": "success",
                 "completedAt": object?["finishedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()),
                 "areas": ["Library/Caches", "tmp"]
-            ]
-            UserDefaults.standard.set(lastAppCleanup, forKey: "iDeviceLabLastAppCleanupV1")
+            ])
             appMaintenanceMessage = "清理完成：\(ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))"
             _ = await refreshAppInventory()
             message = "已清理 \(app.name) 的缓存和临时文件。没有删除应用文档、数据库、偏好设置或凭据。"
@@ -302,7 +339,7 @@ struct MaintenanceView: View {
                 let removed = (result["removedBytes"] as? NSNumber)?.int64Value ?? 0
                 let removedItems = (result["removedItems"] as? NSNumber)?.intValue ?? 0
                 let partial = result["partial"] as? Bool ?? false
-                lastAppCleanup = [
+                persistAppCleanupRecord([
                     "bundleIdentifier": app.bundleIdentifier,
                     "appName": app.name,
                     "removedBytes": removed,
@@ -319,8 +356,7 @@ struct MaintenanceView: View {
                     "error": result["error"] as? String ?? error.localizedDescription,
                     "completedAt": result["finishedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()),
                     "areas": ["Library/Caches", "tmp"]
-                ]
-                UserDefaults.standard.set(lastAppCleanup, forKey: "iDeviceLabLastAppCleanupV1")
+                ])
                 if partial {
                     appMaintenanceMessage = "部分清理：已删除 \(removedItems) 项，\(ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))"
                 }
@@ -379,6 +415,7 @@ struct MaintenanceView: View {
             "containerIndexScanStatus": containerIndexScanStatus,
             "orphanScanStatus": orphanScanStatus,
             "lastAppCleanup": lastAppCleanup.map { $0 as Any } ?? NSNull(),
+            "appCleanupHistory": appCleanupHistory,
             "scope": [
                 "included": ["iDeviceLab Caches", "iDeviceLab tmp", "installed app cache and tmp sizes from the last Rootless scan", "orphan container identifiers and aggregate sizes", "local profile counts"],
                 "notInspected": ["app document contents", "Keychain items", "account sessions", "cloud-side state", "whole-device backup"],
