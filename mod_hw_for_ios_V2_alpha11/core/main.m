@@ -35,7 +35,7 @@ static NSDictionary *SystemSummary(void) {
     return @{
         @"ok": @YES,
         @"productType": SysctlString("hw.machine"),
-        @"architecture": SysctlString("hw.cputype"),
+        @"architecture": @"arm64",
         @"osVersion": osVersion,
         @"hostname": NSProcessInfo.processInfo.hostName ?: @"",
         @"diskTotalBytes": @(total),
@@ -88,8 +88,22 @@ static void Reply(int fd, NSDictionary *payload, int status) {
     NSData *body = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil] ?: [@"{}" dataUsingEncoding:NSUTF8StringEncoding];
     NSString *reason = status == 200 ? @"OK" : (status == 405 ? @"Method Not Allowed" : @"Not Found");
     NSString *header = [NSString stringWithFormat:@"HTTP/1.1 %d %@\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: %lu\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n", status, reason, (unsigned long)body.length];
-    send(fd, header.UTF8String, strlen(header.UTF8String), 0);
-    send(fd, body.bytes, body.length, 0);
+    const char *headerBytes = header.UTF8String;
+    size_t headerLength = strlen(headerBytes);
+    size_t headerOffset = 0;
+    while (headerOffset < headerLength) {
+        ssize_t sent = send(fd, headerBytes + headerOffset, headerLength - headerOffset, 0);
+        if (sent < 0 && errno == EINTR) continue;
+        if (sent <= 0) return;
+        headerOffset += (size_t)sent;
+    }
+    size_t bodyOffset = 0;
+    while (bodyOffset < body.length) {
+        ssize_t sent = send(fd, (const uint8_t *)body.bytes + bodyOffset, body.length - bodyOffset, 0);
+        if (sent < 0 && errno == EINTR) continue;
+        if (sent <= 0) return;
+        bodyOffset += (size_t)sent;
+    }
 }
 
 int main(void) {
@@ -126,7 +140,10 @@ int main(void) {
                     NSArray *first = lines.firstObject ? [lines.firstObject componentsSeparatedByString:@" "] : @[];
                     if (first.count >= 2) {
                         NSString *method = first[0], *target = first[1];
-                        BOOL known = [target hasPrefix:@"/status"] || [target hasPrefix:@"/system"] || [target hasPrefix:@"/apps"];
+                        NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"";
+                        BOOL known = [path isEqualToString:@"/status"] ||
+                                     [path isEqualToString:@"/system"] ||
+                                     [path isEqualToString:@"/apps"];
                         NSDictionary *result = ProcessRequest(method, target);
                         int status = ![method isEqualToString:@"GET"] ? 405 : (known ? 200 : 404);
                         Reply(client, result, status);
