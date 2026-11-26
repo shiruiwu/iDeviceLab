@@ -81,6 +81,10 @@ check('http://127.0.0.1:18081/system' in manager and 'fetchSystemSummary()' in m
 check('http://127.0.0.1:18081/tools' in manager and 'fetchMaintenanceTools()' in manager and
       'MaintenanceTool' in manager and '已安装' in manager and '缺失' in manager,
       "Manager displays the live installed state of jailbreak maintenance tools")
+check('http://127.0.0.1:18081/profiles' in manager and 'fetchAppProfiles()' in manager and
+      'AppProfile' in manager and '越狱端已安装配置' in manager and '格式有效' in manager,
+      "Manager displays read-only per-app Hook profile inventory and plist validity")
+
 
 check('NSAllowsLocalNetworking' in ipa and 'grep -q true' in ipa,
       "TrollStore IPA permits local-network ATS exception for loopback Core status")
@@ -111,6 +115,11 @@ if core_source.is_file():
           'access(path.fileSystemRepresentation, X_OK)' in core and
           '[path isEqualToString:@"/tools"]' in core,
           "Alpha11 Core reports only the fixed allowlisted maintenance tool inventory")
+    check('@"profiles"' in core and 'InstalledProfiles' in core and
+          'com.modhw.ios.profiles' in core and '[path isEqualToString:@"/profiles"]' in core and
+          'NSPropertyListSerialization' in core,
+          "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
+
 
     check('@"version": @"0.2.0-alpha11"' in core,
           "Alpha11 Core status reports its own version")
