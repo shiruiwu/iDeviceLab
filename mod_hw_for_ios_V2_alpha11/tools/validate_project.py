@@ -193,7 +193,7 @@ if selftest.is_file():
     check("/var/jb/basebin/launchctl" in src and "system/com.idevelab.core.alpha11" in src,
           "On-device self-test locates the Dopamine rootless launchctl binary")
     check("http://127.0.0.1:18081/backups" in src and '"backups":' in src and
-          "Backup directory is readable by mobile group" in src and
+          "Backup directory is root-owned and mobile-group traversable (0750)" in src and "Archive is root:mobile read-only (0640)" in src and "Manifest is root:mobile read-only (0640)" in src and
           "Core runs as mobile (unprivileged)" in src,
           "On-device self-test covers backup inventory endpoint and mobile-readable private backup storage")
 if app_cleanup.is_file():
