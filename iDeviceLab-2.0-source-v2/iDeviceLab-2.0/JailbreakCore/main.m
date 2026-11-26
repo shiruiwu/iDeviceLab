@@ -157,7 +157,8 @@ static NSDictionary *AppDataContainerIndex(NSError **scanError) {
         NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
         struct stat metadataInfo = {0};
         if (lstat(metadataPath.fileSystemRepresentation, &metadataInfo) != 0) {
-            if (errno != ENOENT) RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect metadata for container %@", child]);
+            int savedErrno = errno;
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"container %@ metadata is unavailable: %s", child, strerror(savedErrno)]);
             continue;
         }
         if (!S_ISREG(metadataInfo.st_mode)) {
@@ -179,6 +180,7 @@ static NSDictionary *AppDataContainerIndex(NSError **scanError) {
         if (index[bundleID] != nil) {
             [index removeObjectForKey:bundleID];
             [ambiguousBundleIDs addObject:bundleID];
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"multiple app data containers claim Bundle ID %@; mapping is ambiguous", bundleID]);
             continue;
         }
         index[bundleID] = container;
@@ -638,12 +640,128 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
     return @{@"ok":@NO, @"error":@"not found"};
 }
 
+static BOOL SendAll(int fd, const void *bytes, size_t length) {
+    const uint8_t *cursor = bytes;
+    size_t remaining = length;
+    while (remaining > 0) {
+        ssize_t sent = send(fd, cursor, remaining, 0);
+        if (sent < 0) {
+            if (errno == EINTR) continue;
+            return NO;
+        }
+        if (sent == 0) return NO;
+        cursor += (size_t)sent;
+        remaining -= (size_t)sent;
+    }
+    return YES;
+}
+
 static void Reply(int fd, NSDictionary *payload, int status) {
     NSData *body = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil] ?: [@"{}" dataUsingEncoding:NSUTF8StringEncoding];
     NSString *reason = status == 200 ? @"OK" : (status == 400 ? @"Bad Request" : @"Not Found");
     NSString *header = [NSString stringWithFormat:@"HTTP/1.1 %d %@\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: %lu\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n", status, reason, (unsigned long)body.length];
-    send(fd, header.UTF8String, strlen(header.UTF8String), 0);
-    send(fd, body.bytes, body.length, 0);
+    NSData *headerData = [header dataUsingEncoding:NSUTF8StringEncoding];
+    if (!SendAll(fd, headerData.bytes, headerData.length)) return;
+    SendAll(fd, body.bytes, body.length);
+}
+
+static NSDictionary *ReadHTTPRequest(int fd, NSString **failure) {
+    const NSUInteger maximumHeaderBytes = 16 * 1024;
+    const NSUInteger maximumBodyBytes = 1024 * 1024;
+    NSMutableData *requestData = [NSMutableData data];
+    NSUInteger headerEnd = NSNotFound;
+    uint8_t chunk[4096];
+
+    while (headerEnd == NSNotFound) {
+        ssize_t count = recv(fd, chunk, sizeof(chunk), 0);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) {
+            if (failure) *failure = count == 0 ? @"connection closed before request headers completed" : @"request header read failed or timed out";
+            return nil;
+        }
+        [requestData appendBytes:chunk length:(NSUInteger)count];
+        const uint8_t separator[] = {13,10,13,10};
+        NSRange range = [requestData rangeOfData:[NSData dataWithBytes:separator length:4]
+                                         options:0 range:NSMakeRange(0, requestData.length)];
+        if (range.location != NSNotFound) {
+            headerEnd = NSMaxRange(range);
+            if (headerEnd > maximumHeaderBytes) {
+                if (failure) *failure = @"request headers exceed 16 KiB";
+                return nil;
+            }
+        } else if (requestData.length > maximumHeaderBytes) {
+            if (failure) *failure = @"request headers exceed 16 KiB";
+            return nil;
+        }
+    }
+
+    NSData *headerData = [requestData subdataWithRange:NSMakeRange(0, headerEnd - 4)];
+    NSString *headerText = [[NSString alloc] initWithData:headerData encoding:NSUTF8StringEncoding];
+    if (!headerText) {
+        if (failure) *failure = @"request headers are not valid UTF-8";
+        return nil;
+    }
+    NSArray *lines = [headerText componentsSeparatedByString:@"\r\n"];
+    NSArray *requestLine = lines.count ? [lines[0] componentsSeparatedByString:@" "] : @[];
+    if (requestLine.count != 3 || [requestLine[0] length] == 0 ||
+        [requestLine[1] length] == 0 || ![requestLine[1] hasPrefix:@"/"] ||
+        ![requestLine[2] isEqualToString:@"HTTP/1.1"] ||
+        (![(NSString *)requestLine[0] isEqualToString:@"GET"] && ![(NSString *)requestLine[0] isEqualToString:@"POST"])) {
+        if (failure) *failure = @"request line must be GET or POST, an absolute path, and HTTP/1.1";
+        return nil;
+    }
+
+    BOOL hasContentLength = NO;
+    unsigned long long contentLength = 0;
+    for (NSUInteger index = 1; index < lines.count; index++) {
+        NSString *line = lines[index];
+        NSRange colon = [line rangeOfString:@":"];
+        if (colon.location == NSNotFound || colon.location == 0) {
+            if (failure) *failure = @"malformed HTTP header";
+            return nil;
+        }
+        NSString *name = [[line substringToIndex:colon.location] lowercaseString];
+        NSString *value = [[line substringFromIndex:colon.location + 1]
+            stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        if ([name isEqualToString:@"transfer-encoding"]) {
+            if (failure) *failure = @"Transfer-Encoding is not supported";
+            return nil;
+        }
+        if ([name isEqualToString:@"content-length"]) {
+            if (hasContentLength || value.length == 0 ||
+                [value rangeOfCharacterFromSet:[[NSCharacterSet decimalDigitCharacterSet] invertedSet]].location != NSNotFound) {
+                if (failure) *failure = @"Content-Length must appear once and contain decimal digits only";
+                return nil;
+            }
+            hasContentLength = YES;
+            NSScanner *scanner = [NSScanner scannerWithString:value];
+            unsigned long long parsed = 0;
+            if (![scanner scanUnsignedLongLong:&parsed] || !scanner.isAtEnd || parsed > maximumBodyBytes) {
+                if (failure) *failure = @"request body exceeds 1 MiB or has invalid Content-Length";
+                return nil;
+            }
+            contentLength = parsed;
+        }
+    }
+
+    if (!hasContentLength) contentLength = 0;
+    NSUInteger expectedTotal = headerEnd + (NSUInteger)contentLength;
+    if (requestData.length > expectedTotal) {
+        if (failure) *failure = @"unexpected bytes after the declared request body";
+        return nil;
+    }
+    while (requestData.length < expectedTotal) {
+        ssize_t count = recv(fd, chunk, MIN(sizeof(chunk), expectedTotal - requestData.length), 0);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) {
+            if (failure) *failure = @"request body is incomplete or timed out";
+            return nil;
+        }
+        [requestData appendBytes:chunk length:(NSUInteger)count];
+    }
+
+    NSData *body = [requestData subdataWithRange:NSMakeRange(headerEnd, (NSUInteger)contentLength)];
+    return @{@"method":requestLine[0], @"target":requestLine[1], @"body":body};
 }
 
 int main(void) {
@@ -663,51 +781,23 @@ int main(void) {
         for (;;) {
             int client = accept(server, NULL, NULL);
             if (client < 0) { if (errno == EINTR) continue; sleep(1); continue; }
-            NSMutableData *requestData = [NSMutableData data];
-            uint8_t chunk[16384];
-            ssize_t count = 0;
-            NSUInteger headerEnd = NSNotFound;
-            NSUInteger expectedLength = 0;
-            while (requestData.length < 1024 * 1024 + 16384) {
-                count = recv(client, chunk, sizeof(chunk), 0);
-                if (count <= 0) break;
-                [requestData appendBytes:chunk length:(NSUInteger)count];
-                if (headerEnd == NSNotFound) {
-                    const uint8_t separator[] = {13,10,13,10};
-                    NSRange range = [requestData rangeOfData:[NSData dataWithBytes:separator length:4] options:0 range:NSMakeRange(0, requestData.length)];
-                    if (range.location != NSNotFound) {
-                        headerEnd = NSMaxRange(range);
-                        NSData *headerData = [requestData subdataWithRange:NSMakeRange(0, range.location)];
-                        NSString *headerText = [[NSString alloc] initWithData:headerData encoding:NSUTF8StringEncoding] ?: @"";
-                        for (NSString *line in [headerText componentsSeparatedByString:@"\r\n"]) {
-                            if ([line.lowercaseString hasPrefix:@"content-length:"]) {
-                                expectedLength = (NSUInteger)MAX(0, [[line substringFromIndex:15] integerValue]);
-                            }
-                        }
-                        if (expectedLength > 1024 * 1024) break;
-                    }
-                }
-                if (headerEnd != NSNotFound && requestData.length >= headerEnd + expectedLength) break;
-            }
-            if (requestData.length > 0) {
-                @autoreleasepool {
-                    const uint8_t separator[] = {13,10,13,10};
-                    NSRange range = [requestData rangeOfData:[NSData dataWithBytes:separator length:4] options:0 range:NSMakeRange(0, requestData.length)];
-                    NSData *headerData = range.location != NSNotFound ? [requestData subdataWithRange:NSMakeRange(0, range.location)] : [NSData data];
-                    NSString *headerText = [[NSString alloc] initWithData:headerData encoding:NSUTF8StringEncoding] ?: @"";
-                    NSArray *lines = [headerText componentsSeparatedByString:@"\r\n"];
-                    NSArray *first = lines.firstObject ? [lines.firstObject componentsSeparatedByString:@" "] : @[];
-                    if (first.count >= 2 && range.location != NSNotFound) {
-                        NSString *method = first[0], *target = first[1];
-                        NSData *body = nil;
-                        if (headerEnd != NSNotFound && requestData.length >= headerEnd)
-                            body = [requestData subdataWithRange:NSMakeRange(headerEnd, requestData.length - headerEnd)];
-                        NSDictionary *result = ProcessRequest(method, target, body);
-                        NSString *requestPath = [[target componentsSeparatedByString:@"?"] firstObject] ?: target;
-                        BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/maintenance/apps", @"/maintenance/clear", @"/hooks/status", @"/config/status", @"/config/update", @"/config/restore"] containsObject:requestPath];
-                        NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
-                        Reply(client, result, (int)httpStatus);
-                    } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
+            struct timeval timeout = {5, 0};
+            setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+            setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+            @autoreleasepool {
+                NSString *requestError = nil;
+                NSDictionary *request = ReadHTTPRequest(client, &requestError);
+                if (!request) {
+                    Reply(client, @{@"ok":@NO, @"error":requestError ?: @"malformed request"}, 400);
+                } else {
+                    NSString *method = request[@"method"];
+                    NSString *target = request[@"target"];
+                    NSData *body = request[@"body"];
+                    NSDictionary *result = ProcessRequest(method, target, body);
+                    NSString *requestPath = [[target componentsSeparatedByString:@"?"] firstObject] ?: target;
+                    BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/maintenance/apps", @"/maintenance/clear", @"/hooks/status", @"/config/status", @"/config/update", @"/config/restore"] containsObject:requestPath];
+                    NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
+                    Reply(client, result, (int)httpStatus);
                 }
             }
             close(client);
