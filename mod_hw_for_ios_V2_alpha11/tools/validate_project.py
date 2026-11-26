@@ -16,6 +16,10 @@ manager = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
 project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
+core_source = ROOT / "core/main.m"
+core_makefile = ROOT / "core/Makefile"
+core_control = ROOT / "core/control"
+core_daemon = ROOT / "core/layout/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
 
 check("Version: 2.0.0~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
 check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
@@ -32,6 +36,19 @@ check('NSAllowsLocalNetworking' in ipa and 'grep -q true' in ipa,
 check("RawPlistDocument" in manager and "regularFileWithContents: data" in manager,
       "Manager exports original bytes unchanged")
 check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "IPA build targets arm64 and verifies archive")
+check(core_source.is_file() and core_makefile.is_file() and core_control.is_file() and core_daemon.is_file(),
+      "Alpha11 read-only Core source and Rootless package files exist")
+if core_source.is_file():
+    core = core_source.read_text()
+    check('@"GET"' in core and '@"POST"' not in core and 'read-only endpoint' in core,
+          "Alpha11 Core exposes read-only HTTP methods only")
+    check("INADDR_LOOPBACK" in core and "kPort = 18080" in core,
+          "Alpha11 Core binds only to loopback port 18080")
+    check('@"version": @"0.2.0-alpha11"' in core,
+          "Alpha11 Core status reports its own version")
+if core_control.is_file():
+    check("Architecture: iphoneos-arm64" in core_control and "Version: 0.2.0~alpha11" in core_control,
+          "Alpha11 Core package metadata targets Rootless arm64")
 
 diagnostic = ROOT / "scripts/diagnose-config.sh"
 backup = ROOT / "scripts/backup-config.sh"
@@ -87,6 +104,8 @@ for rel in [
     "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist",
     "layout/usr/share/mod_hw_for_ios/com.modhw.ios.devices.plist.example",
     "manager/ModHWManager.xcodeproj/xcshareddata/xcschemes/ModHWManager.xcscheme",
+    "core/layout/DEBIAN/postinst",
+    "core/layout/DEBIAN/prerm",
 ]:
     check((ROOT / rel).is_file(), "Required file: " + rel)
 
