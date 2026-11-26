@@ -17,8 +17,8 @@ fail() { echo "清理中止：$*" >&2; exit 1; }
 BUNDLE_ID="$1"
 case "$BUNDLE_ID" in ''|*[!A-Za-z0-9._-]*|.*|*..*|*.) fail 'Bundle ID 格式无效。' ;; esac
 command -v pgrep >/dev/null 2>&1 || fail '缺少 pgrep，无法确认 App 已退出。'
-command -v mod-hw-app-backup >/dev/null 2>&1 || fail '缺少 mod-hw-app-backup。'
-command -v mod-hw-app-backup-verify >/dev/null 2>&1 || fail '缺少 mod-hw-app-backup-verify。'
+[ -x /var/jb/usr/bin/mod-hw-app-backup ] || fail '缺少 mod-hw-app-backup。'
+[ -x /var/jb/usr/bin/mod-hw-app-backup-verify ] || fail '缺少 mod-hw-app-backup-verify。'
 
 APP_MATCH=''
 APP_COUNT=0
@@ -48,11 +48,11 @@ done
 [ -d "$MATCH" ] && [ ! -L "$MATCH" ] || fail "目标数据容器路径不安全。"
 
 # Create and verify an archive before changing anything.
-BACKUP_OUTPUT="$(mod-hw-app-backup "$BUNDLE_ID")" || fail '自动备份失败；未清理数据。'
+BACKUP_OUTPUT="$("/var/jb/usr/bin/mod-hw-app-backup" "$BUNDLE_ID")" || fail '自动备份失败；未清理数据。'
 ARCHIVE_PATH="$(printf '%s\n' "$BACKUP_OUTPUT" | sed -n 's/^应用数据容器备份完成：//p' | tail -n 1)"
 [ -n "$ARCHIVE_PATH" ] || fail '无法从备份工具结果中定位归档；未清理数据。'
 ARCHIVE_NAME="$(basename "$ARCHIVE_PATH")"
-mod-hw-app-backup-verify "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
+"/var/jb/usr/bin/mod-hw-app-backup-verify" "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
 
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 SNAPSHOT="$SNAPSHOT_ROOT/$BUNDLE_ID.$STAMP.pid-$PPID"
