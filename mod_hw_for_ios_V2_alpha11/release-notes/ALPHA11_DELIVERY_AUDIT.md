@@ -77,3 +77,12 @@ This audit does not claim that deep cleanup, keychain erasure, app-container res
 6. **Real-device validation:** not completed. CI syntax/package checks cannot validate injection, launch daemon startup, loopback reachability, data restore, or cleanup on an iPhone 12 running iOS 16.2. A device-side test run and logs are still required.
 
 The manager/Core status probe is a concrete integration milestone, not a claim that the six workstreams are complete. Continue with separately testable changes and keep device-only checks marked pending until device evidence is available.
+
+
+## Core packaging milestone (2026-11-26)
+
+- Added an Alpha11-specific Rootless companion Core under `core/`, built from the existing local-diagnostics approach but isolated from the legacy profile-writing API.
+- The new service exposes only GET endpoints (`/status`, `/system`, `/apps`), binds to loopback only, and uses port 18081 to avoid colliding with the legacy service on 18080.
+- Added a Rootless Theos package, LaunchDaemon plist, install/uninstall scripts, and CI packaging checks. The workflow makes maintainer scripts executable before packaging and checks they remain executable in the DEB.
+- The manager now validates the Alpha11 status response, including the explicit `read-only` mode marker. It does not create/select profiles or write hook configuration.
+- This is still a build/integration milestone. It is not proof that launchd starts the service or that the TrollStore app can reach it on iOS 16.2; those checks remain pending on the physical device.
