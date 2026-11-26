@@ -9,7 +9,7 @@ mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/bin" "$OUT"
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.modhw.ios.diagnostics
 Name: mod_hw_for_ios V2 Config Tools
-Version: 2.0.0~final3
+Version: 2.0.0~final4
 Architecture: iphoneos-arm64
 Description: Rootless config diagnostics, config backup/restore, and app-container backup tools.
 Maintainer: mod_hw_for_ios contributors
