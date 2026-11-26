@@ -52,7 +52,7 @@ check("// HookerForMGCopyMultipleAnswers();" in source,
 sysctl_body = source[source.find("int replace_sysctl("):source.find("static void hook_sysctl()")]
 check("NSLog(" in sysctl_body and "orig_sysctl(name" in sysctl_body,
       "Separate sysctl replacement currently delegates and logs; no configured replacement")
-check("ALPHA11_RUNTIME_AUDIT.md" in (ROOT / "ALPHA11_RUNTIME_AUDIT.md").read_text(),
+check((ROOT / "ALPHA11_RUNTIME_AUDIT.md").is_file(),
       "Runtime source audit report is present")
 check("src/captain_hook/hook.mm" not in makefile,
       "CaptainHook response module remains excluded from package source list")
