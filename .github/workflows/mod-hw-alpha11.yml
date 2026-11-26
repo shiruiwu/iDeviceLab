@@ -76,7 +76,7 @@ jobs:
           import io, tarfile
           package = 'release/mod_hw_for_ios_V2_diagnostics_FINAL.deb'
           raw = open(package, 'rb').read()
-          assert raw[:8] == b'!<arch>\n', repr(raw[:8])
+          assert raw[:8] == bytes.fromhex('213c617263683e0a'), raw[:8].hex()
           members, offset = {}, 8
           while offset < len(raw):
               header = raw[offset:offset + 60]
