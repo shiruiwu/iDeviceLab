@@ -148,6 +148,8 @@ static NSDictionary *ApplySafeAlpha11ConfigUpdate(NSData *body) {
     NSError *writeError = nil;
     if (![oldData writeToFile:backupPath options:NSDataWritingAtomic error:&writeError])
         return @{@"ok":@NO, @"error":writeError.localizedDescription ?: @"unable to create rollback backup"};
+    if (chmod(backupPath.fileSystemRepresentation, S_IRUSR | S_IWUSR) != 0)
+        return @{@"ok":@NO, @"error":@"unable to secure rollback backup permissions"};
     NSPropertyListFormat format = NSPropertyListXMLFormat_v1_0;
     [NSPropertyListSerialization propertyListWithData:oldData options:NSPropertyListMutableContainersAndLeaves format:&format error:nil];
     NSData *newData = [NSPropertyListSerialization dataWithPropertyList:current format:format options:0 error:&writeError];
@@ -161,10 +163,16 @@ static NSDictionary *RestoreAlpha11ConfigBackup(void) {
     NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
     NSString *backupPath = [path stringByAppendingString:@".idevelab-backup"];
     struct stat targetInfo = {0}, backupInfo = {0};
-    if (lstat(path.fileSystemRepresentation, &targetInfo) != 0 || !S_ISREG(targetInfo.st_mode))
-        return @{@"ok":@NO, @"error":@"current Alpha11 plist is missing or not a regular file"};
+    if (lstat(path.fileSystemRepresentation, &targetInfo) == 0) {
+        if (!S_ISREG(targetInfo.st_mode))
+            return @{@"ok":@NO, @"error":@"current Alpha11 plist is not a regular file"};
+    } else if (errno != ENOENT) {
+        return @{@"ok":@NO, @"error":@"unable to inspect current Alpha11 plist path"};
+    }
     if (lstat(backupPath.fileSystemRepresentation, &backupInfo) != 0 || !S_ISREG(backupInfo.st_mode))
         return @{@"ok":@NO, @"error":@"no valid local rollback backup exists"};
+    if (chmod(backupPath.fileSystemRepresentation, S_IRUSR | S_IWUSR) != 0)
+        return @{@"ok":@NO, @"error":@"unable to secure rollback backup permissions"};
     NSData *backupData = [NSData dataWithContentsOfFile:backupPath];
     NSDictionary *backupPlist = backupData ? [NSPropertyListSerialization propertyListWithData:backupData options:NSPropertyListImmutable format:nil error:nil] : nil;
     if (![backupPlist isKindOfClass:NSDictionary.class] || ![backupPlist[@"UniqueDeviceID"] isKindOfClass:NSString.class])
@@ -172,6 +180,8 @@ static NSDictionary *RestoreAlpha11ConfigBackup(void) {
     NSError *error = nil;
     if (![backupData writeToFile:path options:NSDataWritingAtomic error:&error])
         return @{@"ok":@NO, @"error":error.localizedDescription ?: @"unable to restore rollback backup"};
+    if (chmod(path.fileSystemRepresentation, S_IRUSR | S_IWUSR) != 0)
+        return @{@"ok":@NO, @"error":@"backup restored but file permissions could not be secured"};
     return @{@"ok":@YES, @"restored":@YES, @"path":path};
 }
 
