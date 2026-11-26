@@ -122,3 +122,26 @@ The manager/Core status probe is a concrete integration milestone, not a claim t
 - The generic hex decoder now rejects null, empty, odd-length, non-hex, and over-capacity input before reading bytes.
 - Corrected a string-count helper to inspect each character rather than repeatedly inspecting the first character.
 - Added static regression assertions for these guards. Compilation and on-device config-load behavior still require the latest CI build and iPhone 12 / iOS 16.2 verification.
+
+
+## Consolidated status correction (2026-11-26, latest Alpha11 branch review)
+
+This section supersedes any earlier checkpoint above where the same feature is described as not yet implemented. Earlier checkpoint text is retained as historical progress.
+
+| Workstream | Current source state | Still required before delivery |
+|---|---|---|
+| App-container backup | Implemented: one Bundle ID, unique MCM container match, private archive, SHA-256 manifest | Device backup/restore round-trip |
+| App-container restore | Implemented: manifest verification, Bundle ID + container ID match, stopped-process check, path/type checks, staging, pre-restore snapshot, rollback attempts | Fault-injection and iOS 16.2 runtime validation |
+| App local-data cleanup | Implemented: backup + verifier + same-container snapshot before clearing contents; retains MCM metadata and attempts rollback | Device validation; verify process matching and ownership/metadata behavior |
+| Keychain | Not implemented | Determine supported app-scoped behavior and platform constraints; no blanket keychain wipe is claimed |
+| Manager ↔ Alpha11 Core | Source integration implemented: manager calls GET /status and GET /apps on 127.0.0.1:18081; Core is packaged as a Rootless LaunchDaemon | IPA/DEB install and localhost reachability test on target device |
+| Per-app Hook profiles | Not implemented. Manager currently displays installed-app inventory only; the original tweak still loads one global preference plist | Define and implement a per-app configuration schema and demonstrate actual process-scoped consumption |
+| Device validation | Self-test command exists and is packaged by the diagnostics builder | Run on iPhone 12 / iOS 16.2; capture launchd, injection, config-load and backup/restore evidence |
+
+### Latest source review notes
+
+- Alpha11 Core exposes read-only GET /status, /system, and /apps endpoints and binds to loopback port 18081.
+- The manager validates the Core status response and renders the installed-app inventory. It does not yet edit or apply profiles.
+- The original tweak's preference loader still reads the global com.modhw.ios.devices.plist path (with a legacy fallback); no per-bundle profile lookup is present in the reviewed source.
+- The cleanup and restore scripts are source-implemented but have not been executed on the target device. Their rollback paths are not a substitute for fault-injection testing.
+- Current GitHub Actions runs for HEAD 24db7e1ee022f4a36c9f07efb702cbd1b50d1fe1 were observed as pending/queued at the time of this correction. Do not describe this HEAD as built until those runs complete.
