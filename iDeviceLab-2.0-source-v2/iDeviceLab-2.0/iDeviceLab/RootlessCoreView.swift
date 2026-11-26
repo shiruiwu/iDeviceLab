@@ -134,6 +134,11 @@ struct RootlessCoreView: View {
                                     if !app.version.isEmpty {
                                         Text("版本 \(app.version)").font(.caption2).foregroundStyle(.tertiary)
                                     }
+                                    if let binding = store.managedApps.first(where: { $0.bundleIdentifier.caseInsensitiveCompare(app.bundleIdentifier) == .orderedSame }) {
+                                        let profileName = store.profiles.first(where: { $0.id == binding.profileID })?.name ?? "档案不存在"
+                                        Text("关联档案：\(profileName) · 运行时应用：未验证")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                    }
                                 }
                                 Spacer(minLength: 8)
                                 let isManaged = store.managedApps.contains { $0.bundleIdentifier.caseInsensitiveCompare(app.bundleIdentifier) == .orderedSame }

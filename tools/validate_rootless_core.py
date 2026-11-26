@@ -14,6 +14,10 @@ CONTROL = (CORE / "control").read_text()
 LAUNCHD = (CORE / "layout/Library/LaunchDaemons/com.idevelab.core.plist").read_text()
 POSTINST = (CORE / "layout/DEBIAN/postinst").read_text()
 PRERM = (CORE / "layout/DEBIAN/prerm").read_text()
+ALPHA11 = ROOT / "mod_hw_for_ios_V2_alpha11"
+ALPHA11_MAKEFILE = (ALPHA11 / "Makefile").read_text()
+ALPHA11_SOURCE = (ALPHA11 / "src/mobile_gestalt/mobile_gestalt.m").read_text()
+ALPHA11_FILTER = (ALPHA11 / "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist").read_text()
 
 errors, passed = [], []
 def check(ok, message):
@@ -110,7 +114,7 @@ check('@"orphanScanStatus":(!orphanScanComplete ? @"unavailable" : (orphanMetric
 check("inventoryScanStatus" in SWIFT and "inventoryScanError" in SWIFT and "installedAppScanStatus" in SWIFT, "Manager surfaces installed-app inventory completeness and scan errors")
 check("installed app bundle root is not a real directory" in MAIN and "app data container root is not a real directory" in MAIN, "Core reports wrong root file types without relying on stale errno")
 
-check("#include <dirent.h>" in MAIN and "#include <fcntl.h>" in MAIN, "Core imports POSIX directory-descriptor APIs for race-resistant cleanup")
+check("#import <dirent.h>" in MAIN and "#import <fcntl.h>" in MAIN, "Core imports POSIX directory-descriptor APIs for race-resistant cleanup")
 check("OpenCleanupTargetDirectory" in MAIN and "openat(" in MAIN and "O_NOFOLLOW" in MAIN, "Cleanup opens app-container paths with descriptor-relative no-follow traversal")
 check("RemoveDirectoryContentsAt" in MAIN and "fstatat(" in MAIN and "unlinkat(" in MAIN, "Cleanup removes entries relative to pinned directory descriptors without following symlinks")
 check('"beforeBytes"' in MAIN and '"afterBytes"' in MAIN and '"beforeFileCount"' in MAIN and '"afterFileCount"' in MAIN, "Core reports before/after cleanup bytes and file counts")
@@ -120,6 +124,18 @@ check("hook.mm" in (ROOT / "docs/ALPHA11_COMPATIBILITY_AUDIT.md").read_text() an
 check("App 绑定只表示管理器中的档案关联" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/RootlessCoreView.swift").read_text(), "Manager distinguishes App metadata binding from runtime Hook state")
 check("runtimeInjectionVerified" in (ROOT / "docs/ALPHA11_COMPATIBILITY_AUDIT.md").read_text(), "Hook audit separates static diagnostics from runtime verification")
 check("maintenance/apps" in (ROOT / "scripts/device_acceptance.sh").read_text() and "launchctl print system/com.idevelab.core" in (ROOT / "scripts/device_acceptance.sh").read_text(), "Device acceptance script checks installed service and loopback API health")
+
+
+constructor_match = re.search(r'__attribute__\(\(__constructor__\)\)\s*static void _MSInitialize\(void\)\s*\{(.*?)\n\}', ALPHA11_SOURCE, re.S)
+constructor_body = constructor_match.group(1) if constructor_match else ""
+mobile_gestalt_match = re.search(r'void MobileGestaltHooker\(\)\s*\{(.*?)\n\}', ALPHA11_SOURCE, re.S)
+mobile_gestalt_body = mobile_gestalt_match.group(1) if mobile_gestalt_match else ""
+check("src/mobile_gestalt/mobile_gestalt.m" in ALPHA11_MAKEFILE and "src/cydia_substrate_hook/HookUtil.m" in ALPHA11_MAKEFILE, "Alpha11 Makefile includes its declared MobileGestalt and substrate utility sources")
+check("src/captain_hook/hook.mm" not in ALPHA11_MAKEFILE and (ALPHA11 / "src/captain_hook/hook.mm").is_file(), "Alpha11 CaptainHook source exists but is excluded from the Makefile")
+check("<string>SpringBoard</string>" in ALPHA11_FILTER and "<string>com.apple.Preferences</string>" in ALPHA11_FILTER, "Alpha11 filter declares SpringBoard and Preferences only")
+check("HookerForMGCopyAnswer();" in mobile_gestalt_body and "HookerForMGCopyMultipleAnswers();" not in mobile_gestalt_body, "Alpha11 MobileGestalt constructor path enables MGCopyAnswer but not MGCopyMultipleAnswers")
+check("hook_sysctlbyname();" in constructor_body and "hook_sysctl();" not in constructor_body, "Alpha11 constructor registers sysctlbyname but not sysctl")
+check("CTMobileEquipmentInfo_setIMEI();" in constructor_body and "CTMobileEquipmentInfo_setMEID();" in constructor_body and "HOOK_IDFA();" in constructor_body and "HOOK_IDFV();" in constructor_body, "Alpha11 constructor registers CoreTelephony setter and advertising/vendor ID hook entry points")
 
 print(f"Rootless validation: {len(passed)} passed, {len(errors)} failed")
 for item in passed:
