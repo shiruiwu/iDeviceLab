@@ -133,10 +133,14 @@ static unsigned long long SafeDirectoryBytes(NSString *path) {
 static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath, unsigned long long *removedBytes, NSError **error) {
     NSString *root = @"/var/mobile/Containers/Data/Application";
     NSString *canonicalContainer = container.stringByStandardizingPath;
-    if (![canonicalContainer.stringByDeletingLastPathComponent isEqualToString:root] &&
-        ![canonicalContainer hasPrefix:[root stringByAppendingString:@"/"]]) return NO;
+    // Only a direct UUID child of the known app-data root is eligible.
+    if (![canonicalContainer.stringByDeletingLastPathComponent isEqualToString:root]) return NO;
     if (![canonicalContainer.stringByResolvingSymlinksInPath isEqualToString:canonicalContainer]) return NO;
-    NSString *target = [canonicalContainer stringByAppendingPathComponent:relativePath];
+    // Keep the deletion surface to the two explicitly supported cache locations.
+    if (![relativePath isEqualToString:@"Library/Caches"] && ![relativePath isEqualToString:@"tmp"]) return NO;
+    NSString *target = [[canonicalContainer stringByAppendingPathComponent:relativePath] stringByStandardizingPath];
+    // Reject symlinks in every path component, including the intermediate Library directory.
+    if (![target.stringByResolvingSymlinksInPath isEqualToString:target]) return NO;
     struct stat info = {0};
     if (lstat(target.fileSystemRepresentation, &info) != 0) {
         if (errno == ENOENT) return YES;
