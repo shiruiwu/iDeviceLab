@@ -125,6 +125,8 @@ static NSArray *InstalledApplications(NSError **scanError) {
             if ([ambiguousBundleIDs containsObject:bundleID]) continue;
             if ([seenBundleIDs containsObject:bundleID]) {
                 NSUInteger existingIndex = [apps indexOfObjectPassingTest:^BOOL(NSDictionary *candidate, NSUInteger idx, BOOL *stop) {
+                    (void)idx;
+                    (void)stop;
                     return [candidate[@"bundleIdentifier"] isEqualToString:bundleID];
                 }];
                 if (existingIndex != NSNotFound) [apps removeObjectAtIndex:existingIndex];
