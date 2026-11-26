@@ -24,6 +24,19 @@
 ## Important technical distinction
 A profile stored by the legacy Core is not automatically consumed by the Alpha11 tweak. The Alpha11 manager's file importer/exporter does not grant access to jailbreak system paths. A successful IPA/DEB build proves packaging and compilation only; it does not prove injection, hook coverage, config parsing on-device, or effects in target processes.
 
+
+## Additional source-level findings (not runtime-verified)
+
+The original hook implementation was reviewed for call-site coverage and hard-coded behavior. The following are concrete source findings that should be resolved or explicitly accepted before a production release:
+
+- `HookerForMGCopyMultipleAnswers()` exists, but the constructor currently calls only `HookerForMGCopyAnswer()`; the multi-answer path is not activated by the current initializer.
+- `hook_sysctl()` is defined, but the constructor calls only `hook_sysctlbyname()`. The current `replace_sysctl` body delegates to the original function and logs selected queries; it does not replace those values.
+- Three CoreTelephony hooks return fixed SIM/phone-state values in source (`_CTSettingCopyMyPhoneNumber`, `_CTSIMSupportGetSIMStatus`, and `_CTSIMSupportGetSIMTrayStatus`) instead of reading a validated configuration. These hard-coded responses can produce inconsistent device state and must not be treated as configurable or verified behavior.
+- Hex decoding helpers contain comments acknowledging missing input validation. Malformed configuration strings may cause invalid reads or inconsistent data; validate configuration before the tweak consumes it.
+- The CI Theos build completes with compiler warnings, including deprecated property-list APIs and unused hook/helper functions. Warnings are recorded; they are not proof of runtime correctness.
+
+These findings are intentionally documented rather than silently changing the upstream hook semantics during this maintenance pass. The current work adds management and backup tooling, not new identifier-rewriting behavior.
+
 ## Consolidated work still required
 1. Define one versioned configuration schema and validate key names/types without exposing stored values in diagnostics.
 2. Add safe configuration backup/restore with atomic writes, pre-restore backup, validation, rollback, and an audit log.
