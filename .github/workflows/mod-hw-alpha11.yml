@@ -62,18 +62,26 @@ jobs:
         run: |
           test -s release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
           python3 - <<'PY'
-          import io, subprocess, tarfile
+          import io, tarfile
           package = 'release/mod_hw_for_ios_V2_diagnostics_FINAL.deb'
-          p = subprocess.run(['ar', 't', package], check=True, text=True, capture_output=True)
-          names = [n.rstrip('/') for n in p.stdout.splitlines()]
-          assert names == ['debian-binary', 'control.tar.gz', 'data.tar.gz'], names
-          control = subprocess.run(['ar', 'p', package, 'control.tar.gz'], check=True, capture_output=True).stdout
-          with tarfile.open(fileobj=io.BytesIO(control), mode='r:gz') as archive:
-              metadata = archive.extractfile('./control').read().decode()
+          raw = open(package, 'rb').read()
+          assert raw[:8] == b'!<arch>\\n'
+          members, offset = {}, 8
+          while offset < len(raw):
+              header = raw[offset:offset + 60]
+              assert len(header) == 60 and header[58:60] == b'`\\n', 'invalid ar header'
+              name = header[:16].decode('ascii').strip().rstrip('/')
+              size = int(header[48:58].decode('ascii').strip())
+              start = offset + 60
+              members[name] = raw[start:start + size]
+              offset = start + size + (size % 2)
+          assert set(members) == {'debian-binary', 'control.tar.gz', 'data.tar.gz'}, sorted(members)
+          with tarfile.open(fileobj=io.BytesIO(members['control.tar.gz']), mode='r:gz') as archive:
+              control_member = next(m for m in archive.getmembers() if m.name.lstrip('./') == 'control')
+              metadata = archive.extractfile(control_member).read().decode()
           assert 'Architecture: iphoneos-arm64' in metadata, metadata
-          data = subprocess.run(['ar', 'p', package, 'data.tar.gz'], check=True, capture_output=True).stdout
-          with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
-              members = {m.name.lstrip('./') for m in archive.getmembers()}
+          with tarfile.open(fileobj=io.BytesIO(members['data.tar.gz']), mode='r:gz') as archive:
+              installed = {m.name.lstrip('./') for m in archive.getmembers()}
           expected = {
               'var/jb/usr/bin/mod-hw-diagnose',
               'var/jb/usr/bin/mod-hw-config-backup',
@@ -81,7 +89,7 @@ jobs:
               'var/jb/usr/bin/mod-hw-app-backup',
               'var/jb/usr/bin/mod-hw-app-backup-verify',
           }
-          assert expected.issubset(members), sorted(members)
+          assert expected.issubset(installed), sorted(installed)
           print('DEB ar members, architecture, and all five installed tools verified')
           PY
 
