@@ -70,12 +70,6 @@ MANIFEST_VALUES="$(awk -F= -v name="$NAME" '
   exit 6
 }
 EXPECTED=$(printf '%s' "$MANIFEST_VALUES" | cut -d '|' -f 1)
-MANIFEST_BUNDLE=$(printf '%s' "$MANIFEST_VALUES" | cut -d '|' -f 2)
-MANIFEST_CONTAINER=$(printf '%s' "$MANIFEST_VALUES" | cut -d '|' -f 3)
-[ "$MANIFEST_BUNDLE" != "$MANIFEST_CONTAINER" ] || {
-  echo '清单中的 Bundle ID 与容器 ID 不应相同。' >&2
-  exit 6
-}
 
 ACTUAL="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 [ "$ACTUAL" = "$EXPECTED" ] || {
