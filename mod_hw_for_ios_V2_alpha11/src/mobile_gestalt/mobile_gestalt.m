@@ -94,10 +94,10 @@ static CFDataRef HexToByte(const char* hex_str){
     unsigned char low = (unsigned char)hex_str[index + 1];
     if (strchr("0123456789abcdefABCDEF", high) == NULL ||
         strchr("0123456789abcdefABCDEF", low) == NULL) return NULL;
-    char pair[3] = {(char)high, (char)low, '\\0'};
+    char pair[3] = {(char)high, (char)low, '\0'};
     char *end = NULL;
     unsigned long value = strtoul(pair, &end, 16);
-    if (end == pair || *end != '\\0' || value > 0xFF) return NULL;
+    if (end == pair || *end != '\0' || value > 0xFF) return NULL;
     bytes[index / 2] = (UInt8)value;
   }
   return CFDataCreate(kCFAllocatorDefault, bytes, (CFIndex)(length / 2));
