@@ -218,11 +218,19 @@ void initPrefFile(){
   static NSString* kPref = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
   // Keep the original temporary path as a compatibility fallback for existing setups.
   static NSString* legacyPref = @"/tmp/devices.plist";
+  if (cf_device != nil) {
+    [cf_device release];
+    cf_device = nil;
+  }
   cf_device = [[NSMutableDictionary alloc] init];
   for (int i=0;i<3;i++) {
     NSString *path = [[NSFileManager defaultManager] fileExistsAtPath:kPref] ? kPref : legacyPref;
-    NSMutableDictionary* aa = [[NSMutableDictionary alloc] init];
-    aa = [[NSMutableDictionary alloc] initWithContentsOfFile:path];
+    NSDictionary *aa = [NSDictionary dictionaryWithContentsOfFile:path];
+    if (![aa isKindOfClass:[NSDictionary class]]) {
+      NSLog(@"[mod_hw] No valid preference dictionary found; hooks will use original system values.");
+      break;
+    }
+    [cf_device release];
     cf_device = [[NSMutableDictionary alloc] initWithDictionary:aa];
     if ([cf_device count]) {
       CFDataRef a;
