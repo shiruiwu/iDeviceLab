@@ -39,7 +39,8 @@ A profile stored by the legacy Core is not automatically consumed by the Alpha11
 - Added `scripts/restore-config.sh` for plist validation, atomic restore, and a separate pre-restore rollback snapshot.
 - Included both config commands in the Rootless config-tools DEB and added CI syntax/static checks.
 - Added `scripts/backup-app-container.sh`: backs up one explicitly named app data container, writes a SHA-256 manifest, and documents that Keychain, App Groups, and system-managed data are excluded.
-- Included the app-container backup command in the Rootless tools DEB; no app data is deleted or modified by this command.
+- Added `scripts/verify-app-container-backup.sh`: verifies the manifest filename, SHA-256 digest, and archive readability without extracting or changing app data.
+- Included the app-container backup and verification commands in the Rootless tools DEB; no app data is deleted or modified by these commands.
 - Corrected the tweak source control metadata architecture to `iphoneos-arm64`, matching the Theos-produced package.
 
 ## Not claimed
