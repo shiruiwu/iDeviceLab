@@ -84,7 +84,7 @@ jobs:
               control_member = next(m for m in archive.getmembers() if m.name.lstrip('./') == 'control')
               metadata = archive.extractfile(control_member).read().decode()
           assert 'Architecture: iphoneos-arm64' in metadata, metadata
-          assert 'Depends: coreutils, procps' in metadata, metadata
+          assert 'Depends: coreutils' in metadata and 'procps' not in metadata, metadata
           with tarfile.open(fileobj=io.BytesIO(members['data.tar.gz']), mode='r:gz') as archive:
               installed = {m.name.lstrip('./') for m in archive.getmembers()}
           expected = {
