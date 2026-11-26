@@ -9,6 +9,9 @@
 #import <math.h>
 #import <sys/sysctl.h>
 #import <sys/stat.h>
+#import <sys/types.h>
+#import <dirent.h>
+#import <fcntl.h>
 
 static const int kPort = 18080;
 
@@ -92,10 +95,14 @@ static NSArray *InstalledApplications(NSError **scanError) {
         NSString *containerPath = [root stringByAppendingPathComponent:container];
         struct stat containerInfo = {0};
         if (lstat(containerPath.fileSystemRepresentation, &containerInfo) != 0) {
-            if (errno != ENOENT) RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app bundle container %@", container]);
+            int savedErrno = errno;
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app bundle container %@: %s", container, strerror(savedErrno)]);
             continue;
         }
-        if (!S_ISDIR(containerInfo.st_mode)) continue;
+        if (!S_ISDIR(containerInfo.st_mode)) {
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app bundle container %@ is not a real directory", container]);
+            continue;
+        }
         NSError *childrenError = nil;
         NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:containerPath error:&childrenError];
         if (!children) {
@@ -106,14 +113,24 @@ static NSArray *InstalledApplications(NSError **scanError) {
             if (![child.pathExtension.lowercaseString isEqualToString:@"app"]) continue;
             NSString *appPath = [containerPath stringByAppendingPathComponent:child];
             struct stat appInfo = {0};
-            if (lstat(appPath.fileSystemRepresentation, &appInfo) != 0 || !S_ISDIR(appInfo.st_mode)) {
-                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app bundle %@", child]);
+            if (lstat(appPath.fileSystemRepresentation, &appInfo) != 0) {
+                int savedErrno = errno;
+                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app bundle %@: %s", child, strerror(savedErrno)]);
+                continue;
+            }
+            if (!S_ISDIR(appInfo.st_mode)) {
+                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app bundle %@ is not a real directory", child]);
                 continue;
             }
             NSString *plistPath = [appPath stringByAppendingPathComponent:@"Info.plist"];
             struct stat plistInfo = {0};
-            if (lstat(plistPath.fileSystemRepresentation, &plistInfo) != 0 || !S_ISREG(plistInfo.st_mode)) {
-                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app bundle %@ has no readable regular Info.plist", child]);
+            if (lstat(plistPath.fileSystemRepresentation, &plistInfo) != 0) {
+                int savedErrno = errno;
+                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app bundle %@ Info.plist is unavailable: %s", child, strerror(savedErrno)]);
+                continue;
+            }
+            if (!S_ISREG(plistInfo.st_mode)) {
+                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app bundle %@ Info.plist is not a regular file", child]);
                 continue;
             }
             NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:plistPath];
@@ -173,7 +190,8 @@ static NSDictionary *AppDataContainerIndex(NSError **scanError) {
         NSString *container = [root stringByAppendingPathComponent:child];
         struct stat info = {0};
         if (lstat(container.fileSystemRepresentation, &info) != 0) {
-            if (errno != ENOENT) RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app data container %@", child]);
+            int savedErrno = errno;
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app data container %@: %s", child, strerror(savedErrno)]);
             continue;
         }
         if (!S_ISDIR(info.st_mode)) {
@@ -287,6 +305,141 @@ static BOOL ValidateRemovalTree(NSString *path, NSString *relativePath, NSString
     return YES;
 }
 
+static int OpenCleanupTargetDirectory(NSString *container, NSString *relativePath,
+    BOOL *missing, NSString **failedAt, NSError **error) {
+    if (missing) *missing = NO;
+    int rootFD = open("/var/mobile/Containers/Data/Application", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (rootFD < 0) {
+        int savedErrno = errno;
+        if (failedAt) *failedAt = @"app-data-root";
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to open app data root safely: %s", strerror(savedErrno)]);
+        return -1;
+    }
+    int containerFD = openat(rootFD, [container.lastPathComponent fileSystemRepresentation],
+        O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    int savedErrno = errno;
+    close(rootFD);
+    if (containerFD < 0) {
+        if (savedErrno == ENOENT && missing) { *missing = YES; return -1; }
+        if (failedAt) *failedAt = @"app-container";
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to open app container safely: %s", strerror(savedErrno)]);
+        return -1;
+    }
+
+    int targetFD = -1;
+    if ([relativePath isEqualToString:@"tmp"]) {
+        targetFD = openat(containerFD, "tmp", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        savedErrno = errno;
+    } else {
+        int libraryFD = openat(containerFD, "Library", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        savedErrno = errno;
+        if (libraryFD >= 0) {
+            targetFD = openat(libraryFD, "Caches", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+            savedErrno = errno;
+            close(libraryFD);
+        }
+    }
+    close(containerFD);
+    if (targetFD < 0) {
+        if (savedErrno == ENOENT && missing) { *missing = YES; return -1; }
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to open cleanup directory safely: %s", strerror(savedErrno)]);
+        return -1;
+    }
+    return targetFD;
+}
+
+static BOOL RemoveDirectoryContentsAt(int directoryFD, NSString *relativePath,
+    unsigned long long *removedBytes, unsigned long long *removedItems,
+    NSString **failedAt, NSError **error) {
+    int scanFD = dup(directoryFD);
+    if (scanFD < 0) {
+        int savedErrno = errno;
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to duplicate cleanup directory handle: %s", strerror(savedErrno)]);
+        return NO;
+    }
+    DIR *directory = fdopendir(scanFD);
+    if (!directory) {
+        int savedErrno = errno;
+        close(scanFD);
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to enumerate cleanup directory: %s", strerror(savedErrno)]);
+        return NO;
+    }
+
+    BOOL success = YES;
+    while (success) {
+        errno = 0;
+        struct dirent *entry = readdir(directory);
+        if (!entry) {
+            if (errno != 0) {
+                int savedErrno = errno;
+                if (failedAt) *failedAt = relativePath;
+                SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"cleanup directory enumeration failed: %s", strerror(savedErrno)]);
+                success = NO;
+            }
+            break;
+        }
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+        NSString *name = [NSString stringWithUTF8String:entry->d_name];
+        if (name.length == 0 || [name containsString:@"/"]) {
+            if (failedAt) *failedAt = relativePath;
+            SetMaintenanceError(error, EINVAL, @"cleanup encountered an invalid directory entry");
+            success = NO;
+            break;
+        }
+        NSString *childPath = [relativePath stringByAppendingPathComponent:name];
+        struct stat childInfo = {0};
+        if (fstatat(directoryFD, entry->d_name, &childInfo, AT_SYMLINK_NOFOLLOW) != 0) {
+            int savedErrno = errno;
+            if (failedAt) *failedAt = childPath;
+            SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to inspect cleanup item: %s", strerror(savedErrno)]);
+            success = NO;
+            break;
+        }
+        if (S_ISDIR(childInfo.st_mode)) {
+            int childFD = openat(directoryFD, entry->d_name, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+            if (childFD < 0) {
+                int savedErrno = errno;
+                if (failedAt) *failedAt = childPath;
+                SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to open nested cleanup directory safely: %s", strerror(savedErrno)]);
+                success = NO;
+                break;
+            }
+            BOOL childSuccess = RemoveDirectoryContentsAt(childFD, childPath, removedBytes, removedItems, failedAt, error);
+            close(childFD);
+            if (!childSuccess) { success = NO; break; }
+            if (unlinkat(directoryFD, entry->d_name, AT_REMOVEDIR) != 0) {
+                int savedErrno = errno;
+                if (failedAt) *failedAt = childPath;
+                SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to remove nested cleanup directory: %s", strerror(savedErrno)]);
+                success = NO;
+                break;
+            }
+        } else {
+            if (!S_ISREG(childInfo.st_mode) && !S_ISLNK(childInfo.st_mode)) {
+                if (failedAt) *failedAt = childPath;
+                SetMaintenanceError(error, EINVAL, @"cleanup refused a special filesystem object");
+                success = NO;
+                break;
+            }
+            if (unlinkat(directoryFD, entry->d_name, 0) != 0) {
+                int savedErrno = errno;
+                if (failedAt) *failedAt = childPath;
+                SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to remove cleanup item: %s", strerror(savedErrno)]);
+                success = NO;
+                break;
+            }
+            if (S_ISREG(childInfo.st_mode) && removedBytes)
+                *removedBytes += (unsigned long long)MAX((off_t)0, childInfo.st_size);
+        }
+        if (removedItems) (*removedItems)++;
+    }
+    closedir(directory);
+    return success;
+}
+
 static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath,
     unsigned long long *removedBytes, unsigned long long *removedItems, BOOL dryRun,
     NSString **failedAt, NSError **error) {
@@ -317,6 +470,15 @@ static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relative
         if (failedAt) *failedAt = relativePath;
         SetMaintenanceError(error, 14, @"cleanup target contains an intermediate symbolic link");
         return NO;
+    }
+    if (!dryRun) {
+        BOOL missing = NO;
+        int targetFD = OpenCleanupTargetDirectory(canonicalContainer, relativePath, &missing, failedAt, error);
+        if (missing) return YES;
+        if (targetFD < 0) return NO;
+        BOOL removed = RemoveDirectoryContentsAt(targetFD, relativePath, removedBytes, removedItems, failedAt, error);
+        close(targetFD);
+        return removed;
     }
     struct stat info = {0};
     if (lstat(target.fileSystemRepresentation, &info) != 0) {
@@ -513,6 +675,11 @@ static NSDictionary *ClearAppCaches(NSData *body) {
         return @{@"ok":@NO, @"error":[NSString stringWithFormat:@"app container inventory is incomplete; cleanup refused: %@", containerScanError.localizedDescription]};
     NSString *container = containerIndex[bundleID];
     if (!container) return @{@"ok":@NO, @"error":@"app data container is not accessible"};
+    NSDate *cleanupStartedAt = [NSDate date];
+    NSDictionary *beforeCaches = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"Library/Caches"]);
+    NSDictionary *beforeTemporary = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"tmp"]);
+    unsigned long long beforeBytes = [beforeCaches[@"bytes"] unsignedLongLongValue] + [beforeTemporary[@"bytes"] unsignedLongLongValue];
+    unsigned long long beforeFileCount = [beforeCaches[@"fileCount"] unsignedLongLongValue] + [beforeTemporary[@"fileCount"] unsignedLongLongValue];
     unsigned long long removed = 0, removedItems = 0;
     NSError *error = nil;
     NSString *failedAt = nil;
@@ -520,15 +687,36 @@ static NSDictionary *ClearAppCaches(NSData *body) {
     if (!ClearDirectDirectoryContents(container, @"Library/Caches", NULL, NULL, YES, &failedAt, &error) ||
         !ClearDirectDirectoryContents(container, @"tmp", NULL, NULL, YES, &failedAt, &error))
         return @{@"ok":@NO, @"partial":@NO, @"removedBytes":@0, @"removedItems":@0,
+                 @"beforeBytes":@(beforeBytes), @"afterBytes":@(beforeBytes), @"beforeFileCount":@(beforeFileCount),
+                 @"afterFileCount":@(beforeFileCount), @"startedAt":[[NSISO8601DateFormatter new] stringFromDate:cleanupStartedAt],
+                 @"finishedAt":[[NSISO8601DateFormatter new] stringFromDate:[NSDate date]],
                  @"failedArea":failedAt ?: @"preflight", @"error":error.localizedDescription ?: @"cache cleanup preflight failed; no files were intentionally removed"};
     if (!ClearDirectDirectoryContents(container, @"Library/Caches", &removed, &removedItems, NO, &failedAt, &error) ||
         !ClearDirectDirectoryContents(container, @"tmp", &removed, &removedItems, NO, &failedAt, &error))
+        NSDictionary *afterCaches = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"Library/Caches"]);
+        NSDictionary *afterTemporary = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"tmp"]);
+        unsigned long long afterBytes = [afterCaches[@"bytes"] unsignedLongLongValue] + [afterTemporary[@"bytes"] unsignedLongLongValue];
+        unsigned long long afterFileCount = [afterCaches[@"fileCount"] unsignedLongLongValue] + [afterTemporary[@"fileCount"] unsignedLongLongValue];
+        NSDate *finishedAt = [NSDate date];
         return @{@"ok":@NO, @"partial":@(removedItems > 0), @"bundleIdentifier":bundleID,
                  @"removedBytes":@(removed), @"removedItems":@(removedItems),
+                 @"beforeBytes":@(beforeBytes), @"afterBytes":@(afterBytes), @"beforeFileCount":@(beforeFileCount),
+                 @"afterFileCount":@(afterFileCount), @"startedAt":[[NSISO8601DateFormatter new] stringFromDate:cleanupStartedAt],
+                 @"finishedAt":[[NSISO8601DateFormatter new] stringFromDate:finishedAt],
+                 @"elapsedMilliseconds":@((unsigned long long)([finishedAt timeIntervalSinceDate:cleanupStartedAt] * 1000.0)),
                  @"failedArea":failedAt ?: @"unknown",
                  @"error":error.localizedDescription ?: @"cache cleanup failed after preflight; inspect the selected app container"};
+    NSDictionary *afterCaches = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"Library/Caches"]);
+    NSDictionary *afterTemporary = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"tmp"]);
+    unsigned long long afterBytes = [afterCaches[@"bytes"] unsignedLongLongValue] + [afterTemporary[@"bytes"] unsignedLongLongValue];
+    unsigned long long afterFileCount = [afterCaches[@"fileCount"] unsignedLongLongValue] + [afterTemporary[@"fileCount"] unsignedLongLongValue];
+    NSDate *finishedAt = [NSDate date];
     return @{@"ok":@YES, @"partial":@NO, @"bundleIdentifier":bundleID,
              @"removedBytes":@(removed), @"removedItems":@(removedItems),
+             @"beforeBytes":@(beforeBytes), @"afterBytes":@(afterBytes), @"beforeFileCount":@(beforeFileCount),
+             @"afterFileCount":@(afterFileCount), @"startedAt":[[NSISO8601DateFormatter new] stringFromDate:cleanupStartedAt],
+             @"finishedAt":[[NSISO8601DateFormatter new] stringFromDate:finishedAt],
+             @"elapsedMilliseconds":@((unsigned long long)([finishedAt timeIntervalSinceDate:cleanupStartedAt] * 1000.0)),
              @"clearedAreas":@[@"Library/Caches", @"tmp"],
              @"excludedAreas":@[@"Documents", @"Library/Preferences", @"Library/Application Support", @"Keychain", @"cloud state"]};
 }

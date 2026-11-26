@@ -150,7 +150,7 @@ struct RootlessCoreView: View {
                             .padding(.vertical, 2)
                         }
                     }
-                    Text("仅枚举已安装应用信息，不读取应用私有数据。")
+                    Text("仅枚举已安装应用信息，不读取应用私有数据。App 绑定只表示管理器中的档案关联，不代表目标 App 已加载 Hook 或应用配置。")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
 
@@ -169,6 +169,9 @@ struct RootlessCoreView: View {
                             LabeledContent("动态库大小", value: ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
                         }
                         LabeledContent("目标进程注入", value: hook.runtimeInjectionVerified ? "已验证" : "尚未验证")
+                        LabeledContent("当前可确认范围", value: "文件存在 / Filter 解析 / 目标声明")
+                        Text("以上诊断不等于动态库已被目标进程加载；分 App 配置生效需要单独的进程级证据。")
+                            .font(.caption2).foregroundStyle(.secondary)
                         Text(hook.note).font(.caption2).foregroundStyle(.secondary)
                     } else {
                         Text("尚未取得 Hook 安装诊断结果").foregroundStyle(.secondary)

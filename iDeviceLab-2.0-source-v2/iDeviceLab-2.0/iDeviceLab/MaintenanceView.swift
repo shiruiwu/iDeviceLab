@@ -150,6 +150,19 @@ struct MaintenanceView: View {
                         LabeledContent("结果", value: result == "success" ? "完成" : (result == "partial" ? "部分完成" : "失败 / 旧记录"))
                         LabeledContent("已处理项目", value: "\(removedItems)")
                         LabeledContent("已处理容量", value: ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))
+                        if let before = lastAppCleanup["beforeBytes"] as? NSNumber {
+                            LabeledContent("清理前容量", value: ByteCountFormatter.string(fromByteCount: before.int64Value, countStyle: .file))
+                        }
+                        if let after = lastAppCleanup["afterBytes"] as? NSNumber {
+                            LabeledContent("清理后容量", value: ByteCountFormatter.string(fromByteCount: after.int64Value, countStyle: .file))
+                        }
+                        if let beforeCount = lastAppCleanup["beforeFileCount"] as? NSNumber,
+                           let afterCount = lastAppCleanup["afterFileCount"] as? NSNumber {
+                            LabeledContent("文件数量变化", value: "\(beforeCount.intValue) → \(afterCount.intValue)")
+                        }
+                        if let elapsed = lastAppCleanup["elapsedMilliseconds"] as? NSNumber {
+                            LabeledContent("耗时", value: "\(elapsed.intValue) ms")
+                        }
                         if let failedArea = lastAppCleanup["failedArea"] as? String, !failedArea.isEmpty {
                             LabeledContent("失败位置", value: failedArea)
                         }
@@ -269,9 +282,15 @@ struct MaintenanceView: View {
                 "appName": app.name,
                 "removedBytes": removed,
                 "removedItems": (object?["removedItems"] as? NSNumber)?.intValue ?? 0,
+                "beforeBytes": (object?["beforeBytes"] as? NSNumber)?.int64Value ?? 0,
+                "afterBytes": (object?["afterBytes"] as? NSNumber)?.int64Value ?? 0,
+                "beforeFileCount": (object?["beforeFileCount"] as? NSNumber)?.intValue ?? 0,
+                "afterFileCount": (object?["afterFileCount"] as? NSNumber)?.intValue ?? 0,
+                "elapsedMilliseconds": (object?["elapsedMilliseconds"] as? NSNumber)?.int64Value ?? 0,
+                "startedAt": object?["startedAt"] as? String ?? "",
                 "partial": false,
                 "result": "success",
-                "completedAt": ISO8601DateFormatter().string(from: Date()),
+                "completedAt": object?["finishedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()),
                 "areas": ["Library/Caches", "tmp"]
             ]
             UserDefaults.standard.set(lastAppCleanup, forKey: "iDeviceLabLastAppCleanupV1")
@@ -288,11 +307,17 @@ struct MaintenanceView: View {
                     "appName": app.name,
                     "removedBytes": removed,
                     "removedItems": removedItems,
+                    "beforeBytes": (result["beforeBytes"] as? NSNumber)?.int64Value ?? 0,
+                    "afterBytes": (result["afterBytes"] as? NSNumber)?.int64Value ?? 0,
+                    "beforeFileCount": (result["beforeFileCount"] as? NSNumber)?.intValue ?? 0,
+                    "afterFileCount": (result["afterFileCount"] as? NSNumber)?.intValue ?? 0,
+                    "elapsedMilliseconds": (result["elapsedMilliseconds"] as? NSNumber)?.int64Value ?? 0,
+                    "startedAt": result["startedAt"] as? String ?? "",
                     "partial": partial,
                     "result": partial ? "partial" : "failed",
                     "failedArea": result["failedArea"] as? String ?? "",
                     "error": result["error"] as? String ?? error.localizedDescription,
-                    "completedAt": ISO8601DateFormatter().string(from: Date()),
+                    "completedAt": result["finishedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()),
                     "areas": ["Library/Caches", "tmp"]
                 ]
                 UserDefaults.standard.set(lastAppCleanup, forKey: "iDeviceLabLastAppCleanupV1")
