@@ -20,6 +20,11 @@ core_source = ROOT / "core/main.m"
 core_makefile = ROOT / "core/Makefile"
 core_control = ROOT / "core/control"
 core_daemon = ROOT / "core/layout/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
+if core_daemon.is_file():
+    daemon = plistlib.loads(core_daemon.read_bytes())
+    check(daemon.get("Label") == "com.idevelab.core.alpha11", "Alpha11 launchd plist uses a valid service label")
+    check(daemon.get("ProgramArguments") == ["/var/jb/usr/libexec/idevelab-core"], "Alpha11 launchd starts the packaged Rootless Core binary")
+    check(daemon.get("UserName") == "mobile" and daemon.get("GroupName") == "mobile", "Alpha11 Core runs as the unprivileged mobile user")
 
 check("Version: 2.0.0~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
 check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
