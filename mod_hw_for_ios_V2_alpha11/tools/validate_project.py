@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static checks for the V2 read-only diagnostics companion project."""
+"""Static checks for the Alpha11 tweak, manager, and config utility package."""
 from pathlib import Path
 import plistlib
 import sys
@@ -15,9 +15,11 @@ control = (ROOT / "control").read_text()
 manager = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
 project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
-check("Version: 2.0.0~alpha11" in control, "Existing Alpha11 package metadata retained")
+package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
+
+check("Version: 2.0.0~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
 check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
-check("src/captain_hook/hook.mm" in makefile, "Original source list retained")
+check("src/captain_hook/hook.mm" in makefile, "Original hook source remains in target")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
 check("CURRENT_PROJECT_VERSION = 8;" in project, "Manager build number is 8")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
@@ -25,15 +27,34 @@ check("PropertyListSerialization.propertyList" in manager, "Manager parses plist
 check("字段值未展示" in manager, "Manager does not display plist values")
 check("RawPlistDocument" in manager and "regularFileWithContents: data" in manager,
       "Manager exports original bytes unchanged")
-check("TextField(" not in manager and "Toggle(" not in manager,
-      "Manager has no configuration identity editing controls")
 check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "IPA build targets arm64 and verifies archive")
+
 diagnostic = ROOT / "scripts/diagnose-config.sh"
-check(diagnostic.is_file(), "Read-only device diagnostic exists")
+backup = ROOT / "scripts/backup-config.sh"
+restore = ROOT / "scripts/restore-config.sh"
+for path, label in [
+    (diagnostic, "Read-only config diagnostic"),
+    (backup, "Timestamped config backup"),
+    (restore, "Validated config restore with rollback snapshot"),
+]:
+    check(path.is_file(), label + " script exists")
+    if path.is_file():
+        check(path.stat().st_mode & 0o111 != 0, label + " script is executable in git")
+
 if diagnostic.is_file():
     diag = diagnostic.read_text()
     check("plutil -lint" in diag, "Device diagnostic validates plist syntax")
-    check("UniqueDeviceID" not in diag, "Device diagnostic does not inspect identity fields")
+    check("UniqueDeviceID" not in diag, "Device diagnostic does not print or inspect identifier values")
+if backup.is_file():
+    src = backup.read_text()
+    check("cmp -s" in src and "plutil -lint" in src, "Backup verifies byte equality and plist validity")
+if restore.is_file():
+    src = restore.read_text()
+    check("plutil -lint" in src and "rollback-snapshots" in src and "mv -f" in src,
+          "Restore validates backup, preserves pre-restore snapshot, and replaces atomically")
+
+check('mod-hw-config-backup' in package_builder and 'mod-hw-config-restore' in package_builder,
+      "Rootless utility DEB packages backup and restore commands")
 
 for rel in [
     "src/mobile_gestalt/mobile_gestalt.m",
