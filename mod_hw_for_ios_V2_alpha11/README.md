@@ -71,7 +71,7 @@ See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the so
 - The legacy Rootless Core stores profiles locally. It is not yet integrated with the Alpha11 manager or tweak configuration path.
 
 ## 调试与扩展 | Debugging & Extension
-- Use `scripts/diagnose-config.sh` to check candidate configuration paths and plist structure. Use `scripts/backup-app-container.sh <bundle.identifier>` to create a private archive of one app's data container; review its documented exclusions before relying on it.
+- Use `scripts/diagnose-config.sh` to check candidate configuration paths and plist structure. Use `scripts/backup-app-container.sh <bundle.identifier>` to create a private archive of one app's data container, then `scripts/verify-app-container-backup.sh <archive-name.tar.gz>` to check its SHA-256 manifest and archive readability; review documented exclusions before relying on it.
 - Use the CI workflows to validate source syntax and build package artifacts.
 - Record target-device test results separately; do not infer runtime success from build logs.
 
