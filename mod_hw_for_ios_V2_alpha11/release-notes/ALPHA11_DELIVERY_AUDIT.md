@@ -155,3 +155,11 @@ This section supersedes any earlier checkpoint above where the same feature is d
 - The selected plist is read during tweak initialization. This is not hot reload; restart the target process after changing its profile.
 - Static regression checks now assert that per-app lookup precedes global/legacy fallback. Build and target-device process-isolation tests are pending.
 - The manager still does not have a privileged profile-write API. Profile files must currently be placed in the Rootless preference directory through an authorized device file-management workflow.
+
+## Manager per-app export flow — source implementation
+
+- The manager now offers a Bundle ID picker populated from the Core `GET /apps` inventory.
+- After importing a plist, the user can export a copy using the selected Bundle ID as the filename. The output is intended for the matching file under `com.modhw.ios.profiles`.
+- The manager does not write directly into the jailbreak preference directory. Moving the exported file into place remains an explicit device file-management step.
+- The static validator checks that the selection/export controls and profile directory reference remain present.
+- The per-app loader and manager export are source-level milestones; the IPA/DEB build and iPhone 12 / iOS 16.2 process-isolation test are still required.
