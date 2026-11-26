@@ -94,7 +94,7 @@ if app_restore.is_file():
     src = app_restore.read_text()
     check("--confirm" in src and "restore-snapshots" in src and "pgrep -x" in src,
           "App restore requires explicit confirmation, closed app, and rollback snapshot")
-    check("tar -tvzf" in src and "directory traversal" in src and "符号链接" in src,
+    check("tar -tvzf" in src and "tar -tzf" in src and "符号链接" in src,
           "App restore rejects unsafe archive paths and link/special-file entries")
 if app_verify.is_file():
     src = app_verify.read_text()
