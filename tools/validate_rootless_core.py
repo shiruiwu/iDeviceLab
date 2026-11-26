@@ -61,3 +61,8 @@ for item in passed:
 for item in errors:
     print("[FAIL]", item)
 sys.exit(1 if errors else 0)
+
+check('Label("同步当前配置档案"' in SWIFT, "Manager exposes selected-profile sync to Alpha11 local plist")
+check('"HWModelStr": profile.deviceModel' in SWIFT and '"ProductVersion": profile.iosVersion' in SWIFT and '"RegionCode": profile.region' in SWIFT, "Profile sync maps only explicit safe profile fields")
+check("Hook 加载和目标 App 读取仍需单独验证" in SWIFT, "Profile sync distinguishes plist write from runtime hook verification")
+check("生成维护诊断报告" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/MaintenanceView.swift").read_text(), "Maintenance view exports a local inventory report")
