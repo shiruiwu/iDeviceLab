@@ -7,6 +7,13 @@ struct ModHWManagerApp: App {
     var body: some Scene { WindowGroup { ContentView() } }
 }
 
+private struct CoreApp: Identifiable {
+    let name: String
+    let bundleIdentifier: String
+    let version: String
+    var id: String { bundleIdentifier }
+}
+
 private struct PlistEntry: Identifiable {
     let key: String
     let typeName: String
@@ -24,6 +31,9 @@ struct ContentView: View {
     @State private var rootType = "未知"
     @State private var coreStatus = "尚未检测 Core 服务"
     @State private var coreChecking = false
+    @State private var appsLoading = false
+    @State private var appInventoryStatus = "尚未读取 App 清单"
+    @State private var installedApps: [CoreApp] = []
 
     var body: some View {
         NavigationStack {
@@ -81,7 +91,23 @@ struct ContentView: View {
                         }
                         .disabled(coreChecking)
                     }
-                    Text("仅请求 /status，不读取或切换配置，不会修改设备数据。需要先在越狱环境安装并启动 iDeviceLab Core。")
+                    Button(appsLoading ? "读取中…" : "读取已安装 App 清单") {
+                        fetchInstalledApps()
+                    }
+                    .disabled(appsLoading)
+                    Text(appInventoryStatus).font(.footnote).foregroundStyle(.secondary)
+                    if !installedApps.isEmpty {
+                        ForEach(installedApps) { app in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(app.name)
+                                Text(app.bundleIdentifier).font(.caption.monospaced()).foregroundStyle(.secondary)
+                                if !app.version.isEmpty {
+                                    Text("版本：\\(app.version)").font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    Text("仅请求只读 /status 和 /apps 接口；不会读取或切换配置，也不会修改设备数据。需要先在越狱环境安装并启动 Alpha11 Core。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 Section("运行说明") {
@@ -134,6 +160,38 @@ struct ContentView: View {
                 coreStatus = "已连接：\(service) · v\(version)"
             } catch {
                 coreStatus = "未连接：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func fetchInstalledApps() {
+        appsLoading = true
+        appInventoryStatus = "正在读取本机 App 清单…"
+        Task {
+            defer { appsLoading = false }
+            do {
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:18081/apps")!)
+                request.httpMethod = "GET"
+                request.timeoutInterval = 5
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                      let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      payload["ok"] as? Bool == true,
+                      let rows = payload["apps"] as? [[String: Any]] else {
+                    appInventoryStatus = "Core 返回的 App 清单格式无效"
+                    installedApps = []
+                    return
+                }
+                installedApps = rows.compactMap { row in
+                    guard let name = row["name"] as? String,
+                          let bundle = row["bundleIdentifier"] as? String else { return nil }
+                    return CoreApp(name: name, bundleIdentifier: bundle, version: row["version"] as? String ?? "")
+                }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                appInventoryStatus = "已读取 \\(installedApps.count) 个 App（只读清单）"
+            } catch {
+                installedApps = []
+                appInventoryStatus = "读取失败：\\(error.localizedDescription)"
             }
         }
     }
