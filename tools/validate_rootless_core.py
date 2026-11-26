@@ -97,6 +97,16 @@ check('Section("最近一次 App 清理记录")' in MAINTENANCE and '"result": p
 check('Label("同步当前配置档案"' in SWIFT, "Manager exposes selected-profile sync to Alpha11 local plist")
 check('"HWModelStr": profile.deviceModel' in SWIFT and '"ProductVersion": profile.iosVersion' in SWIFT and '"RegionCode": profile.region' in SWIFT, "Profile sync maps only explicit safe profile fields")
 
+check("SO_RCVTIMEO" in MAIN and "SO_SNDTIMEO" in MAIN and "struct timeval timeout = {5, 0}" in MAIN, "Core applies bounded socket read and write timeouts")
+check("maximumHeaderBytes = 16 * 1024" in MAIN and "maximumBodyBytes = 1024 * 1024" in MAIN, "Core enforces bounded HTTP header and body sizes")
+check("hasContentLength || value.length == 0" in MAIN and "Transfer-Encoding is not supported" in MAIN, "Core rejects duplicate or malformed Content-Length and unsupported transfer encodings")
+check("request body is incomplete or timed out" in MAIN and "request line must be GET or POST" in MAIN, "Core validates request line and rejects incomplete bodies")
+check("static BOOL SendAll" in MAIN and "remaining -= (size_t)sent" in MAIN, "Core handles partial socket writes")
+check("container %@ metadata is unavailable" in MAIN and "multiple app data containers claim Bundle ID" in MAIN, "Core marks missing metadata and duplicate container mappings as incomplete scans")
+check("multiple installed app bundles claim Bundle ID" in MAIN and "ambiguousBundleIDs" in MAIN, "Core refuses duplicate installed-app Bundle ID selection")
+check("static BOOL ValidateRemovalTree" in MAIN and "access(path.fileSystemRepresentation, W_OK | X_OK)" in MAIN, "Cleanup preflight recursively checks nested directory access before deletion")
+check('@"orphanScanStatus":(!orphanScanComplete ? @"unavailable" : (orphanMetricsComplete ? @"complete" : @"partial"))' in MAIN, "Orphan diagnostics distinguish incomplete container-size scans")
+ 
 print(f"Rootless validation: {len(passed)} passed, {len(errors)} failed")
 for item in passed:
     print("[OK]", item)

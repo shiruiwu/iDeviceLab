@@ -81,6 +81,8 @@ static NSArray *InstalledApplications(NSError **scanError) {
         return @[];
     }
     NSMutableArray *apps = [NSMutableArray array];
+    NSMutableSet *seenBundleIDs = [NSMutableSet set];
+    NSMutableSet *ambiguousBundleIDs = [NSMutableSet set];
     for (NSString *container in containers) {
         if ([container hasPrefix:@"."]) continue;
         NSString *containerPath = [root stringByAppendingPathComponent:container];
@@ -116,6 +118,17 @@ static NSArray *InstalledApplications(NSError **scanError) {
                 RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app bundle %@ has no valid Bundle ID", child]);
                 continue;
             }
+            if ([ambiguousBundleIDs containsObject:bundleID]) continue;
+            if ([seenBundleIDs containsObject:bundleID]) {
+                NSUInteger existingIndex = [apps indexOfObjectPassingTest:^BOOL(NSDictionary *candidate, NSUInteger idx, BOOL *stop) {
+                    return [candidate[@"bundleIdentifier"] isEqualToString:bundleID];
+                }];
+                if (existingIndex != NSNotFound) [apps removeObjectAtIndex:existingIndex];
+                [ambiguousBundleIDs addObject:bundleID];
+                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"multiple installed app bundles claim Bundle ID %@; app selection is ambiguous", bundleID]);
+                continue;
+            }
+            [seenBundleIDs addObject:bundleID];
             NSString *name = [info[@"CFBundleDisplayName"] isKindOfClass:NSString.class] ? info[@"CFBundleDisplayName"] :
                 ([info[@"CFBundleName"] isKindOfClass:NSString.class] ? info[@"CFBundleName"] : child.stringByDeletingPathExtension);
             NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"";
@@ -153,7 +166,10 @@ static NSDictionary *AppDataContainerIndex(NSError **scanError) {
             if (errno != ENOENT) RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app data container %@", child]);
             continue;
         }
-        if (!S_ISDIR(info.st_mode)) continue;
+        if (!S_ISDIR(info.st_mode)) {
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app data container %@ is not a real directory", child]);
+            continue;
+        }
         NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
         struct stat metadataInfo = {0};
         if (lstat(metadataPath.fileSystemRepresentation, &metadataInfo) != 0) {
@@ -219,6 +235,48 @@ static void SetMaintenanceError(NSError **error, NSInteger code, NSString *descr
         userInfo:@{NSLocalizedDescriptionKey:description ?: @"maintenance operation failed"}];
 }
 
+static BOOL ValidateRemovalTree(NSString *path, NSString *relativePath, NSString **failedAt, NSError **error) {
+    struct stat info = {0};
+    if (lstat(path.fileSystemRepresentation, &info) != 0) {
+        int savedErrno = errno;
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to inspect %@ during cleanup preflight: %s", relativePath, strerror(savedErrno)]);
+        return NO;
+    }
+    // A symlink is removed as a link; never traverse its destination.
+    if (S_ISLNK(info.st_mode) || S_ISREG(info.st_mode)) return YES;
+    if (!S_ISDIR(info.st_mode)) {
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, 19, [NSString stringWithFormat:@"unsupported special file in cleanup target: %@", relativePath]);
+        return NO;
+    }
+    if (access(path.fileSystemRepresentation, W_OK | X_OK) != 0) {
+        int savedErrno = errno;
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"directory is not writable or searchable during cleanup preflight: %@ (%s)", relativePath, strerror(savedErrno)]);
+        return NO;
+    }
+    NSError *enumerationError = nil;
+    NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:path error:&enumerationError];
+    if (!children) {
+        if (failedAt) *failedAt = relativePath;
+        if (error && !*error) *error = enumerationError ?: [NSError errorWithDomain:@"iDeviceLab.AppMaintenance" code:20
+            userInfo:@{NSLocalizedDescriptionKey:@"unable to enumerate nested cleanup directory"}];
+        return NO;
+    }
+    for (NSString *child in children) {
+        if ([child isEqualToString:@"."] || [child isEqualToString:@".."] || [child containsString:@"/"]) {
+            if (failedAt) *failedAt = relativePath;
+            SetMaintenanceError(error, 21, @"nested directory enumeration returned an invalid child name");
+            return NO;
+        }
+        NSString *candidate = [path stringByAppendingPathComponent:child];
+        NSString *childRelativePath = [relativePath stringByAppendingPathComponent:child];
+        if (!ValidateRemovalTree(candidate, childRelativePath, failedAt, error)) return NO;
+    }
+    return YES;
+}
+
 static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath,
     unsigned long long *removedBytes, unsigned long long *removedItems, BOOL dryRun,
     NSString **failedAt, NSError **error) {
@@ -263,6 +321,12 @@ static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relative
         SetMaintenanceError(error, 15, [NSString stringWithFormat:@"%@ exists but is not a directory", relativePath]);
         return NO;
     }
+    if (access(target.fileSystemRepresentation, W_OK | X_OK) != 0) {
+        int savedErrno = errno;
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"cleanup directory is not writable or searchable: %@ (%s)", relativePath, strerror(savedErrno)]);
+        return NO;
+    }
     NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:target error:error];
     if (!children) {
         if (failedAt) *failedAt = relativePath;
@@ -283,7 +347,10 @@ static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relative
             SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to inspect cleanup item %@: %s", child, strerror(savedErrno)]);
             return NO;
         }
-        if (!dryRun) {
+        if (dryRun) {
+            NSString *childRelativePath = [relativePath stringByAppendingPathComponent:child];
+            if (!ValidateRemovalTree(candidate, childRelativePath, failedAt, error)) return NO;
+        } else {
             unsigned long long itemBytes = SafePathBytes(candidate, &childInfo);
             NSError *removeError = nil;
             if (![NSFileManager.defaultManager removeItemAtPath:candidate error:&removeError]) {
@@ -383,6 +450,7 @@ static NSDictionary *AppMaintenanceInventory(void) {
     }
     NSMutableArray *orphans = [NSMutableArray array];
     BOOL orphanScanComplete = installedScanError == nil && containerScanError == nil;
+    BOOL orphanMetricsComplete = YES;
     if (orphanScanComplete) for (NSString *bundleID in containers) {
         if ([installedIDs containsObject:bundleID]) continue;
         NSString *container = containers[bundleID];
@@ -390,6 +458,7 @@ static NSDictionary *AppMaintenanceInventory(void) {
         struct stat containerInfo = {0};
         BOOL accessible = lstat(container.fileSystemRepresentation, &containerInfo) == 0 && S_ISDIR(containerInfo.st_mode);
         NSDictionary *containerMetrics = SafeDirectoryMetrics(container);
+        if (![containerMetrics[@"status"] isEqualToString:@"complete"]) orphanMetricsComplete = NO;
         [orphans addObject:@{
             @"bundleIdentifier": bundleID,
             @"containerUUID": containerUUID,
@@ -409,7 +478,7 @@ static NSDictionary *AppMaintenanceInventory(void) {
              @"installedAppScanError":installedScanError.localizedDescription ?: @"",
              @"containerIndexScanStatus":(containerScanError ? @"partial" : @"complete"),
              @"containerIndexScanError":containerScanError.localizedDescription ?: @"",
-             @"orphanScanStatus":(orphanScanComplete ? @"complete" : @"unavailable"),
+             @"orphanScanStatus":(!orphanScanComplete ? @"unavailable" : (orphanMetricsComplete ? @"complete" : @"partial")),
              @"scope":@"Orphan candidates are emitted only when both installed-app and app-container inventories completed without scan errors. Only Library/Caches and tmp are eligible for cleanup."};
 }
 
