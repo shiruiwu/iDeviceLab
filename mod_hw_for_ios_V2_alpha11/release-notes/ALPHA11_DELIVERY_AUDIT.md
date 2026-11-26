@@ -94,7 +94,7 @@ The manager/Core status probe is a concrete integration milestone, not a claim t
 - Restore is opt-in with `--confirm`; it refuses a mismatched bundle/container ID, refuses a running app, rejects absolute/traversal paths and archive entries other than regular files/directories, stages extraction, and snapshots the current container before replacement.
 - The restore command excludes Keychain, App Groups, shared containers, system databases, and server-side state. It is not a "factory reset" and does not claim to remove every app trace.
 - Added `scripts/selftest-device.sh`, packaged as `mod-hw-selftest`, for non-destructive on-device checks.
-- Diagnostics package version advanced to `2.0.0~final5`; package now declares `coreutils, procps`.
+- Diagnostics package version advanced to `2.0.0~final6`; package now declares `coreutils, procps`.
 - Static validation and CI packaging are pending for the current HEAD. No physical-device result is claimed.
 
 
