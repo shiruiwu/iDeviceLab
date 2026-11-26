@@ -78,7 +78,12 @@ struct ContentView: View {
                         }
                     }
                 }
-                Section("越狱 Core 连接（只读检测）") {
+                Section {
+                    // Keep this explicit header form to avoid SwiftUI selecting the Table Section overload.
+                    VStack(alignment: .leading, spacing: 0) { EmptyView() }
+                } header: {
+                    Text("越狱 Core 连接（只读检测）")
+                }
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("127.0.0.1:18081")
