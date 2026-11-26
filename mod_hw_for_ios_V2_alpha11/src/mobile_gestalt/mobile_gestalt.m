@@ -240,7 +240,7 @@ void initPrefFile(){
       CFIndex c = CFDataGetLength(a);
       //refences:http://blog.timac.org/?tag=mgcopyanswer
       if (PreferenceBooleanIsTrue(aa, @"UniqueDeviceIDData")) {
-        [cf_device setValue:(__bridge id)CFDataCreate(kCFAllocatorDefault, b, c) forKey:@"UniqueDeviceIDData"];
+        [cf_device setValue:[NSData dataWithBytes:b length:(NSUInteger)c] forKey:@"UniqueDeviceIDData"];
       }
       else{
         [cf_device setValue:nil forKey:@"UniqueDeviceIDData"];
@@ -250,7 +250,8 @@ void initPrefFile(){
         if (mac!=nil&&([mac length]>0)) {
           mac = [mac stringByReplacingOccurrencesOfString:@":" withString:@""];
           NSData* data = dataFromHexString(mac);
-          [cf_device setValue:(__bridge id)CFDataCreate(kCFAllocatorDefault, [data bytes], [data length]) forKey:@"WifiAddressData"];
+          if (data != nil) [cf_device setValue:data forKey:@"WifiAddressData"];
+          else [cf_device setValue:nil forKey:@"WifiAddressData"];
         }
       }
       else{
@@ -262,13 +263,14 @@ void initPrefFile(){
         if (buletooth!=nil&&([buletooth length]>0)) {
           buletooth = [buletooth stringByReplacingOccurrencesOfString:@":" withString:@""];
           NSData* data = dataFromHexString(buletooth);
-          [cf_device setValue:(__bridge id)CFDataCreate(kCFAllocatorDefault, [data bytes], [data length]) forKey:@"BluetoothAddressData"];
+          if (data != nil) [cf_device setValue:data forKey:@"BluetoothAddressData"];
+          else [cf_device setValue:nil forKey:@"BluetoothAddressData"];
         }
       }
       else{
         [cf_device setValue:nil forKey:@"BluetoothAddressData"];
       }
-      // CFRelease(a);
+      CFRelease(a);
       break;
     }
     break;
