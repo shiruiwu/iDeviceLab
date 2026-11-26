@@ -73,6 +73,11 @@ check("PropertyListSerialization.propertyList" in manager, "Manager parses plist
 check("字段值未展示" in manager, "Manager does not display plist values")
 check('http://127.0.0.1:18081/status' in manager and 'http://127.0.0.1:18081/apps' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "read-only"' in manager,
       "Manager validates the read-only Alpha11 Core status response")
+check('import UIKit' in manager and 'UIPasteboard.general.string = command' in manager,
+      "Manager explicitly imports UIKit for native command-copy support")
+check('http://127.0.0.1:18081/system' in manager and 'fetchSystemSummary()' in manager and
+      'DeviceSummary' in manager and 'diskFreeBytes' in manager,
+      "Manager reads the Core system summary and displays device and storage information")
 check('NSAllowsLocalNetworking' in ipa and 'grep -q true' in ipa,
       "TrollStore IPA permits local-network ATS exception for loopback Core status")
 check("RawPlistDocument" in manager and "regularFileWithContents: data" in manager,
@@ -142,6 +147,8 @@ if selftest.is_file():
     src = selftest.read_text()
     check("127.0.0.1:18081/status" in src and "mod-hw-app-backup-verify" in src and "mod-hw-app-clean" in src and "rm -rf" not in src,
           "On-device self-test checks Core and tools without destructive operations")
+    check("/var/jb/basebin/launchctl" in src and "system/com.idevelab.core.alpha11" in src,
+          "On-device self-test locates the Dopamine rootless launchctl binary")
 if app_cleanup.is_file():
     src = app_cleanup.read_text()
     check("mod-hw-app-backup" in src and "mod-hw-app-backup-verify" in src and "cleanup-snapshots" in src and "--confirm" in src and "tar -tvzf" in src,
