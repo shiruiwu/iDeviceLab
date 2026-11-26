@@ -85,14 +85,22 @@ static NSData* dataFromHexString(NSString* str) {
   return [NSData dataWithBytes:bytes length:sizeof(bytes)];
 }
 static CFDataRef HexToByte(const char* hex_str){
-  unsigned char val[1024] = {0};
+  if (hex_str == NULL) return NULL;
   size_t length = strlen(hex_str);
-  /* WARNING: no sanitization or error-checking whatsoever */
-  for(size_t index = 0; index < length; index++) {
-    sscanf(&hex_str[2*index], "%2hhx", &val[index]);
+  if (length == 0 || (length % 2) != 0 || (length / 2) > 1024) return NULL;
+  UInt8 bytes[1024] = {0};
+  for (size_t index = 0; index < length; index += 2) {
+    unsigned char high = (unsigned char)hex_str[index];
+    unsigned char low = (unsigned char)hex_str[index + 1];
+    if (strchr("0123456789abcdefABCDEF", high) == NULL ||
+        strchr("0123456789abcdefABCDEF", low) == NULL) return NULL;
+    char pair[3] = {(char)high, (char)low, '\\0'};
+    char *end = NULL;
+    unsigned long value = strtoul(pair, &end, 16);
+    if (end == pair || *end != '\\0' || value > 0xFF) return NULL;
+    bytes[index / 2] = (UInt8)value;
   }
-  unsigned long val_length = (length / 2);
-  return CFDataCreate(NULL, val, val_length);
+  return CFDataCreate(kCFAllocatorDefault, bytes, (CFIndex)(length / 2));
 }
 /*
  From Apple open source: SecTrustSettings.c (APSL license)
@@ -139,7 +147,7 @@ static int NumberCountOfString(NSString* str,const char a){
   int count=0;
   int len = (int)[str length];
   for(int i=0;i<len;i++){
-    unsigned char c = [str characterAtIndex:0];
+    unsigned char c = [str characterAtIndex:i];
     if(c==a){
       count++;
     }
