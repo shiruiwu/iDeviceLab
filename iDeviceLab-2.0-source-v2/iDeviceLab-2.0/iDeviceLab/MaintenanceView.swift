@@ -23,6 +23,7 @@ struct MaintenanceView: View {
     private let coreURL = URL(string: "http://127.0.0.1:18080")!
     private var totalBytes: Int64 { cacheBytes + temporaryBytes }
     private var selectedApp: AppMaintenanceItem? { appItems.first { $0.bundleIdentifier == selectedAppBundleID } }
+    private var selectedAppDisplayName: String { selectedApp?.name ?? "所选应用" }
 
     var body: some View {
         NavigationStack {
