@@ -23,8 +23,8 @@ MANIFEST="${ARCHIVE%.tar.gz}.txt"
 [ -d "$BACKUP_ROOT" ] && [ ! -L "$BACKUP_ROOT" ] || fail '备份目录不存在或不安全。'
 [ -f "$ARCHIVE" ] && [ ! -L "$ARCHIVE" ] || fail '归档不存在或为符号链接。'
 [ -f "$MANIFEST" ] && [ ! -L "$MANIFEST" ] || fail '清单不存在或为符号链接。'
-command -v mod-hw-app-backup-verify >/dev/null 2>&1 || fail '缺少 mod-hw-app-backup-verify。'
-mod-hw-app-backup-verify "$NAME" >/dev/null || fail '备份完整性校验失败。'
+[ -x /var/jb/usr/bin/mod-hw-app-backup-verify ] || fail '缺少 mod-hw-app-backup-verify。'
+/var/jb/usr/bin/mod-hw-app-backup-verify "$NAME" >/dev/null || fail '备份完整性校验失败。'
 
 manifest_value() {
   awk -F= -v key="$1" '
