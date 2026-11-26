@@ -111,3 +111,14 @@ The manager/Core status probe is a concrete integration milestone, not a claim t
 
 - Added a manager view that retrieves installed App names, Bundle IDs, and versions through Core `GET /apps`.
 - This gives the maintenance tools a concrete Bundle ID selection source. It is read-only and does not claim per-app device profile or Hook isolation is complete.
+
+
+## Configuration parser hardening (2026-11-26)
+
+- Hardened the original MobileGestalt configuration parsing helpers without changing their Hook targets or adding new identifier rewriting behavior.
+- MAC-address hex input now requires exactly 12 hexadecimal characters; malformed input returns no data instead of being partially decoded.
+- UDID hex input now requires exactly 40 hexadecimal characters and is checked before CFData access; invalid values cause the loaded configuration to be discarded.
+- Plist flags controlling binary-data interpretation are accepted only when the stored value is an actual Boolean, not an arbitrary string or number.
+- The generic hex decoder now rejects null, empty, odd-length, non-hex, and over-capacity input before reading bytes.
+- Corrected a string-count helper to inspect each character rather than repeatedly inspecting the first character.
+- Added static regression assertions for these guards. Compilation and on-device config-load behavior still require the latest CI build and iPhone 12 / iOS 16.2 verification.

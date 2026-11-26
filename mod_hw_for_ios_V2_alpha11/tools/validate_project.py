@@ -13,6 +13,7 @@ def check(ok, message):
 makefile = (ROOT / "Makefile").read_text()
 control = (ROOT / "control").read_text()
 manager = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
+gestalt_source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
 project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
@@ -30,6 +31,12 @@ if core_daemon.is_file():
 check("Version: 2.0.0~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
 check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
 check("src/captain_hook/hook.mm" in makefile, "Original hook source remains in target")
+check("IsHexStringOfLength(str, 12)" in gestalt_source and "IsHexStringOfLength(hex, 40)" in gestalt_source,
+      "Hardware-address and UDID hex inputs require exact lengths and hexadecimal characters")
+check("PreferenceBooleanIsTrue" in gestalt_source and "a == NULL" in gestalt_source,
+      "Malformed plist booleans and invalid UDID bytes are rejected before use")
+check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source and "index / 2" in gestalt_source,
+      "Generic hex decoder rejects null, odd-length, invalid, and oversized input")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
 check("CURRENT_PROJECT_VERSION = 8;" in project, "Manager build number is 8")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
