@@ -120,8 +120,10 @@ static NSArray *AvailableBackups(void) {
     BOOL isDirectory = NO;
     if (![NSFileManager.defaultManager fileExistsAtPath:root isDirectory:&isDirectory] || !isDirectory) return @[];
     NSDictionary *rootAttrs = [NSFileManager.defaultManager attributesOfItemAtPath:root error:nil];
+    unsigned short rootMode = [rootAttrs[NSFilePosixPermissions] unsignedShortValue];
     if (![rootAttrs[NSFileType] isEqualToString:NSFileTypeDirectory] ||
-        [rootAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0) return @[];
+        [rootAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0 ||
+        (rootMode & 0027) != 0 || (rootMode & 0050) != 0050) return @[];
     NSArray *files = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
     NSMutableArray *backups = [NSMutableArray array];
     for (NSString *file in files) {
@@ -130,12 +132,14 @@ static NSArray *AvailableBackups(void) {
         NSDictionary *attrs = [NSFileManager.defaultManager attributesOfItemAtPath:archive error:nil];
         if (![attrs[NSFileType] isEqualToString:NSFileTypeRegular] ||
             [attrs[NSFileOwnerAccountID] unsignedIntValue] != 0 ||
-            ([attrs[NSFilePosixPermissions] unsignedShortValue] & 0077) != 0) continue;
+            ([attrs[NSFilePosixPermissions] unsignedShortValue] & 0027) != 0 ||
+            ([attrs[NSFilePosixPermissions] unsignedShortValue] & 0040) != 0040) continue;
         NSString *manifestPath = [archive stringByReplacingOccurrencesOfString:@".tar.gz" withString:@".txt"];
         NSDictionary *manifestAttrs = [NSFileManager.defaultManager attributesOfItemAtPath:manifestPath error:nil];
         if (![manifestAttrs[NSFileType] isEqualToString:NSFileTypeRegular] ||
             [manifestAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0 ||
-            ([manifestAttrs[NSFilePosixPermissions] unsignedShortValue] & 0077) != 0) continue;
+            ([manifestAttrs[NSFilePosixPermissions] unsignedShortValue] & 0027) != 0 ||
+            ([manifestAttrs[NSFilePosixPermissions] unsignedShortValue] & 0040) != 0040) continue;
         NSString *manifest = [NSString stringWithContentsOfFile:manifestPath encoding:NSUTF8StringEncoding error:nil];
         NSMutableDictionary *fields = [NSMutableDictionary dictionary];
         for (NSString *line in [manifest componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
