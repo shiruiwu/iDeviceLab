@@ -13,7 +13,8 @@ case "$BUNDLE_ID" in ''|*[!A-Za-z0-9._-]*|.*|*..*|*.) fail 'Bundle ID 格式无�
 case "$NAME" in ''|*/*|*..*|*.tmp*|*.tar.gz.tar.gz) fail '归档文件名无效。' ;; *.tar.gz) ;; *) fail '归档必须以 .tar.gz 结尾。' ;; esac
 [ -d "$BACKUP_ROOT" ] && [ ! -L "$BACKUP_ROOT" ] || fail '备份目录不存在或不安全。'
 [ "$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '备份目录必须由 root 拥有。'
-chmod 0700 "$BACKUP_ROOT"
+chown root:mobile "$BACKUP_ROOT"
+chmod 0750 "$BACKUP_ROOT"
 ARCHIVE="$BACKUP_ROOT/$NAME"
 MANIFEST="$BACKUP_ROOT/$(basename "$NAME" .tar.gz).txt"
 [ -f "$ARCHIVE" ] && [ ! -L "$ARCHIVE" ] || fail '归档不存在或为符号链接。'
