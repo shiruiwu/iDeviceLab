@@ -42,7 +42,7 @@ if core_source.is_file():
     core = core_source.read_text()
     check('@"GET"' in core and '@"POST"' not in core and 'read-only endpoint' in core,
           "Alpha11 Core exposes read-only HTTP methods only")
-    check("INADDR_LOOPBACK" in core and "kPort = 18080" in core,
+    check("INADDR_LOOPBACK" in core and "kPort = 18081" in core,
           "Alpha11 Core binds only to loopback port 18080")
     check('@"version": @"0.2.0-alpha11"' in core,
           "Alpha11 Core status reports its own version")
