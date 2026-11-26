@@ -30,6 +30,16 @@ private struct AppProfile: Decodable, Identifiable {
     var id: String { bundleIdentifier }
 }
 
+private struct BackupRecord: Decodable, Identifiable {
+    let archive: String
+    let bundleIdentifier: String
+    let containerIdentifier: String
+    let createdAt: String
+    let sha256: String
+    let sizeBytes: UInt64
+    var id: String { archive }
+}
+
 private struct DeviceSummary: Decodable {
     let productType: String
     let architecture: String
@@ -58,6 +68,8 @@ struct ContentView: View {
     @State private var deviceSummary: DeviceSummary?
     @State private var systemStatus = "尚未读取设备信息"
     @State private var maintenanceTools: [MaintenanceTool] = []
+    @State private var backups: [BackupRecord] = []
+    @State private var backupsStatus = "尚未读取备份清单"
     @State private var toolsStatus = "尚未检查维护工具"
     @State private var appProfiles: [AppProfile] = []
     @State private var profilesStatus = "尚未读取已安装配置"
@@ -162,6 +174,7 @@ struct ContentView: View {
             fetchSystemSummary()
             fetchMaintenanceTools()
             fetchAppProfiles()
+            fetchBackups()
         }
     }
 
@@ -276,6 +289,31 @@ struct ContentView: View {
                 Button("刷新 App 清单") { fetchInstalledApps() }
             }
             Section("备份") {
+                HStack {
+                    Text(backupsStatus).font(.footnote).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("刷新") { fetchBackups() }
+                }
+                if backups.isEmpty {
+                    Text("尚无可识别的备份，或备份目录尚未创建。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    ForEach(backups) { backup in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(backup.bundleIdentifier).font(.subheadline.weight(.semibold))
+                            Text(backup.archive).font(.caption.monospaced()).textSelection(.enabled)
+                            HStack {
+                                Text(backup.createdAt)
+                                Spacer()
+                                Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: backup.sizeBytes), countStyle: .file))
+                            }.font(.caption).foregroundStyle(.secondary)
+                            Text("SHA-256：\\(backup.sha256)")
+                                .font(.caption2.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+                            Button("填入校验文件名") { maintenanceArchiveName = backup.archive }
+                                .font(.caption)
+                        }
+                    }
+                }
                 commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-app-backup \\(safeShellArgument(maintenanceBundleID))")
                 TextField("备份文件名（用于校验或还原）", text: $maintenanceArchiveName)
                     .textInputAutocapitalization(.never)
@@ -506,6 +544,30 @@ struct ContentView: View {
             } catch {
                 maintenanceTools = []
                 toolsStatus = "检查失败：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func fetchBackups() {
+        backupsStatus = "正在读取本机备份清单…"
+        Task {
+            do {
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:18081/backups")!)
+                request.httpMethod = "GET"
+                request.timeoutInterval = 4
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                      let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      payload["ok"] as? Bool == true else {
+                    throw URLError(.cannotParseResponse)
+                }
+                let rows = payload["backups"] ?? []
+                backups = try JSONDecoder().decode([BackupRecord].self, from: JSONSerialization.data(withJSONObject: rows))
+                backupsStatus = "已读取 \\(backups.count) 个备份记录（只读）"
+            } catch {
+                backups = []
+                backupsStatus = "读取失败：\\(error.localizedDescription)"
             }
         }
     }
