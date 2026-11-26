@@ -38,126 +38,237 @@ struct ContentView: View {
     @State private var exportAsPerAppProfile = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("配置文件检查器", systemImage: "doc.text.magnifyingglass").font(.title2.bold())
-                        Text("只读检查 plist 文件结构、字段名称与数据类型。不会修改设备身份字段，也不会向系统服务写入配置。")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        Button("导入 plist") { importOpen = true }
-                        Spacer()
-                        Button("导出原始备份") { exportOpen = true }
-                            .disabled(importedData == nil).buttonStyle(.borderedProminent)
-                    }
-                }
-                Section("文件状态") {
-                    LabeledContent("文件", value: fileName)
-                    LabeledContent("根对象", value: rootType)
-                    LabeledContent("字段数量", value: entries.isEmpty ? "—" : "\(entries.count)")
-                    HStack {
-                        Text("格式检查")
-                        Spacer()
-                        if importedData == nil {
-                            Text("等待导入").foregroundStyle(.secondary)
-                        } else {
-                            Label(isValid ? "有效" : "无效", systemImage: isValid ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                                .foregroundStyle(isValid ? .green : .red)
+        TabView {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("mod_hw").font(.largeTitle.bold())
+                            Text("设备维护与配置管理").font(.title3).foregroundStyle(.secondary)
                         }
-                    }
-                }
-                if !entries.isEmpty {
-                    Section("字段清单（不显示字段值）") {
-                        ForEach(entries) { entry in
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(entry.key).font(.body.monospaced())
-                                Text(entry.typeName).font(.caption).foregroundStyle(.secondary)
-                            }
+                        HStack(spacing: 12) {
+                            statusCard("Alpha11 Core", value: coreStatus, systemImage: "cpu")
+                            statusCard("App 清单", value: installedApps.isEmpty ? "尚未读取" : "\(installedApps.count) 个 App", systemImage: "square.grid.2x2")
                         }
-                    }
-                }
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("越狱 Core 连接（只读检测）")
-                        .font(.headline)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("127.0.0.1:18081")
-                                .font(.system(.body, design: .monospaced))
-                            Text(coreStatus)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button(coreChecking ? "检测中…" : "检测连接") {
+                        Button {
                             checkCore()
+                            fetchInstalledApps()
+                        } label: {
+                            Label(coreChecking || appsLoading ? "正在检查…" : "刷新设备状态", systemImage: "arrow.clockwise")
+                                .frame(maxWidth: .infinity)
                         }
-                        .disabled(coreChecking)
-                    }
-                    Button(appsLoading ? "读取中…" : "读取已安装 App 清单") {
-                        fetchInstalledApps()
-                    }
-                    .disabled(appsLoading)
-                    Text(appInventoryStatus).font(.footnote).foregroundStyle(.secondary)
-                    if !installedApps.isEmpty {
-                        Picker("分 App 配置目标", selection: $selectedProfileBundleID) {
-                            ForEach(installedApps) { app in
-                                Text("\(app.name) · \(app.bundleIdentifier)").tag(app.bundleIdentifier)
+                        .buttonStyle(.borderedProminent)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("功能中心").font(.title2.bold())
+                            NavigationLink { profilesPage } label: {
+                                featureRow("分 App 配置", detail: "导入配置、检查字段并导出独立配置", icon: "slider.horizontal.3")
+                            }
+                            NavigationLink { maintenancePage } label: {
+                                featureRow("备份、还原与清理", detail: "查看越狱端维护工具与执行方式", icon: "externaldrive")
+                            }
+                            NavigationLink { diagnosticsPage } label: {
+                                featureRow("设备与插件诊断", detail: "Core 连接、App 清单、诊断状态", icon: "stethoscope")
                             }
                         }
-                        Button("导出为所选 App 的独立配置") {
-                            exportAsPerAppProfile = true
-                            exportOpen = true
-                        }
-                        .disabled(importedData == nil || selectedProfileBundleID.isEmpty || !canExportPerAppProfile)
-                        Text(canExportPerAppProfile
-                             ? "配置结构符合原作者 Hook 的必需字段要求。"
-                             : "当前 plist 尚不满足分 App 配置要求：需要 40 位十六进制 UniqueDeviceID；启用 MAC Data 字段时也必须提供有效的 12 位十六进制地址。")
-                            .font(.footnote).foregroundStyle(canExportPerAppProfile ? Color.secondary : Color.orange)
-                        Text("只生成独立 plist 文件；导出后需手动放入 com.modhw.ios.profiles 目录，不会自动写入越狱目录。")
+                        Text("说明：管理器只展示已接入的功能。尚未接入 UI 的维护操作不会显示为已完成。")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                    if !installedApps.isEmpty {
-                        ForEach(installedApps) { app in
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(app.name)
-                                Text(app.bundleIdentifier).font(.caption.monospaced()).foregroundStyle(.secondary)
-                                if !app.version.isEmpty {
-                                    Text("版本：\(app.version)").font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
+                    .padding()
+                }
+                .navigationTitle("设备总览")
+            }
+            .tabItem { Label("总览", systemImage: "square.grid.2x2.fill") }
+
+            NavigationStack { profilesPage }
+                .tabItem { Label("配置", systemImage: "slider.horizontal.3") }
+
+            NavigationStack { maintenancePage }
+                .tabItem { Label("维护", systemImage: "externaldrive") }
+
+            NavigationStack { diagnosticsPage }
+                .tabItem { Label("诊断", systemImage: "stethoscope") }
+        }
+        .fileImporter(isPresented: $importOpen, allowedContentTypes: [.propertyList, .data]) { result in
+            importPlist(result)
+        }
+        .fileExporter(
+            isPresented: $exportOpen,
+            document: RawPlistDocument(data: importedData ?? Data()),
+            contentType: .propertyList,
+            defaultFilename: backupName
+        ) { result in
+            switch result {
+            case .success(let url):
+                status = exportAsPerAppProfile
+                    ? "分 App 配置文件已导出：\(url.lastPathComponent)"
+                    : "原始备份已导出：\(url.lastPathComponent)"
+            case .failure(let error): status = "文件导出失败：\(error.localizedDescription)"
+            }
+            exportAsPerAppProfile = false
+        }
+        .task {
+            checkCore()
+            fetchInstalledApps()
+        }
+    }
+
+    private var profilesPage: some View {
+        Form {
+            Section {
+                Label("分 App 配置管理", systemImage: "slider.horizontal.3").font(.title2.bold())
+                Text("读取原作者 Hook 所需的配置字段，保留原始 plist 字节，并可按 Bundle ID 导出独立配置。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                HStack {
+                    Button("导入 plist") { importOpen = true }
+                    Spacer()
+                    Button("导出原始备份") { exportAsPerAppProfile = false; exportOpen = true }
+                        .disabled(importedData == nil)
+                }
+            }
+            Section("配置文件状态") {
+                LabeledContent("文件", value: fileName)
+                LabeledContent("根对象", value: rootType)
+                LabeledContent("字段数量", value: entries.isEmpty ? "—" : "\(entries.count)")
+                LabeledContent("格式检查", value: importedData == nil ? "等待导入" : (isValid ? "有效" : "无效"))
+            }
+            if !entries.isEmpty {
+                Section("字段清单（不显示字段值）") {
+                    ForEach(entries) { entry in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(entry.key).font(.body.monospaced())
+                            Text(entry.typeName).font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    Text("仅请求只读 /status 和 /apps 接口；不会读取或切换配置，也不会修改设备数据。需要先在越狱环境安装并启动 Alpha11 Core。")
-                        .font(.footnote).foregroundStyle(.secondary)
                 }
-                                Section("运行说明") {
-                    Text(status).font(.footnote).foregroundStyle(.secondary)
-                    Text("本工具仅检查用户选取的文件。iOS 沙盒不会自动授予它读取越狱目录的权限；请通过文件管理器手动导入需要检查的 plist。")
+            }
+            Section("目标 App") {
+                HStack {
+                    Text("已读取 App")
+                    Spacer()
+                    Text("\(installedApps.count)").foregroundStyle(.secondary)
+                }
+                if installedApps.isEmpty {
+                    Text("请先在诊断页连接 Alpha11 Core 并读取 App 清单。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    Picker("配置目标", selection: $selectedProfileBundleID) {
+                        ForEach(installedApps) { app in
+                            Text("\(app.name) · \(app.bundleIdentifier)").tag(app.bundleIdentifier)
+                        }
+                    }
+                    Button("导出为所选 App 的独立配置") {
+                        exportAsPerAppProfile = true
+                        exportOpen = true
+                    }
+                    .disabled(importedData == nil || selectedProfileBundleID.isEmpty || !canExportPerAppProfile)
+                    Text(canExportPerAppProfile
+                         ? "当前配置通过原作者 Hook 的必需字段检查。"
+                         : "需要有效的 40 位 UniqueDeviceID；启用 Wi-Fi 或蓝牙地址字段时，也必须提供有效的 12 位十六进制地址。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("mod_hw 管理器")
-            .fileImporter(isPresented: $importOpen, allowedContentTypes: [.propertyList, .data]) { result in
-                importPlist(result)
+            Section("操作结果") { Text(status).font(.footnote).foregroundStyle(.secondary) }
+        }
+        .navigationTitle("配置管理")
+    }
+
+    private var maintenancePage: some View {
+        List {
+            Section {
+                Label("App 数据维护", systemImage: "externaldrive.fill").font(.title2.bold())
+                Text("这些脚本目前由越狱端命令行工具执行；管理器尚未接入远程执行 API。先完成备份和校验，再考虑清理或还原。")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
-            .fileExporter(
-                isPresented: $exportOpen,
-                document: RawPlistDocument(data: importedData ?? Data()),
-                contentType: .propertyList,
-                defaultFilename: backupName
-            ) { result in
-                switch result {
-                case .success(let url):
-                    status = exportAsPerAppProfile
-                        ? "分 App 配置文件已导出：\(url.lastPathComponent)"
-                        : "原始备份已导出：\(url.lastPathComponent)"
-                case .failure(let error): status = "文件导出失败：\(error.localizedDescription)"
-                }
-                exportAsPerAppProfile = false
+            Section("备份") {
+                commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-app-backup <BundleID>")
+                commandRow("验证备份完整性", command: "/var/jb/usr/bin/mod-hw-app-backup-verify <备份文件>")
+            }
+            Section("还原与清理") {
+                commandRow("还原指定 App", command: "/var/jb/usr/bin/mod-hw-app-restore <BundleID> <备份文件> --confirm")
+                commandRow("清理指定 App", command: "/var/jb/usr/bin/mod-hw-app-clean <BundleID> --confirm")
+                Text("还原和清理会改变目标 App 数据。未确认备份可用前不要执行。")
+                    .font(.footnote).foregroundStyle(.orange)
+            }
+            Section("配置备份") {
+                commandRow("备份配置", command: "/var/jb/usr/bin/mod-hw-config-backup")
+                commandRow("还原配置", command: "/var/jb/usr/bin/mod-hw-config-restore <备份文件>")
             }
         }
+        .navigationTitle("备份与维护")
+    }
+
+    private var diagnosticsPage: some View {
+        List {
+            Section("Alpha11 Core") {
+                LabeledContent("服务地址", value: "127.0.0.1:18081")
+                LabeledContent("连接状态", value: coreStatus)
+                Button(coreChecking ? "检测中…" : "检测 Core 连接") { checkCore() }
+                    .disabled(coreChecking)
+            }
+            Section("App 清单") {
+                LabeledContent("读取状态", value: appInventoryStatus)
+                LabeledContent("已读取数量", value: "\(installedApps.count)")
+                Button(appsLoading ? "读取中…" : "重新读取 App 清单") { fetchInstalledApps() }
+                    .disabled(appsLoading)
+                ForEach(installedApps) { app in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(app.name)
+                        Text(app.bundleIdentifier).font(.caption.monospaced()).foregroundStyle(.secondary)
+                        if !app.version.isEmpty { Text("版本：\(app.version)").font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
+            }
+            Section("诊断工具") {
+                Text("Keychain 诊断只读取应用签名 Entitlements，不读取或删除 Keychain 项目。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                Text("命令：/var/jb/usr/bin/mod-hw-keychain-diagnose <BundleID>")
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                Text("设备自检命令：/var/jb/usr/bin/mod-hw-selftest")
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+            }
+        }
+        .navigationTitle("设备诊断")
+    }
+
+    private func statusCard(_ title: String, value: String, systemImage: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: systemImage).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.subheadline.weight(.semibold)).lineLimit(3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func featureRow(_ title: String, detail: String, icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.title2).frame(width: 32)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.headline)
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
+    }
+
+    private func commandRow(_ title: String, command: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).font(.headline)
+            Text(command).font(.caption.monospaced()).textSelection(.enabled)
+            Button {
+                UIPasteboard.general.string = command
+            } label: {
+                Label("复制命令", systemImage: "doc.on.doc")
+            }
+            .font(.caption)
+        }
+        .padding(.vertical, 4)
     }
 
     private func checkCore() {
