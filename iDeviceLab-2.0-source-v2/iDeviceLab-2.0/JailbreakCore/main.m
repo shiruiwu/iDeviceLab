@@ -692,7 +692,7 @@ static NSDictionary *ClearAppCaches(NSData *body) {
                  @"finishedAt":[[NSISO8601DateFormatter new] stringFromDate:[NSDate date]],
                  @"failedArea":failedAt ?: @"preflight", @"error":error.localizedDescription ?: @"cache cleanup preflight failed; no files were intentionally removed"};
     if (!ClearDirectDirectoryContents(container, @"Library/Caches", &removed, &removedItems, NO, &failedAt, &error) ||
-        !ClearDirectDirectoryContents(container, @"tmp", &removed, &removedItems, NO, &failedAt, &error))
+        !ClearDirectDirectoryContents(container, @"tmp", &removed, &removedItems, NO, &failedAt, &error)) {
         NSDictionary *afterCaches = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"Library/Caches"]);
         NSDictionary *afterTemporary = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"tmp"]);
         unsigned long long afterBytes = [afterCaches[@"bytes"] unsignedLongLongValue] + [afterTemporary[@"bytes"] unsignedLongLongValue];
@@ -706,6 +706,7 @@ static NSDictionary *ClearAppCaches(NSData *body) {
                  @"elapsedMilliseconds":@((unsigned long long)([finishedAt timeIntervalSinceDate:cleanupStartedAt] * 1000.0)),
                  @"failedArea":failedAt ?: @"unknown",
                  @"error":error.localizedDescription ?: @"cache cleanup failed after preflight; inspect the selected app container"};
+    }
     NSDictionary *afterCaches = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"Library/Caches"]);
     NSDictionary *afterTemporary = SafeDirectoryMetrics([container stringByAppendingPathComponent:@"tmp"]);
     unsigned long long afterBytes = [afterCaches[@"bytes"] unsignedLongLongValue] + [afterTemporary[@"bytes"] unsignedLongLongValue];
