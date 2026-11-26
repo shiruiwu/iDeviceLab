@@ -291,7 +291,13 @@ struct MaintenanceView: View {
             let url = try result.get()
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            let data = try Data(contentsOf: url)
+            let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            guard values.isRegularFile == true, let fileSize = values.fileSize,
+                  fileSize > 0, fileSize <= 10 * 1024 * 1024 else {
+                throw NSError(domain: "iDeviceLab.BackupImport", code: 2,
+                              userInfo: [NSLocalizedDescriptionKey: "备份必须是非空普通文件，且不能超过 10 MiB"])
+            }
+            let data = try Data(contentsOf: url, options: [.mappedIfSafe])
             try store.restoreFullBackup(from: data)
             backupURL = nil
             message = "还原成功。还原前的配置已自动保存，可使用‘撤销上次还原’恢复。"

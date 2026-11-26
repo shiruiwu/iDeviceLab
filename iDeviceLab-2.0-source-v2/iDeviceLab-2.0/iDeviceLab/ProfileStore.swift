@@ -19,6 +19,7 @@ final class ProfileStore: ObservableObject {
     }
 
     private let storageKey = "iDeviceLabProfilesV1"
+    private static let maximumBackupBytes = 10 * 1024 * 1024
 
     init() {
         if let data = UserDefaults.standard.data(forKey: storageKey),
@@ -171,7 +172,9 @@ final class ProfileStore: ObservableObject {
         let envelope = FullBackupEnvelope(format: "iDeviceLab.FullBackup", envelopeVersion: 1, sha256: digest, payload: payload)
         let output = JSONEncoder()
         output.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try output.encode(envelope)
+        let data = try output.encode(envelope)
+        guard data.count <= Self.maximumBackupBytes else { throw ProfileError.backupTooLarge }
+        return data
     }
 
     /// Checks integrity and schema before changing any persisted state. Legacy schema-1 backups remain importable.
@@ -191,6 +194,7 @@ final class ProfileStore: ObservableObject {
     }
 
     private func decodeAndValidateBackup(_ data: Data) throws -> FullBackupArchive {
+        guard data.count <= Self.maximumBackupBytes else { throw ProfileError.backupTooLarge }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let archive: FullBackupArchive
@@ -277,7 +281,7 @@ private struct FullBackupEnvelope: Codable {
 }
 
 enum ProfileError: LocalizedError {
-    case unsupportedVersion, emptyArchive, tooManyProfiles, duplicateIdentifiers, duplicateManagedAppIdentifiers, duplicateBundleIdentifiers, invalidProfile, invalidManagedApp, noRollbackSnapshot, backupIntegrityFailure
+    case unsupportedVersion, emptyArchive, tooManyProfiles, duplicateIdentifiers, duplicateManagedAppIdentifiers, duplicateBundleIdentifiers, invalidProfile, invalidManagedApp, noRollbackSnapshot, backupIntegrityFailure, backupTooLarge
     var errorDescription: String? {
         switch self {
         case .unsupportedVersion: return "不支持此配置文件版本"
@@ -290,6 +294,7 @@ enum ProfileError: LocalizedError {
         case .invalidManagedApp: return "备份包含无效的应用绑定或指向不存在的配置"
         case .noRollbackSnapshot: return "没有可用的还原前自动备份"
         case .backupIntegrityFailure: return "备份完整性校验失败，文件可能已损坏或被修改"
+        case .backupTooLarge: return "备份文件超过 10 MiB 安全上限，未执行导入或导出"
         }
     }
 }
