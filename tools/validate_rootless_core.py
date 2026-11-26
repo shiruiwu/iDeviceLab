@@ -52,7 +52,7 @@ check("Local networking ATS exception is configured", "NSAllowsLocalNetworking: 
 
 
 check("Core creates local rollback backup before update", '@" .idevelab-backup"' in MAIN or 'stringByAppendingString:@".idevelab-backup"' in MAIN, "Core backs up original plist before changes")
-check("Core restore validates backup schema", "RestoreAlpha11ConfigBackup" in MAIN and "backupPlist[@\"UniqueDeviceID\"]" in MAIN, "Core validates rollback backup schema")
+check("Core restore validates backup schema", "RestoreAlpha11ConfigBackup" in MAIN and "backupPlist[@"UniqueDeviceID"]" in MAIN, "Core validates rollback backup schema")
 check("Core exposes restore route", '@"POST"] && [path isEqualToString:@"/config/restore"' in MAIN, "Core exposes local restore route")
 check("Manager exposes guarded restore action", "confirmationDialog" in SWIFT and "restoreAlpha11Backup()" in SWIFT, "Manager confirms local rollback restore")
 check("Manager reports backup availability", "backupParseable" in SWIFT, "Manager shows local rollback backup status")
