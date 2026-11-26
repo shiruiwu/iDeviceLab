@@ -62,11 +62,27 @@ jobs:
         run: |
           test -s release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
           python3 - <<'PY'
-          import subprocess
-          p = subprocess.run(['ar', 't', 'release/mod_hw_for_ios_V2_diagnostics_FINAL.deb'], check=True, text=True, capture_output=True)
+          import io, subprocess, tarfile
+          package = 'release/mod_hw_for_ios_V2_diagnostics_FINAL.deb'
+          p = subprocess.run(['ar', 't', package], check=True, text=True, capture_output=True)
           names = [n.rstrip('/') for n in p.stdout.splitlines()]
           assert names == ['debian-binary', 'control.tar.gz', 'data.tar.gz'], names
-          print('DEB ar members verified:', ', '.join(names))
+          control = subprocess.run(['ar', 'p', package, 'control.tar.gz'], check=True, capture_output=True).stdout
+          with tarfile.open(fileobj=io.BytesIO(control), mode='r:gz') as archive:
+              metadata = archive.extractfile('./control').read().decode()
+          assert 'Architecture: iphoneos-arm64' in metadata, metadata
+          data = subprocess.run(['ar', 'p', package, 'data.tar.gz'], check=True, capture_output=True).stdout
+          with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
+              members = {m.name.lstrip('./') for m in archive.getmembers()}
+          expected = {
+              'var/jb/usr/bin/mod-hw-diagnose',
+              'var/jb/usr/bin/mod-hw-config-backup',
+              'var/jb/usr/bin/mod-hw-config-restore',
+              'var/jb/usr/bin/mod-hw-app-backup',
+              'var/jb/usr/bin/mod-hw-app-backup-verify',
+          }
+          assert expected.issubset(members), sorted(members)
+          print('DEB ar members, architecture, and all five installed tools verified')
           PY
 
       - name: Upload IPA and diagnostics DEB artifacts
