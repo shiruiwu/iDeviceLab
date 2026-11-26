@@ -63,8 +63,8 @@ jobs:
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/libexec/idevelab-core'
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist'
           dpkg-deb -e "$CORE_PACKAGE" "$RUNNER_TEMP/alpha11-core-control"
-          test -s "$RUNNER_TEMP/alpha11-core-control/postinst"
-          test -s "$RUNNER_TEMP/alpha11-core-control/prerm"
+          test -x "$RUNNER_TEMP/alpha11-core-control/postinst"
+          test -x "$RUNNER_TEMP/alpha11-core-control/prerm"
 
       - name: Upload Rootless Debian packages
         uses: actions/upload-artifact@v4
