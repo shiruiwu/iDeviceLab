@@ -55,6 +55,14 @@ check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source 
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
 check("CURRENT_PROJECT_VERSION = 8;" in project, "Manager build number is 8")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
+check("TabView" in manager and "设备总览" in manager and "配置管理" in manager and
+      "备份与维护" in manager and "设备诊断" in manager,
+      "Manager exposes the integrated dashboard, profiles, maintenance, and diagnostics navigation")
+check("mod-hw-app-backup <BundleID>" in manager and "mod-hw-app-backup-verify" in manager and
+      "mod-hw-app-clean <BundleID> --confirm" in manager,
+      "Manager documents the installed app-container maintenance commands without claiming in-app execution")
+check("UIPasteboard.general.string = command" in manager,
+      "Manager maintenance commands can be copied for execution in the jailbreak terminal")
 check("selectedProfileBundleID" in manager and "导出为所选 App 的独立配置" in manager and
       "com.modhw.ios.profiles" in manager and "exportAsPerAppProfile" in manager,
       "Manager can export the imported plist under a selected installed App's Bundle ID")
