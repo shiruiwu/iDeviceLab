@@ -21,6 +21,11 @@ if [[ ! -d "$APP" ]]; then echo "找不到构建产物：$APP" >&2; exit 3; fi
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
+# Allow the manager to reach the jailbreak helper over loopback HTTP only.
+# NSAllowsLocalNetworking is narrower than allowing arbitrary cleartext traffic.
+/usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' "$INFO" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true' "$INFO" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Set :NSAppTransportSecurity:NSAllowsLocalNetworking true' "$INFO"
+/usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsLocalNetworking' "$INFO" | grep -q true
 EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")"
 [[ "$BUNDLE_ID" == "com.modhw.manager" ]] || { echo "Bundle ID 不匹配：$BUNDLE_ID" >&2; exit 4; }
