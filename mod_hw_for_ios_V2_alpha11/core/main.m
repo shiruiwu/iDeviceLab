@@ -8,10 +8,23 @@
 #import <string.h>
 #import <sys/sysctl.h>
 #import <sys/time.h>
+#import <sys/stat.h>
+#import <pwd.h>
 #import <stdlib.h>
 
 // Alpha11 companion Core: read-only local diagnostics, bound to loopback.
 static const int kPort = 18081;
+
+// Do not follow symlinks when enumerating privileged backup storage.
+// Require exact ownership and mode, not merely a subset of permission bits.
+static BOOL HasSecureBackupMetadata(NSString *path, BOOL directory, gid_t mobileGID) {
+    struct stat st;
+    if (lstat(path.fileSystemRepresentation, &st) != 0) return NO;
+    if (directory ? !S_ISDIR(st.st_mode) : !S_ISREG(st.st_mode)) return NO;
+    mode_t expectedMode = directory ? 0750 : 0640;
+    return st.st_uid == 0 && st.st_gid == mobileGID &&
+           (st.st_mode & 07777) == expectedMode;
+}
 
 static NSString *SysctlString(const char *key) {
     size_t size = 0;
@@ -117,29 +130,18 @@ static NSArray *InstalledProfiles(void) {
 
 static NSArray *AvailableBackups(void) {
     NSString *root = @"/var/mobile/Library/Application Support/mod_hw_for_ios/app-container-backups";
-    BOOL isDirectory = NO;
-    if (![NSFileManager.defaultManager fileExistsAtPath:root isDirectory:&isDirectory] || !isDirectory) return @[];
-    NSDictionary *rootAttrs = [NSFileManager.defaultManager attributesOfItemAtPath:root error:nil];
-    unsigned short rootMode = [rootAttrs[NSFilePosixPermissions] unsignedShortValue];
-    if (![rootAttrs[NSFileType] isEqualToString:NSFileTypeDirectory] ||
-        [rootAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0 ||
-        (rootMode & 0027) != 0 || (rootMode & 0050) != 0050) return @[];
+    struct passwd *mobileAccount = getpwnam("mobile");
+    if (!mobileAccount || !HasSecureBackupMetadata(root, YES, mobileAccount->pw_gid)) return @[];
+    gid_t mobileGID = mobileAccount->pw_gid;
     NSArray *files = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
     NSMutableArray *backups = [NSMutableArray array];
     for (NSString *file in files) {
         if (![file hasSuffix:@".tar.gz"] || [file containsString:@"/"] || [file containsString:@".."]) continue;
         NSString *archive = [root stringByAppendingPathComponent:file];
+        if (!HasSecureBackupMetadata(archive, NO, mobileGID)) continue;
         NSDictionary *attrs = [NSFileManager.defaultManager attributesOfItemAtPath:archive error:nil];
-        if (![attrs[NSFileType] isEqualToString:NSFileTypeRegular] ||
-            [attrs[NSFileOwnerAccountID] unsignedIntValue] != 0 ||
-            ([attrs[NSFilePosixPermissions] unsignedShortValue] & 0027) != 0 ||
-            ([attrs[NSFilePosixPermissions] unsignedShortValue] & 0040) != 0040) continue;
         NSString *manifestPath = [archive stringByReplacingOccurrencesOfString:@".tar.gz" withString:@".txt"];
-        NSDictionary *manifestAttrs = [NSFileManager.defaultManager attributesOfItemAtPath:manifestPath error:nil];
-        if (![manifestAttrs[NSFileType] isEqualToString:NSFileTypeRegular] ||
-            [manifestAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0 ||
-            ([manifestAttrs[NSFilePosixPermissions] unsignedShortValue] & 0027) != 0 ||
-            ([manifestAttrs[NSFilePosixPermissions] unsignedShortValue] & 0040) != 0040) continue;
+        if (!HasSecureBackupMetadata(manifestPath, NO, mobileGID)) continue;
         NSString *manifest = [NSString stringWithContentsOfFile:manifestPath encoding:NSUTF8StringEncoding error:nil];
         NSMutableDictionary *fields = [NSMutableDictionary dictionary];
         for (NSString *line in [manifest componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
