@@ -10,7 +10,7 @@
 
 - The Theos target includes the original hook source files and uses the Rootless package scheme. Source inclusion and successful cloud compilation do not establish that every hook works on a specific iOS release.
 - The TrollStore manager currently provides plist import, syntax/structure inspection, and byte-preserving export. It is not yet a full device manager and does not directly write to jailbreak system paths.
-- The existing export function is a configuration-file backup. Full app-container backup/restore and deep app-data cleanup are not implemented in this Alpha11 manager.
+- The existing export function is a configuration-file backup. The Rootless tools package also provides explicit-bundle-ID app-container backup with a SHA-256 manifest; it does not delete data, restore app containers, include Keychain/App Groups, or perform deep cleanup.
 - The older iDeviceLab Core/profile code is a separate legacy component. Its saved profiles are not automatically applied to the Alpha11 tweak configuration.
 - Device installation, injection, configuration application, process filtering, and runtime behavior must be verified on the target device. A successful IPA/DEB build is only a build/package result.
 
@@ -67,11 +67,11 @@ See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the so
 
 ## 运行机制 | Runtime Behavior
 - The tweak loads its configured plist during initialization and contains hooks in the source tree. Actual hook coverage depends on target process, OS version, substrate environment, and runtime testing.
-- The manager is sandboxed and currently handles user-selected files. Import/export does not itself grant access to privileged jailbreak directories.
+- The manager is sandboxed and currently handles user-selected files. Import/export does not itself grant access to privileged jailbreak directories. Rootless backup commands are separate privileged tools and require an explicit bundle identifier.
 - The legacy Rootless Core stores profiles locally. It is not yet integrated with the Alpha11 manager or tweak configuration path.
 
 ## 调试与扩展 | Debugging & Extension
-- Use the read-only `scripts/diagnose-config.sh` utility to check candidate configuration paths and plist structure.
+- Use `scripts/diagnose-config.sh` to check candidate configuration paths and plist structure. Use `scripts/backup-app-container.sh <bundle.identifier>` to create a private archive of one app's data container; review its documented exclusions before relying on it.
 - Use the CI workflows to validate source syntax and build package artifacts.
 - Record target-device test results separately; do not infer runtime success from build logs.
 
