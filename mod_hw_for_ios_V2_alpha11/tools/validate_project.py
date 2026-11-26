@@ -58,9 +58,9 @@ check("fileImporter" in manager and "fileExporter" in manager, "Manager imports 
 check("TabView" in manager and "设备总览" in manager and "配置管理" in manager and
       "备份与维护" in manager and "设备诊断" in manager,
       "Manager exposes the integrated dashboard, profiles, maintenance, and diagnostics navigation")
-check("mod-hw-app-backup <BundleID>" in manager and "mod-hw-app-backup-verify" in manager and
-      "mod-hw-app-clean <BundleID> --confirm" in manager,
-      "Manager documents the installed app-container maintenance commands without claiming in-app execution")
+check("mod-hw-app-backup" in manager and "mod-hw-app-backup-verify" in manager and
+      "mod-hw-app-restore" in manager and "mod-hw-app-clean" in manager and
+      "Manager generates a target-specific maintenance command set without claiming in-app execution")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
 check('Picker("已安装 App", selection: $maintenanceBundleID)' in manager and
