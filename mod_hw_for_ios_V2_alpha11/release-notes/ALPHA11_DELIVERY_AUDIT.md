@@ -69,12 +69,12 @@ This audit does not claim that deep cleanup, keychain erasure, app-container res
 
 ## Six outstanding workstreams — progress checkpoint (2026-11-26)
 
-1. **App-container restore:** not implemented yet. The current archive is verified but has not been proven safe to extract into a live iOS container. Restore remains blocked on path/link validation, app-process quiescence, ownership/permission preservation, pre-restore snapshot, and rollback tests.
+1. **App-container restore:** a guarded restore command is now implemented. It requires explicit `--confirm`, checks the bundle/container identity, requires the app process to be stopped, validates tar paths and rejects links/special files, extracts to staging, snapshots the live container, and attempts rollback on copy/metadata failure. Device-side execution and rollback fault-injection tests remain pending.
 2. **Deep cleanup:** not implemented. The current project does not claim a factory-reset-equivalent result. A cleanup design must distinguish the app data container from App Groups, Keychain, caches owned by other services, and server-side state.
 3. **Keychain handling:** no Keychain export, wipe, or restore is implemented. The app-container archive explicitly excludes Keychain. No credentials or tokens are read or printed.
 4. **Manager/Core integration:** first implementation step added to the Alpha11 manager: a user-triggered, read-only GET to `127.0.0.1:18080/status`, with a three-second timeout and response-shape validation. The IPA build script adds the narrow `NSAllowsLocalNetworking` ATS setting. This only detects the legacy Core; it does not yet package/start it or prove end-to-end installation on-device.
 5. **Per-app configuration:** not implemented. The legacy Core profile store is not consumed by the Alpha11 tweak. No profile is represented as active until there is an explicit, tested app-scoped configuration path. Runtime rewriting of hardware/account identifiers is not part of this integration step.
-6. **Real-device validation:** not completed. CI syntax/package checks cannot validate injection, launch daemon startup, loopback reachability, data restore, or cleanup on an iPhone 12 running iOS 16.2. A device-side test run and logs are still required.
+6. **Real-device validation:** a non-destructive `mod-hw-selftest` command is now included in the diagnostics package plan. It checks Rootless paths, Core launchd state, helper commands, and loopback status when curl is available. It has not yet been run on the iPhone 12 / iOS 16.2; hook injection and restore behavior still require device logs and tests.
 
 The manager/Core status probe is a concrete integration milestone, not a claim that the six workstreams are complete. Continue with separately testable changes and keep device-only checks marked pending until device evidence is available.
 
@@ -86,3 +86,13 @@ The manager/Core status probe is a concrete integration milestone, not a claim t
 - Added a Rootless Theos package, LaunchDaemon plist, install/uninstall scripts, and CI packaging checks. The workflow makes maintainer scripts executable before packaging and checks they remain executable in the DEB.
 - The manager now validates the Alpha11 status response, including the explicit `read-only` mode marker. It does not create/select profiles or write hook configuration.
 - This is still a build/integration milestone. It is not proof that launchd starts the service or that the TrollStore app can reach it on iOS 16.2; those checks remain pending on the physical device.
+
+
+## App restore and device smoke-test milestone (2026-11-26)
+
+- Added `scripts/restore-app-container.sh` and packaged it as `mod-hw-app-restore`.
+- Restore is opt-in with `--confirm`; it refuses a mismatched bundle/container ID, refuses a running app, rejects absolute/traversal paths and archive entries other than regular files/directories, stages extraction, and snapshots the current container before replacement.
+- The restore command excludes Keychain, App Groups, shared containers, system databases, and server-side state. It is not a "factory reset" and does not claim to remove every app trace.
+- Added `scripts/selftest-device.sh`, packaged as `mod-hw-selftest`, for non-destructive on-device checks.
+- Diagnostics package version advanced to `2.0.0~final5`; package now declares `coreutils, procps`.
+- Static validation and CI packaging are pending for the current HEAD. No physical-device result is claimed.
