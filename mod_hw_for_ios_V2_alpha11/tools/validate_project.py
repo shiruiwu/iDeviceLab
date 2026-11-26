@@ -45,6 +45,9 @@ check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source 
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
 check("CURRENT_PROJECT_VERSION = 8;" in project, "Manager build number is 8")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
+check("selectedProfileBundleID" in manager and "导出为所选 App 的独立配置" in manager and
+      "com.modhw.ios.profiles" in manager and "exportAsPerAppProfile" in manager,
+      "Manager can export the imported plist under a selected installed App's Bundle ID")
 check("PropertyListSerialization.propertyList" in manager, "Manager parses plist structure")
 check("字段值未展示" in manager, "Manager does not display plist values")
 check('http://127.0.0.1:18081/status' in manager and 'http://127.0.0.1:18081/apps' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "read-only"' in manager,
