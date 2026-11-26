@@ -26,10 +26,17 @@ check 'Rootless jailbreak path exists' test -d /var/jb
 check 'Alpha11 Core executable installed' test -x /var/jb/usr/libexec/idevelab-core
 check 'Alpha11 Core LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
 check 'Alpha11 Core LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
-if command -v launchctl >/dev/null 2>&1; then
-  check 'Alpha11 Core launchd service is loaded' launchctl print system/com.idevelab.core.alpha11
+LAUNCHCTL=''
+for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/basebin/launchctl /var/jb/usr/bin/launchctl; do
+  if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
+done
+if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
+  LAUNCHCTL="$(command -v launchctl)"
+fi
+if [ -n "$LAUNCHCTL" ]; then
+  check 'Alpha11 Core launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.core.alpha11
 else
-  echo '[FAIL] launchctl is unavailable'
+  echo '[FAIL] launchctl is unavailable in standard and Dopamine rootless paths'
   FAIL=$((FAIL + 1))
 fi
 if command -v curl >/dev/null 2>&1; then
