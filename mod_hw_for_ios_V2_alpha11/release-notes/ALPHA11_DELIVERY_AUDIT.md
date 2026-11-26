@@ -170,3 +170,10 @@ This section supersedes any earlier checkpoint above where the same feature is d
 - The filter now sets `Mode = Any`, adds `com.apple.UIKit` to the bundle filters so UIKit applications can load the tweak, and retains the explicit system daemon executable and Preferences/AuthKit bundle targets.
 - The project validator parses the filter plist and checks both `Mode = Any` and the UIKit bundle entry.
 - This corrects injection eligibility at source/package level; actual injection still requires device-side confirmation on iOS 16.2. Apps that do not link UIKit and are not explicit targets remain outside the filter.
+
+## Per-app profile schema guard
+
+- Manager per-app export now requires a dictionary plist containing a 40-character hexadecimal `UniqueDeviceID`, matching the original Hook loader's requirement.
+- If `WifiAddressData` or `BluetoothAddressData` is enabled, the corresponding address must contain exactly 12 hexadecimal characters after optional colon removal.
+- The export control is disabled when these requirements are not met, and the UI explains the missing schema requirement without displaying identifier values.
+- Static validation checks that these guards remain in the Manager source.
