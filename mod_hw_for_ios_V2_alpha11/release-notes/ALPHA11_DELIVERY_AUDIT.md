@@ -177,3 +177,9 @@ This section supersedes any earlier checkpoint above where the same feature is d
 - If `WifiAddressData` or `BluetoothAddressData` is enabled, the corresponding address must contain exactly 12 hexadecimal characters after optional colon removal.
 - The export control is disabled when these requirements are not met, and the UI explains the missing schema requirement without displaying identifier values.
 - Static validation checks that these guards remain in the Manager source.
+
+## Profile-gated Hook initialization
+
+- Because the Substrate filter now admits UIKit processes, the constructor first resolves the current process profile and skips all Hook installation if no valid configuration dictionary was loaded.
+- This avoids installing identifier hooks in UIKit processes that have neither a per-app profile nor a global/legacy fallback.
+- The static validator asserts this guard. Runtime injection and no-profile behavior still require device-side verification.
