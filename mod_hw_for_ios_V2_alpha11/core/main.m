@@ -92,6 +92,28 @@ static NSArray *InstalledMaintenanceTools(void) {
     return tools;
 }
 
+static NSArray *InstalledProfiles(void) {
+    NSString *root = @"/var/mobile/Library/Preferences/com.modhw.ios.profiles";
+    NSArray *files = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    NSMutableArray *profiles = [NSMutableArray array];
+    for (NSString *file in files) {
+        if (![file.pathExtension.lowercaseString isEqualToString:@"plist"]) continue;
+        NSString *bundleID = file.stringByDeletingPathExtension;
+        if (bundleID.length == 0 || [bundleID containsString:@"/"] || [bundleID containsString:@".."]) continue;
+        NSString *path = [root stringByAppendingPathComponent:file];
+        NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
+        if (![attributes[NSFileType] isEqualToString:NSFileTypeRegular]) continue;
+        NSData *data = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:nil];
+        id object = data ? [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:nil error:nil] : nil;
+        BOOL valid = [object isKindOfClass:NSDictionary.class];
+        [profiles addObject:@{@"bundleIdentifier": bundleID, @"valid": @(valid), @"path": path}];
+    }
+    [profiles sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [a[@"bundleIdentifier"] localizedCaseInsensitiveCompare:b[@"bundleIdentifier"]];
+    }];
+    return profiles;
+}
+
 static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"/";
     if (![method isEqualToString:@"GET"]) {
@@ -103,6 +125,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     if ([path isEqualToString:@"/system"]) return SystemSummary();
     if ([path isEqualToString:@"/apps"]) return @{@"ok": @YES, @"apps": InstalledApplications()};
     if ([path isEqualToString:@"/tools"]) return @{@"ok": @YES, @"tools": InstalledMaintenanceTools()};
+    if ([path isEqualToString:@"/profiles"]) return @{@"ok": @YES, @"profiles": InstalledProfiles(), @"directory": @"/var/mobile/Library/Preferences/com.modhw.ios.profiles"};
     return @{@"ok": @NO, @"error": @"not found"};
 }
 
@@ -166,7 +189,8 @@ int main(void) {
                         BOOL known = [path isEqualToString:@"/status"] ||
                                      [path isEqualToString:@"/system"] ||
                                      [path isEqualToString:@"/apps"] ||
-                                     [path isEqualToString:@"/tools"];
+                                     [path isEqualToString:@"/tools"] ||
+                                     [path isEqualToString:@"/profiles"];
                         NSDictionary *result = ProcessRequest(method, target);
                         int status = ![method isEqualToString:@"GET"] ? 405 : (known ? 200 : 404);
                         Reply(client, result, status);
