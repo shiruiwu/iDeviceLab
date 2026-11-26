@@ -22,6 +22,8 @@ struct ContentView: View {
     @State private var entries: [PlistEntry] = []
     @State private var isValid = false
     @State private var rootType = "未知"
+    @State private var coreStatus = "尚未检测 Core 服务"
+    @State private var coreChecking = false
 
     var body: some View {
         NavigationStack {
@@ -64,6 +66,24 @@ struct ContentView: View {
                         }
                     }
                 }
+                Section("越狱 Core 连接（只读检测）") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("127.0.0.1:18080")
+                                .font(.system(.body, design: .monospaced))
+                            Text(coreStatus)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(coreChecking ? "检测中…" : "检测连接") {
+                            checkCore()
+                        }
+                        .disabled(coreChecking)
+                    }
+                    Text("仅请求 /status，不读取或切换配置，不会修改设备数据。需要先在越狱环境安装并启动 iDeviceLab Core。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
                 Section("运行说明") {
                     Text(status).font(.footnote).foregroundStyle(.secondary)
                     Text("本工具仅检查用户选取的文件。iOS 沙盒不会自动授予它读取越狱目录的权限；请通过文件管理器手动导入需要检查的 plist。")
@@ -84,6 +104,35 @@ struct ContentView: View {
                 case .success(let url): status = "原始备份已导出：\(url.lastPathComponent)"
                 case .failure(let error): status = "备份导出失败：\(error.localizedDescription)"
                 }
+            }
+        }
+    }
+
+    private func checkCore() {
+        coreChecking = true
+        coreStatus = "正在连接本机 Core…"
+        Task {
+            defer { coreChecking = false }
+            do {
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:18080/status")!)
+                request.httpMethod = "GET"
+                request.timeoutInterval = 3
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    coreStatus = "Core 返回异常响应"
+                    return
+                }
+                guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      payload["ok"] as? Bool == true,
+                      let service = payload["service"] as? String,
+                      let version = payload["version"] as? String else {
+                    coreStatus = "响应格式不匹配（不是预期的 Core 服务）"
+                    return
+                }
+                coreStatus = "已连接：\\(service) · v\\(version)"
+            } catch {
+                coreStatus = "未连接：\\(error.localizedDescription)"
             }
         }
     }
