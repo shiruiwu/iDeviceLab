@@ -35,6 +35,11 @@ check("IsHexStringOfLength(str, 12)" in gestalt_source and "IsHexStringOfLength(
       "Hardware-address and UDID hex inputs require exact lengths and hexadecimal characters")
 check("PreferenceBooleanIsTrue" in gestalt_source and "a == NULL" in gestalt_source,
       "Malformed plist booleans and invalid UDID bytes are rejected before use")
+check('com.modhw.ios.profiles' in gestalt_source and 'bundleIdentifier' in gestalt_source and
+      'rangeOfCharacterFromSet:invalidBundleChars' in gestalt_source and
+      'per-app profile' in gestalt_source and 'global profile' in gestalt_source and
+      'legacy fallback' in gestalt_source,
+      "Original Hook selects a validated Bundle-ID-scoped profile before global and legacy fallback")
 check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source and "index / 2" in gestalt_source,
       "Generic hex decoder rejects null, odd-length, invalid, and oversized input")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
