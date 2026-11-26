@@ -230,7 +230,7 @@ void initPrefFile(){
   }
   NSString *selectedPref = (profilePref && [[NSFileManager defaultManager] fileExistsAtPath:profilePref])
       ? profilePref : ([[NSFileManager defaultManager] fileExistsAtPath:kPref] ? kPref : legacyPref);
-  NSLog(@"[mod_hw] Loading configuration from %@.", selectedPref == profilePref ? @"per-app profile" : (selectedPref == kPref ? @"global profile" : @"legacy fallback"));
+  NSLog(@"[mod_hw] Loading configuration from %@.", [selectedPref isEqualToString:profilePref] ? @"per-app profile" : ([selectedPref isEqualToString:kPref] ? @"global profile" : @"legacy fallback"));
   if (cf_device != nil) {
     [cf_device release];
     cf_device = nil;
