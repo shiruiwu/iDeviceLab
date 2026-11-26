@@ -45,6 +45,9 @@ check('com.modhw.ios.profiles' in gestalt_source and 'bundleIdentifier' in gesta
       'per-app profile' in gestalt_source and 'global profile' in gestalt_source and
       'legacy fallback' in gestalt_source,
       "Original Hook selects a validated Bundle-ID-scoped profile before global and legacy fallback")
+check('if (cf_device == nil || [cf_device count] == 0)' in gestalt_source and
+      'skipping Hook installation' in gestalt_source,
+      "Hook installation is skipped when the current process has no valid profile")
 check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source and "index / 2" in gestalt_source,
       "Generic hex decoder rejects null, odd-length, invalid, and oversized input")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
