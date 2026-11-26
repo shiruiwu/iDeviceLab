@@ -167,6 +167,10 @@ struct ContentView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
+            Section("配置文件应用方式") {
+                Text("导出后，将对应 Bundle ID 命名的 plist 放入越狱目录 com.modhw.ios.profiles；当前版本只负责生成文件，不会自动写入越狱目录或切换 Hook 配置。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
             Section("操作结果") { Text(status).font(.footnote).foregroundStyle(.secondary) }
         }
         .navigationTitle("配置管理")
