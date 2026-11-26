@@ -183,3 +183,9 @@ This section supersedes any earlier checkpoint above where the same feature is d
 - Because the Substrate filter now admits UIKit processes, the constructor first resolves the current process profile and skips all Hook installation if no valid configuration dictionary was loaded.
 - This avoids installing identifier hooks in UIKit processes that have neither a per-app profile nor a global/legacy fallback.
 - The static validator asserts this guard. Runtime injection and no-profile behavior still require device-side verification.
+
+## Hook malformed-value safety correction
+
+- Audited the original IOKit property hooks and found six call sites that dereferenced the result of the 12-hex-character decoder without checking for `nil`.
+- All six now return a replacement CFData only when decoding succeeds; malformed values leave the system's original IOKit result unchanged.
+- The project validator asserts all six guarded conversions are present. Device-level behavior still requires runtime testing.
