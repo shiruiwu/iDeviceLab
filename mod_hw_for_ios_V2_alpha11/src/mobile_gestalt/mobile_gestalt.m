@@ -812,6 +812,7 @@ void HOOK_IDFV() {
 //////////////////////////////////////////////////////////
 //_MSInitialize
 //////////////////////////////////////////////////////////
+// UIKit processes are admitted by the Substrate filter, but only processes with a valid profile install hooks.
 __attribute__((__constructor__)) static void _MSInitialize(void) {
   initPrefFile();
   if (cf_device == nil || [cf_device count] == 0) {
