@@ -55,8 +55,8 @@ ARCHIVE_NAME="$(basename "$ARCHIVE_PATH")"
 "/var/jb/usr/bin/mod-hw-app-backup-verify" "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
 # The restore helper deliberately refuses links and special files. Enforce the
 # same policy before destructive cleanup so the generated archive is restorable.
-DETAIL_LIST="$BACKUP_ROOT/.cleanup-archive-list.$"
-[ ! -e "$DETAIL_LIST" ] && [ ! -L "$DETAIL_LIST" ] || fail '归档检查临时文件已存在；已中止清理。'
+DETAIL_LIST="$(mktemp "$BACKUP_ROOT/.cleanup-archive-list.XXXXXX")" || fail '无法创建归档检查临时文件。'
+trap 'rm -f "$DETAIL_LIST"' EXIT HUP INT TERM
 if ! tar -tvzf "$ARCHIVE_PATH" > "$DETAIL_LIST"; then
   rm -f "$DETAIL_LIST"
   fail '无法读取备份归档目录；已中止清理。'
