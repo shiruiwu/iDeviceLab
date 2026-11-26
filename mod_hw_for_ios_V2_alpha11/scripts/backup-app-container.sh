@@ -56,7 +56,8 @@ BACKUP_OWNER="$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)"
   echo '备份目录必须由 root 拥有。' >&2
   exit 7
 }
-chmod 0700 "$BACKUP_ROOT"
+chown root:mobile "$BACKUP_ROOT"
+chmod 0750 "$BACKUP_ROOT"
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 CONTAINER_ID="$(basename "$MATCH")"
 BASE="$BACKUP_ROOT/$BUNDLE_ID.$STAMP.$CONTAINER_ID"
@@ -83,7 +84,8 @@ fi
 
 tar -czpf "$TMP" -C "$MATCH" .
 tar -tzf "$TMP" >/dev/null
-chmod 0600 "$TMP"
+chmod 0640 "$TMP"
+chown root:mobile "$TMP"
 mv "$TMP" "$ARCHIVE"
 HASH="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 {
@@ -95,7 +97,8 @@ HASH="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
   echo 'scope=app-data-container-only'
   echo 'excluded=Keychain, App Groups, shared containers, system databases'
 } > "$MANIFEST_TMP"
-chmod 0600 "$MANIFEST_TMP"
+chmod 0640 "$MANIFEST_TMP"
+chown root:mobile "$MANIFEST_TMP"
 mv "$MANIFEST_TMP" "$MANIFEST"
 COMMITTED=1
 trap - EXIT HUP INT TERM
