@@ -651,6 +651,7 @@ static NSDictionary *ClearAppCaches(NSData *body) {
                  @"beforeBytes":@(beforeBytes), @"afterBytes":@(beforeBytes), @"beforeFileCount":@(beforeFileCount),
                  @"afterFileCount":@(beforeFileCount), @"startedAt":[[NSISO8601DateFormatter new] stringFromDate:cleanupStartedAt],
                  @"finishedAt":[[NSISO8601DateFormatter new] stringFromDate:[NSDate date]],
+                 @"elapsedMilliseconds":@((unsigned long long)([[NSDate date] timeIntervalSinceDate:cleanupStartedAt] * 1000.0)),
                  @"failedArea":failedAt ?: @"preflight", @"error":error.localizedDescription ?: @"cache cleanup preflight failed; no files were intentionally removed"};
     if (!ClearDirectDirectoryContents(container, @"Library/Caches", &removed, &removedItems, NO, &failedAt, &error) ||
         !ClearDirectDirectoryContents(container, @"tmp", &removed, &removedItems, NO, &failedAt, &error)) {

@@ -120,6 +120,7 @@ check("OpenCleanupTargetDirectory" in MAIN and "openat(" in MAIN and "O_NOFOLLOW
 check("RemoveDirectoryContentsAt" in MAIN and "fstatat(" in MAIN and "unlinkat(" in MAIN, "Cleanup removes entries relative to pinned directory descriptors without following symlinks")
 check('"beforeBytes"' in MAIN and '"afterBytes"' in MAIN and '"beforeFileCount"' in MAIN and '"afterFileCount"' in MAIN, "Core reports before/after cleanup bytes and file counts")
 check('"elapsedMilliseconds"' in MAIN and '"startedAt"' in MAIN and '"finishedAt"' in MAIN, "Core reports cleanup duration and timestamps")
+check('@"elapsedMilliseconds":@((unsigned long long)([[NSDate date] timeIntervalSinceDate:cleanupStartedAt] * 1000.0))' in MAIN and 'cache cleanup preflight failed; no files were intentionally removed' in MAIN, "Core includes elapsed duration in preflight-rejection responses")
 check('"beforeBytes"' in MAINTENANCE and '"afterBytes"' in MAINTENANCE and '"elapsedMilliseconds"' in MAINTENANCE, "Manager persists and displays cleanup before/after metrics and duration")
 check("hook.mm" in (ROOT / "docs/ALPHA11_COMPATIBILITY_AUDIT.md").read_text() and "HookerForMGCopyMultipleAnswers" in (ROOT / "docs/ALPHA11_COMPATIBILITY_AUDIT.md").read_text(), "Alpha11 audit documents source/Makefile and inactive call paths")
 check("App 绑定只表示管理器中的档案关联" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/RootlessCoreView.swift").read_text(), "Manager distinguishes App metadata binding from runtime Hook state")
