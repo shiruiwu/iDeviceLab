@@ -216,16 +216,28 @@ static void Show(NSString* title,NSString* msg){
 void initPrefFile(){
   // Primary Rootless preference path shared with the manager and package layout.
   static NSString* kPref = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
+  static NSString* profileRoot = @"/var/mobile/Library/Preferences/com.modhw.ios.profiles";
   // Keep the original temporary path as a compatibility fallback for existing setups.
   static NSString* legacyPref = @"/tmp/devices.plist";
+  NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+  NSString *profilePref = nil;
+  NSCharacterSet *invalidBundleChars = [[NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"] invertedSet];
+  if ([bundleID isKindOfClass:[NSString class]] && bundleID.length > 0 &&
+      [bundleID rangeOfCharacterFromSet:invalidBundleChars].location == NSNotFound &&
+      ![bundleID hasPrefix:@"."] && [bundleID rangeOfString:@".."].location == NSNotFound &&
+      ![bundleID hasSuffix:@"."]) {
+    profilePref = [[profileRoot stringByAppendingPathComponent:bundleID] stringByAppendingPathExtension:@"plist"];
+  }
+  NSString *selectedPref = (profilePref && [[NSFileManager defaultManager] fileExistsAtPath:profilePref])
+      ? profilePref : ([[NSFileManager defaultManager] fileExistsAtPath:kPref] ? kPref : legacyPref);
+  NSLog(@"[mod_hw] Loading configuration from %@.", selectedPref == profilePref ? @"per-app profile" : (selectedPref == kPref ? @"global profile" : @"legacy fallback"));
   if (cf_device != nil) {
     [cf_device release];
     cf_device = nil;
   }
   cf_device = [[NSMutableDictionary alloc] init];
   for (int i=0;i<3;i++) {
-    NSString *path = [[NSFileManager defaultManager] fileExistsAtPath:kPref] ? kPref : legacyPref;
-    NSDictionary *aa = [NSDictionary dictionaryWithContentsOfFile:path];
+    NSDictionary *aa = [NSDictionary dictionaryWithContentsOfFile:selectedPref];
     if (![aa isKindOfClass:[NSDictionary class]]) {
       NSLog(@"[mod_hw] No valid preference dictionary found; hooks will use original system values.");
       break;
