@@ -63,6 +63,13 @@ check("mod-hw-app-backup <BundleID>" in manager and "mod-hw-app-backup-verify" i
       "Manager documents the installed app-container maintenance commands without claiming in-app execution")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
+check('Picker("已安装 App", selection: $maintenanceBundleID)' in manager and
+      'TextField("Bundle ID' in manager and 'safeShellArgument(maintenanceBundleID)' in manager and
+      'safeShellArgument(maintenanceArchiveName)' in manager,
+      "Manager maintenance commands are parameterized by a selected or manually entered App and quoted archive name")
+check('return "'<请填写>'"' in manager and 'replacingOccurrences(of: "'", with:' in manager,
+      "Manager safely quotes shell arguments and blank placeholders")
+
 check("selectedProfileBundleID" in manager and "导出为所选 App 的独立配置" in manager and
       "com.modhw.ios.profiles" in manager and "exportAsPerAppProfile" in manager,
       "Manager can export the imported plist under a selected installed App's Bundle ID")
