@@ -79,7 +79,7 @@ check("orphanedContainerCount" in MAINTENANCE and "疑似卸载残留容器" in 
 check("Library/Caches" in MAINTENANCE and "Keychain" in MAINTENANCE, "Maintenance UI documents cleanup scope and credential exclusions")
 check("HookInstallationStatus" in SWIFT and "refreshHookStatus()" in SWIFT, "Manager displays Hook installation diagnostics")
 check('@"orphanedContainers":orphans' in MAIN and '"containerUUID"' in MAIN, "Core returns per-container orphan diagnostics with UUID and bundle identifier")
-check('@"installedAppScanStatus":(installedScanError ? @"partial" : @"complete")' in MAIN and '@"containerIndexScanStatus":(containerScanError ? @"partial" : @"complete")' in MAIN and '@"orphanScanStatus":(orphanScanComplete ? @"complete" : @"unavailable")' in MAIN, "Core emits scan status strings as Objective-C objects without invalid boxed expressions")
+check('@"installedAppScanStatus":(installedScanError ? @"partial" : @"complete")' in MAIN and '@"containerIndexScanStatus":(containerScanError ? @"partial" : @"complete")' in MAIN and '@"orphanScanStatus":(!orphanScanComplete ? @"unavailable" : (orphanMetricsComplete ? @"complete" : @"partial"))' in MAIN, "Core emits scan status strings as Objective-C objects without invalid boxed expressions")
 check('"filterParseable"' in MAIN and '"filterTargets"' in MAIN and '"runtimeInjectionVerified":@NO' in MAIN, "Hook diagnostics parse filter rules without claiming runtime injection")
 check('"installedAppInventory": appInventory' in MAINTENANCE and '"orphanedContainers": orphanInventory' in MAINTENANCE, "Maintenance report includes last app inventory and orphan container details")
 check("OrphanedContainerItem" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/Models.swift").read_text(), "Manager has typed orphan container response model")
@@ -107,6 +107,8 @@ check("multiple installed app bundles claim Bundle ID" in MAIN and "ambiguousBun
 check("static BOOL ValidateRemovalTree" in MAIN and "access(path.fileSystemRepresentation, W_OK | X_OK)" in MAIN, "Cleanup preflight recursively checks nested directory access before deletion")
 check('@"orphanScanStatus":(!orphanScanComplete ? @"unavailable" : (orphanMetricsComplete ? @"complete" : @"partial"))' in MAIN, "Orphan diagnostics distinguish incomplete container-size scans")
  
+check("inventoryScanStatus" in SWIFT and "inventoryScanError" in SWIFT and "installedAppScanStatus" in SWIFT, "Manager surfaces installed-app inventory completeness and scan errors")
+check("installed app bundle root is not a real directory" in MAIN and "app data container root is not a real directory" in MAIN, "Core reports wrong root file types without relying on stale errno")
 print(f"Rootless validation: {len(passed)} passed, {len(errors)} failed")
 for item in passed:
     print("[OK]", item)

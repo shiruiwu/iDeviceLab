@@ -69,9 +69,13 @@ static void RecordInventoryError(NSError **scanError, NSError *error, NSString *
 static NSArray *InstalledApplications(NSError **scanError) {
     NSString *root = @"/var/containers/Bundle/Application";
     struct stat rootInfo = {0};
-    if (lstat(root.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode)) {
+    if (lstat(root.fileSystemRepresentation, &rootInfo) != 0) {
         int savedErrno = errno;
         RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"installed app bundle root is unavailable: %s", strerror(savedErrno)]);
+        return @[];
+    }
+    if (!S_ISDIR(rootInfo.st_mode)) {
+        RecordInventoryError(scanError, nil, @"installed app bundle root is not a real directory");
         return @[];
     }
     NSError *rootError = nil;
@@ -145,9 +149,13 @@ static NSArray *InstalledApplications(NSError **scanError) {
 static NSDictionary *AppDataContainerIndex(NSError **scanError) {
     NSString *root = @"/var/mobile/Containers/Data/Application";
     struct stat rootInfo = {0};
-    if (lstat(root.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode)) {
+    if (lstat(root.fileSystemRepresentation, &rootInfo) != 0) {
         int savedErrno = errno;
         RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app data container root is unavailable: %s", strerror(savedErrno)]);
+        return @{};
+    }
+    if (!S_ISDIR(rootInfo.st_mode)) {
+        RecordInventoryError(scanError, nil, @"app data container root is not a real directory");
         return @{};
     }
     NSError *childrenError = nil;

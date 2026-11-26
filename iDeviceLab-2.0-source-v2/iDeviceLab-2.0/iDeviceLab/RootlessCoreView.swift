@@ -27,6 +27,8 @@ private struct InstalledApp: Decodable, Identifiable {
 private struct InstalledAppsResponse: Decodable {
     let ok: Bool
     let apps: [InstalledApp]
+    let inventoryScanStatus: String?
+    let inventoryScanError: String?
 }
 
 private struct HookInstallationStatus: Decodable {
@@ -66,6 +68,8 @@ struct RootlessCoreView: View {
     @State private var version = ""
     @State private var systemInfo: DeviceSystemInfo?
     @State private var installedApps: [InstalledApp] = []
+    @State private var installedAppScanStatus = "unknown"
+    @State private var installedAppScanError = ""
     @State private var appSearch = ""
     @State private var message: String?
 
@@ -110,6 +114,10 @@ struct RootlessCoreView: View {
                 }
 
                 Section("已安装应用（只读清单）") {
+                    LabeledContent("清单扫描状态", value: installedAppScanStatus == "complete" ? "完整" : "部分扫描 / 未知")
+                    if !installedAppScanError.isEmpty {
+                        Text(installedAppScanError).font(.caption2).foregroundStyle(.secondary)
+                    }
                     TextField("搜索应用名称或 Bundle ID", text: $appSearch)
                     let filtered = installedApps.filter {
                         appSearch.isEmpty || $0.name.localizedCaseInsensitiveContains(appSearch) || $0.bundleIdentifier.localizedCaseInsensitiveContains(appSearch)
@@ -257,6 +265,8 @@ struct RootlessCoreView: View {
             let appsResponse = try JSONDecoder().decode(InstalledAppsResponse.self, from: appsData)
             systemInfo = systemResponse
             installedApps = appsResponse.apps
+            installedAppScanStatus = appsResponse.inventoryScanStatus ?? "unknown"
+            installedAppScanError = appsResponse.inventoryScanError ?? ""
             hookStatus = try JSONDecoder().decode(HookInstallationStatus.self, from: hooksData)
             await refreshAlpha11Config()
         } catch {
@@ -265,6 +275,8 @@ struct RootlessCoreView: View {
             version = ""
             systemInfo = nil
             installedApps = []
+            installedAppScanStatus = "unknown"
+            installedAppScanError = error.localizedDescription
             alpha11Config = nil
             hookStatus = nil
         }
