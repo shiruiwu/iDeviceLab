@@ -34,6 +34,8 @@ struct ContentView: View {
     @State private var appsLoading = false
     @State private var appInventoryStatus = "尚未读取 App 清单"
     @State private var installedApps: [CoreApp] = []
+    @State private var selectedProfileBundleID = ""
+    @State private var exportAsPerAppProfile = false
 
     var body: some View {
         NavigationStack {
@@ -96,6 +98,20 @@ struct ContentView: View {
                     }
                     .disabled(appsLoading)
                     Text(appInventoryStatus).font(.footnote).foregroundStyle(.secondary)
+                    if !installedApps.isEmpty {
+                        Picker("分 App 配置目标", selection: $selectedProfileBundleID) {
+                            ForEach(installedApps) { app in
+                                Text("\(app.name) · \(app.bundleIdentifier)").tag(app.bundleIdentifier)
+                            }
+                        }
+                        Button("导出为所选 App 的独立配置") {
+                            exportAsPerAppProfile = true
+                            exportOpen = true
+                        }
+                        .disabled(importedData == nil || selectedProfileBundleID.isEmpty)
+                        Text("只生成独立 plist 文件；导出后需手动放入 com.modhw.ios.profiles 目录，不会自动写入越狱目录。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     if !installedApps.isEmpty {
                         ForEach(installedApps) { app in
                             VStack(alignment: .leading, spacing: 3) {
@@ -198,6 +214,7 @@ struct ContentView: View {
 
     private var backupName: String {
         let base = URL(fileURLWithPath: fileName).deletingPathExtension().lastPathComponent
+        if exportAsPerAppProfile && !selectedProfileBundleID.isEmpty { return selectedProfileBundleID }
         return base.isEmpty ? "plist-backup" : "\(base)-backup"
     }
 
