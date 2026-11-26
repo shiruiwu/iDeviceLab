@@ -91,6 +91,7 @@ check("installed app inventory is incomplete; cleanup refused" in MAIN and "app 
 check("installedAppScanStatus" in MAINTENANCE and "containerIndexScanStatus" in MAINTENANCE and "无法可靠判断" in MAINTENANCE, "Manager distinguishes incomplete inventory from a zero-orphan result")
 check("decodeIfPresent(String.self, forKey: .cachesScanStatus)" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/Models.swift").read_text(), "Manager decodes maintenance inventory from older Core versions")
 check("inventoryFresh" in MAINTENANCE and "inventoryScanError" in MAINTENANCE, "Maintenance report marks stale inventory when refresh fails")
+check("nilIfEmpty" not in MAINTENANCE and MAINTENANCE.count('"inventoryScanError": inventoryLastError ?? ""') == 1, "Maintenance report uses one portable optional scan-error field without duplicate dictionary keys")
 check('Section("最近一次 App 清理记录")' in MAINTENANCE and '"result": partial ? "partial" : "failed"' in MAINTENANCE, "Manager displays success, partial and failed cleanup history")
 
 check('Label("同步当前配置档案"' in SWIFT, "Manager exposes selected-profile sync to Alpha11 local plist")

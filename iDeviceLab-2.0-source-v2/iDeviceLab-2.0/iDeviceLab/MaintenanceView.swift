@@ -227,7 +227,8 @@ struct MaintenanceView: View {
             containerIndexScanStatus = result.containerIndexScanStatus
             orphanScanStatus = result.orphanScanStatus
             inventoryScannedAt = Date()
-            inventoryLastError = [result.installedAppScanError, result.containerIndexScanError].filter { !$0.isEmpty }.joined(separator: "；").nilIfEmpty
+            let scanErrors = [result.installedAppScanError, result.containerIndexScanError].filter { !$0.isEmpty }.joined(separator: "；")
+            inventoryLastError = scanErrors.isEmpty ? nil : scanErrors
             if !appItems.contains(where: { $0.bundleIdentifier == selectedAppBundleID }) {
                 selectedAppBundleID = appItems.first?.bundleIdentifier ?? ""
             }
@@ -275,7 +276,7 @@ struct MaintenanceView: View {
             ]
             UserDefaults.standard.set(lastAppCleanup, forKey: "iDeviceLabLastAppCleanupV1")
             appMaintenanceMessage = "清理完成：\(ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))"
-            await refreshAppInventory()
+            _ = await refreshAppInventory()
             message = "已清理 \(app.name) 的缓存和临时文件。没有删除应用文档、数据库、偏好设置或凭据。"
         } catch {
             if let result = cleanupResponse {
@@ -352,7 +353,6 @@ struct MaintenanceView: View {
             "installedAppScanStatus": installedAppScanStatus,
             "containerIndexScanStatus": containerIndexScanStatus,
             "orphanScanStatus": orphanScanStatus,
-            "inventoryScanError": inventoryLastError ?? "",
             "lastAppCleanup": lastAppCleanup.map { $0 as Any } ?? NSNull(),
             "scope": [
                 "included": ["iDeviceLab Caches", "iDeviceLab tmp", "installed app cache and tmp sizes from the last Rootless scan", "orphan container identifiers and aggregate sizes", "local profile counts"],
