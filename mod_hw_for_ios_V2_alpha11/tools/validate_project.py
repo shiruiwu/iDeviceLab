@@ -44,7 +44,11 @@ if filter_path.is_file():
 source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
 constructor_start = source.find("__attribute__((__constructor__))")
 constructor = source[constructor_start:] if constructor_start >= 0 else ""
-check("HookerForMGCopyAnswer();" in constructor, "Constructor registers the MobileGestalt answer hook")
+mobile_gestalt_hooker_start = source.find("void MobileGestaltHooker()")
+mobile_gestalt_hooker_end = source.find("\n}", mobile_gestalt_hooker_start)
+mobile_gestalt_hooker = source[mobile_gestalt_hooker_start:mobile_gestalt_hooker_end] if mobile_gestalt_hooker_start >= 0 and mobile_gestalt_hooker_end >= 0 else ""
+check("MobileGestaltHooker();" in constructor and "HookerForMGCopyAnswer();" in mobile_gestalt_hooker,
+      "Constructor reaches the MobileGestalt answer hook through MobileGestaltHooker")
 check("hook_sysctlbyname();" in constructor and "hook_sysctl();" not in constructor,
       "Constructor registers sysctlbyname but not the separate sysctl hook")
 check("// HookerForMGCopyMultipleAnswers();" in source,
