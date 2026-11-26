@@ -163,3 +163,10 @@ This section supersedes any earlier checkpoint above where the same feature is d
 - The manager does not write directly into the jailbreak preference directory. Moving the exported file into place remains an explicit device file-management step.
 - The static validator checks that the selection/export controls and profile directory reference remain present.
 - The per-app loader and manager export are source-level milestones; the IPA/DEB build and iPhone 12 / iOS 16.2 process-isolation test are still required.
+
+## Substrate injection coverage correction
+
+- Auditing the original dynamic-library filter showed it declared both `Executables` and `Bundles` without `Mode = Any`. Substrate's documented default combines multiple filter types as AND conditions, which can prevent expected processes from matching.
+- The filter now sets `Mode = Any`, adds `com.apple.UIKit` to the bundle filters so UIKit applications can load the tweak, and retains the explicit system daemon executable and Preferences/AuthKit bundle targets.
+- The project validator parses the filter plist and checks both `Mode = Any` and the UIKit bundle entry.
+- This corrects injection eligibility at source/package level; actual injection still requires device-side confirmation on iOS 16.2. Apps that do not link UIKit and are not explicit targets remain outside the filter.
