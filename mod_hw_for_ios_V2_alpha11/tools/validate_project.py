@@ -139,7 +139,7 @@ if app_cleanup.is_file():
     check("mod-hw-app-backup" in src and "mod-hw-app-backup-verify" in src and "cleanup-snapshots" in src and "--confirm" in src and "tar -tvzf" in src,
           "App cleanup creates and verifies a backup and rollback snapshot before clearing data")
     check('if killall -0 "$EXECUTABLE"' in src and '[ "$KILLALL_STATUS" -eq 1 ]' in src,
-          "App cleanup distinguishes a stopped process from a pgrep execution error")
+          "App cleanup distinguishes a stopped process from a system killall execution error")
     check('tar -tvzf "$ARCHIVE_PATH" > "$DETAIL_LIST"' in src and "END { exit bad }" in src,
           "App cleanup propagates archive-listing failures instead of masking them in a pipeline")
     check('mktemp "$BACKUP_ROOT/.cleanup-archive-list.XXXXXX"' in src and "cleanup_on_exit()" in src,
@@ -155,7 +155,7 @@ if app_cleanup.is_file():
           "App cleanup documents Keychain and App Groups as excluded")
 if app_restore.is_file():
     src = app_restore.read_text()
-    check("--confirm" in src and "restore-snapshots" in src and "pgrep -x" in src,
+    check("--confirm" in src and "restore-snapshots" in src and "killall -0" in src,
           "App restore requires explicit confirmation, closed app, and rollback snapshot")
     check("cleanup_restore()" in src and "trap 'exit 130' INT" in src and
           "RESTORE_STARTED=1" in src and "SNAPSHOT_READY=1" in src and
@@ -166,8 +166,8 @@ if app_restore.is_file():
           "App restore rejects symlinked or non-root-owned rollback storage")
     check("tar -tvzf" in src and "tar -tzf" in src and "符号链接" in src,
           "App restore rejects unsafe archive paths and link/special-file entries")
-    check('if pgrep -x "$EXECUTABLE"' in src and '[ "$PGP_STATUS" -eq 1 ]' in src,
-          "App restore distinguishes a stopped process from a pgrep execution error")
+    check('if killall -0 "$EXECUTABLE"' in src and '[ "$KILLALL_STATUS" -eq 1 ]' in src,
+          "App restore distinguishes a stopped process from a system killall execution error")
 if keychain_diag.is_file():
     src = keychain_diag.read_text()
     check("ldid -e" in src and "codesign -d --entitlements" in src and "keychain-access-groups" in src,
