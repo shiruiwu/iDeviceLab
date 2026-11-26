@@ -2,6 +2,11 @@ name: Manual Alpha11 upstream source audit (no tweak package)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main, master, device-manager-pro-full ]
+    paths:
+      - 'mod_hw_for_ios_V2_alpha11/**'
+      - '.github/workflows/build-theos-tweak.yml'
 
 permissions:
   contents: read
