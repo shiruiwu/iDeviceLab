@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct MaintenanceView: View {
     @EnvironmentObject private var store: ProfileStore
     @State private var backupURL: URL?
+    @State private var reportURL: URL?
     @State private var showingImporter = false
     @State private var cacheBytes: Int64 = 0
     @State private var temporaryBytes: Int64 = 0
@@ -27,6 +28,14 @@ struct MaintenanceView: View {
                     if let backupURL {
                         ShareLink(item: backupURL) {
                             Label("分享 / 保存备份文件", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    Button { exportMaintenanceReport() } label: {
+                        Label("生成维护诊断报告", systemImage: "doc.text.magnifyingglass")
+                    }
+                    if let reportURL {
+                        ShareLink(item: reportURL) {
+                            Label("分享 / 保存诊断报告", systemImage: "square.and.arrow.up")
                         }
                     }
                     Button { showingImporter = true } label: {
@@ -76,6 +85,34 @@ struct MaintenanceView: View {
             } message: {
                 Text(message ?? "")
             }
+        }
+    }
+
+    private func exportMaintenanceReport() {
+        scan()
+        let report: [String: Any] = [
+            "reportVersion": 1,
+            "generatedAt": ISO8601DateFormatter().string(from: Date()),
+            "device": ["platform": "iOS", "app": "iDeviceLab"],
+            "manager": ["profileCount": store.profiles.count, "managedAppBindingCount": store.managedApps.count],
+            "appOwnedStorage": ["cachesBytes": cacheBytes, "temporaryBytes": temporaryBytes, "totalScannedBytes": totalBytes],
+            "scope": [
+                "included": ["iDeviceLab Caches", "iDeviceLab tmp", "local profile counts"],
+                "notInspected": ["other app containers", "Keychain items", "account sessions", "cloud-side state", "whole-device backup"],
+                "note": "This report is a local maintenance inventory, not proof that third-party app data or credentials were erased."
+            ]
+        ]
+        do {
+            let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+            let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let directory = documents.appendingPathComponent("iDeviceLabReports", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let url = directory.appendingPathComponent("iDeviceLab-Maintenance-\(Int(Date().timeIntervalSince1970)).json")
+            try data.write(to: url, options: .atomic)
+            reportURL = url
+            message = "维护诊断报告已生成。报告只包含本应用空间统计和能力范围，不包含其他 App 的私有内容或凭据。"
+        } catch {
+            message = "生成维护报告失败：\(error.localizedDescription)"
         }
     }
 
