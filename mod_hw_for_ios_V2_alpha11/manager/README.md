@@ -42,6 +42,6 @@ The script creates an unsigned TrollStore-compatible IPA. Install it through Tro
 
 ## 本机 Core 连接检测
 
-管理器现在提供“越狱 Core 连接（只读检测）”按钮，向 `http://127.0.0.1:18080/status` 发起 GET 请求，超时为 3 秒，并校验 HTTP 状态码及 JSON 中的 `ok`、`service`、`version` 字段。它不会调用配置创建、选择或写入接口。
+管理器现在提供“越狱 Core 连接（只读检测）”按钮，向 `http://127.0.0.1:18081/status` 发起 GET 请求，超时为 3 秒，并校验 HTTP 状态码及 JSON 中的 `ok`、`service`、`version` 字段。它不会调用配置创建、选择或写入接口。
 
 该功能只验证本机 Core 是否响应。当前 Alpha11 IPA 不会自动安装旧版 Core；若设备没有安装并启动 `com.idevelab.core`，界面应显示连接失败。此检测尚需在 iPhone 12 / iOS 16.2 真机确认。
