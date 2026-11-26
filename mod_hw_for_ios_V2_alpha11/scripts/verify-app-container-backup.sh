@@ -26,7 +26,7 @@ RECORDED="$(awk -F= '$1 == "archive" {print $2; exit}' "$MANIFEST")"
 case "$EXPECTED" in
   ''|*[!0-9a-f]*) echo '清单中的 SHA-256 格式无效。' >&2; exit 6 ;;
 esac
-ACTUAL="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+ACTUAL="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 [ "$ACTUAL" = "$EXPECTED" ] || { echo 'SHA-256 不匹配，归档可能损坏或已被修改。' >&2; exit 7; }
 tar -tzf "$ARCHIVE" >/dev/null
 echo '备份完整性验证通过。'
