@@ -44,7 +44,8 @@ for META in "$APP_ROOT"/*/.com.apple.mobile_container_manager.metadata.plist; do
   IDENTIFIER="$(plutil -extract MCMMetadataIdentifier raw -o - "$META" 2>/dev/null || true)"
   if [ "$IDENTIFIER" = "$BUNDLE_ID" ]; then MATCH="$(dirname "$META")"; COUNT=$((COUNT + 1)); fi
 done
-[ "$COUNT" -eq 1 ] || fail "目標数据容器匹配数量为 $COUNT，不是唯一值。"
+[ "$COUNT" -eq 1 ] || fail "目标数据容器匹配数量为 $COUNT，不是唯一值。"
+[ -d "$MATCH" ] && [ ! -L "$MATCH" ] || fail "目标数据容器路径不安全。"
 
 # Create and verify an archive before changing anything.
 BACKUP_OUTPUT="$(mod-hw-app-backup "$BUNDLE_ID")" || fail '自动备份失败；未清理数据。'
