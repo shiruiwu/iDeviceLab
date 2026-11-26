@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>system/com.idevelab.core.alpha11</string>
+  <key>Label</key><string>com.idevelab.core.alpha11</string>
   <key>ProgramArguments</key>
   <array><string>/var/jb/usr/libexec/idevelab-core</string></array>
   <key>UserName</key><string>mobile</string>
