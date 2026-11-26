@@ -91,6 +91,7 @@ app_backup = ROOT / "scripts/backup-app-container.sh"
 app_restore = ROOT / "scripts/restore-app-container.sh"
 app_cleanup = ROOT / "scripts/cleanup-app-container.sh"
 app_verify = ROOT / "scripts/verify-app-container-backup.sh"
+keychain_diag = ROOT / "scripts/diagnose-keychain-access.sh"
 selftest = ROOT / "scripts/selftest-device.sh"
 for path, label in [
     (diagnostic, "Read-only config diagnostic"),
@@ -100,6 +101,7 @@ for path, label in [
     (app_restore, "Guarded app-container restore with rollback"),
     (app_cleanup, "Backup-first scoped app-container cleanup"),
     (app_verify, "App-container backup integrity verifier"),
+    (keychain_diag, "Read-only signed Keychain entitlement diagnostic"),
     (selftest, "Non-destructive on-device self-test"),
 ]:
     check(path.is_file(), label + " script exists")
@@ -155,10 +157,23 @@ if app_restore.is_file():
     src = app_restore.read_text()
     check("--confirm" in src and "restore-snapshots" in src and "pgrep -x" in src,
           "App restore requires explicit confirmation, closed app, and rollback snapshot")
+    check("cleanup_restore()" in src and "trap 'exit 130' INT" in src and
+          "RESTORE_STARTED=1" in src and "SNAPSHOT_READY=1" in src and
+          'cp -Rp "$SNAPSHOT/." "$MATCH/"' in src,
+          "App restore automatically rolls back its snapshot after interruption or failure")
+    check('[ ! -L "$ROLLBACK_ROOT" ]' in src and 'stat -f \'%u\' "$ROLLBACK_ROOT"' in src and
+          'chmod 0700 "$ROLLBACK_ROOT"' in src,
+          "App restore rejects symlinked or non-root-owned rollback storage")
     check("tar -tvzf" in src and "tar -tzf" in src and "符号链接" in src,
           "App restore rejects unsafe archive paths and link/special-file entries")
     check('if pgrep -x "$EXECUTABLE"' in src and '[ "$PGP_STATUS" -eq 1 ]' in src,
           "App restore distinguishes a stopped process from a pgrep execution error")
+if keychain_diag.is_file():
+    src = keychain_diag.read_text()
+    check("ldid -e" in src and "codesign -d --entitlements" in src and "keychain-access-groups" in src,
+          "Keychain diagnostic inspects signed access-group declarations with available signing tools")
+    check("security" not in src and "security" not in package_builder,
+          "Keychain diagnostic does not use broad Keychain command-line enumeration")
 if app_verify.is_file():
     src = app_verify.read_text()
     check("sha256sum" in src and "tar -tzf" in src and "BACKUP_ROOT" in src,
@@ -171,7 +186,7 @@ if app_verify.is_file():
 
 check('mod-hw-config-backup' in package_builder and 'mod-hw-config-restore' in package_builder,
       "Rootless utility DEB packages config backup and restore commands")
-check('mod-hw-app-backup' in package_builder and 'mod-hw-app-restore' in package_builder and 'mod-hw-app-clean' in package_builder and 'mod-hw-app-backup-verify' in package_builder and 'mod-hw-selftest' in package_builder,
+check('mod-hw-app-backup' in package_builder and 'mod-hw-app-restore' in package_builder and 'mod-hw-app-clean' in package_builder and 'mod-hw-app-backup-verify' in package_builder and 'mod-hw-selftest' in package_builder and 'mod-hw-keychain-diagnose' in package_builder,
       "Rootless utility DEB packages app-container backup and verification commands")
 check("Depends: coreutils, procps" in package_builder, "Backup/restore tooling declares SHA-256 and process-inspection dependencies")
 

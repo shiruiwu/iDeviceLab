@@ -50,5 +50,6 @@ check 'App-container backup verifier installed' command -v mod-hw-app-backup-ver
 check 'Guarded App-container restore command installed' command -v mod-hw-app-restore
 check 'Backup-first App-container cleanup command installed' command -v mod-hw-app-clean
 check 'Config diagnostic command installed' command -v mod-hw-diagnose
+check 'Read-only Keychain entitlement diagnostic installed' command -v mod-hw-keychain-diagnose
 echo "Result: $PASS passed, $FAIL failed, $SKIP skipped"
 [ "$FAIL" -eq 0 ]

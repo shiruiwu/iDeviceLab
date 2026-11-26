@@ -24,6 +24,7 @@ install -m 0755 "$ROOT/scripts/restore-app-container.sh" "$PKG/var/jb/usr/bin/mo
 install -m 0755 "$ROOT/scripts/cleanup-app-container.sh" "$PKG/var/jb/usr/bin/mod-hw-app-clean"
 install -m 0755 "$ROOT/scripts/verify-app-container-backup.sh" "$PKG/var/jb/usr/bin/mod-hw-app-backup-verify"
 install -m 0755 "$ROOT/scripts/selftest-device.sh" "$PKG/var/jb/usr/bin/mod-hw-selftest"
+install -m 0755 "$ROOT/scripts/diagnose-keychain-access.sh" "$PKG/var/jb/usr/bin/mod-hw-keychain-diagnose"
 printf '2.0\n' > "$WORK/debian-binary"
 (cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 .)
 (cd "$PKG/DEBIAN" && tar --format=ustar -czf "$WORK/control.tar.gz" --owner=0 --group=0 .)
