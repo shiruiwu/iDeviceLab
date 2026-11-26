@@ -134,7 +134,8 @@ static NSArray *AvailableBackups(void) {
         NSString *manifestPath = [archive stringByReplacingOccurrencesOfString:@".tar.gz" withString:@".txt"];
         NSDictionary *manifestAttrs = [NSFileManager.defaultManager attributesOfItemAtPath:manifestPath error:nil];
         if (![manifestAttrs[NSFileType] isEqualToString:NSFileTypeRegular] ||
-            [manifestAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0) continue;
+            [manifestAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0 ||
+            ([manifestAttrs[NSFilePosixPermissions] unsignedShortValue] & 0077) != 0) continue;
         NSString *manifest = [NSString stringWithContentsOfFile:manifestPath encoding:NSUTF8StringEncoding error:nil];
         NSMutableDictionary *fields = [NSMutableDictionary dictionary];
         for (NSString *line in [manifest componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
@@ -145,9 +146,20 @@ static NSArray *AvailableBackups(void) {
             if ([@[@"bundle_id", @"container_id", @"created_at", @"archive", @"sha256", @"scope"] containsObject:key]) fields[key] = value;
         }
         NSString *hash = fields[@"sha256"];
-        if (![fields[@"archive"] isEqualToString:file] ||
-            ![fields[@"bundle_id"] isKindOfClass:NSString.class] ||
-            ![hash isKindOfClass:NSString.class] || hash.length != 64) continue;
+        NSString *bundleID = fields[@"bundle_id"];
+        NSString *containerID = fields[@"container_id"];
+        NSCharacterSet *nonHex = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"] invertedSet];
+        NSCharacterSet *invalidIdentity = [[NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"] invertedSet];
+        BOOL validBundle = [bundleID isKindOfClass:NSString.class] && bundleID.length > 0 &&
+            ![bundleID hasPrefix:@"."] && ![bundleID hasSuffix:@"."] &&
+            ![bundleID containsString:@".."] && [bundleID rangeOfCharacterFromSet:invalidIdentity].location == NSNotFound;
+        BOOL validContainer = [containerID isKindOfClass:NSString.class] && containerID.length > 0 &&
+            ![containerID hasPrefix:@"."] && ![containerID hasSuffix:@"."] &&
+            ![containerID containsString:@".."] && [containerID rangeOfCharacterFromSet:invalidIdentity].location == NSNotFound;
+        BOOL validHash = [hash isKindOfClass:NSString.class] && hash.length == 64 &&
+            [hash rangeOfCharacterFromSet:nonHex].location == NSNotFound;
+        if (![fields[@"archive"] isEqualToString:file] || !validBundle || !validContainer ||
+            !validHash || [attrs[NSFileSize] unsignedLongLongValue] == 0) continue;
         [backups addObject:@{
             @"archive": file,
             @"bundleIdentifier": fields[@"bundle_id"],
