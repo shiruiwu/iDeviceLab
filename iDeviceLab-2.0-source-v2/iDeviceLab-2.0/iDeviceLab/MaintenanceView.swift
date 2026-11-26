@@ -300,6 +300,8 @@ struct MaintenanceView: View {
         isCleaningApp = true
         defer { isCleaningApp = false }
         var cleanupResponse: [String: Any]?
+        var cleanupRequestStarted = false
+        let clientStartedAt = ISO8601DateFormatter().string(from: Date())
         do {
             let body = try JSONSerialization.data(withJSONObject: ["bundleIdentifier": app.bundleIdentifier])
             var request = URLRequest(url: coreURL.appendingPathComponent("maintenance/clear"))
