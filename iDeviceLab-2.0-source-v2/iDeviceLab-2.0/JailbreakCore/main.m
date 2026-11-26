@@ -138,23 +138,6 @@ static unsigned long long SafeDirectoryBytes(NSString *path) {
     return total;
 }
 
-static unsigned long long SafeDirectoryFileCount(NSString *path) {
-    struct stat rootInfo = {0};
-    if (lstat(path.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode)) return 0;
-    unsigned long long count = 0;
-    NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:[NSURL fileURLWithPath:path]
-        includingPropertiesForKeys:@[NSURLIsRegularFileKey, NSURLIsSymbolicLinkKey]
-        options:0 errorHandler:^BOOL(__unused NSURL *url, __unused NSError *error) { return YES; }];
-    for (NSURL *url in enumerator) {
-        NSNumber *isLink = nil, *isFile = nil;
-        [url getResourceValue:&isLink forKey:NSURLIsSymbolicLinkKey error:nil];
-        if (isLink.boolValue) { [enumerator skipDescendants]; continue; }
-        [url getResourceValue:&isFile forKey:NSURLIsRegularFileKey error:nil];
-        if (isFile.boolValue) count++;
-    }
-    return count;
-}
-
 static unsigned long long SafePathBytes(NSString *path, const struct stat *info) {
     if (S_ISREG(info->st_mode)) return (unsigned long long)MAX((off_t)0, info->st_size);
     if (S_ISDIR(info->st_mode)) return SafeDirectoryBytes(path);
