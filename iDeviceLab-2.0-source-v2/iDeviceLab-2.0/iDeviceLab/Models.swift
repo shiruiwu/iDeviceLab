@@ -50,9 +50,18 @@ struct AppMaintenanceItem: Identifiable, Codable, Equatable {
     let cleanableBytes: Int64
 }
 
+struct OrphanedContainerItem: Identifiable, Codable, Equatable {
+    var id: String { containerUUID }
+    let bundleIdentifier: String
+    let containerUUID: String
+    let accessible: Bool
+    let containerBytes: Int64
+}
+
 struct AppMaintenanceResponse: Codable {
     let ok: Bool
     let apps: [AppMaintenanceItem]
     let orphanedContainerCount: Int
+    let orphanedContainers: [OrphanedContainerItem]?
     let scope: String?
 }
