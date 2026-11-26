@@ -126,6 +126,8 @@ if app_backup.is_file():
           "App-container backup rejects symlink roots and requires root-owned private storage")
     check('MANIFEST_TMP="$MANIFEST.tmp.$"' in src and 'mv "$MANIFEST_TMP" "$MANIFEST"' in src and 'COMMITTED=1' in src,
           "App-container backup commits manifest last and removes incomplete archive pairs")
+    check("trap 'cleanup_backup' EXIT" in src and "trap 'exit 130' INT" in src and "trap 'exit 143' TERM" in src,
+          "App-container backup exits on signals so EXIT cleanup removes incomplete archive pairs")
 if selftest.is_file():
     src = selftest.read_text()
     check("127.0.0.1:18081/status" in src and "mod-hw-app-backup-verify" in src and "mod-hw-app-clean" in src and "rm -rf" not in src,
@@ -138,8 +140,15 @@ if app_cleanup.is_file():
           "App cleanup distinguishes a stopped process from a pgrep execution error")
     check('tar -tvzf "$ARCHIVE_PATH" > "$DETAIL_LIST"' in src and "END { exit bad }" in src,
           "App cleanup propagates archive-listing failures instead of masking them in a pipeline")
-    check('mktemp "$BACKUP_ROOT/.cleanup-archive-list.XXXXXX"' in src and 'trap \'rm -f "$DETAIL_LIST"\'' in src,
-          "App cleanup uses a unique temporary archive listing and removes it on exit")
+    check('mktemp "$BACKUP_ROOT/.cleanup-archive-list.XXXXXX"' in src and "cleanup_on_exit()" in src,
+          "App cleanup uses a unique temporary archive listing and a centralized exit handler")
+    check("trap 'exit 130' INT" in src and "trap 'exit 143' TERM" in src and
+          "DESTRUCTIVE_STARTED=1" in src and "SNAPSHOT_READY=1" in src and
+          "cp -Rp \"$SNAPSHOT/.\" \"$MATCH/\"" in src,
+          "App cleanup automatically restores its verified pre-clean snapshot after interruption or failure")
+    check('[ ! -L "$SNAPSHOT_ROOT" ]' in src and 'stat -f \'%u\' "$SNAPSHOT_ROOT"' in src and
+          'chmod 0700 "$SNAPSHOT_ROOT"' in src,
+          "App cleanup rejects symlinked or non-root-owned snapshot storage")
     check("Keychain" in src and "App Groups" in src,
           "App cleanup documents Keychain and App Groups as excluded")
 if app_restore.is_file():

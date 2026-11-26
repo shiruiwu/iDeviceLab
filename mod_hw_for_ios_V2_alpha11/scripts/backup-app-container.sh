@@ -41,8 +41,8 @@ if [ "$COUNT" -ne 1 ]; then
   echo "发现 $COUNT 个匹配容器，无法安全确定目标；未备份。" >&2
   exit 5
 fi
-if [ ! -r "$MATCH" ] || [ ! -x "$MATCH" ]; then
-  echo '目标容器不可读或不可访问。' >&2
+if [ ! -r "$MATCH" ] || [ ! -x "$MATCH" ] || [ -L "$MATCH" ]; then
+  echo '目标容器不可读、不可访问或为符号链接。' >&2
   exit 6
 fi
 
@@ -61,9 +61,9 @@ STAMP="$(date '+%Y%m%d-%H%M%S')"
 CONTAINER_ID="$(basename "$MATCH")"
 BASE="$BACKUP_ROOT/$BUNDLE_ID.$STAMP.$CONTAINER_ID"
 ARCHIVE="$BASE.tar.gz"
-TMP="$ARCHIVE.tmp.$"
+TMP="$ARCHIVE.tmp.$$"
 MANIFEST="$BASE.txt"
-MANIFEST_TMP="$MANIFEST.tmp.$"
+MANIFEST_TMP="$MANIFEST.tmp.$$"
 COMMITTED=0
 cleanup_backup() {
   rm -f "$TMP" "$MANIFEST_TMP"
@@ -71,7 +71,11 @@ cleanup_backup() {
     rm -f "$ARCHIVE" "$MANIFEST"
   fi
 }
-trap 'cleanup_backup' EXIT HUP INT TERM
+# EXIT performs cleanup; signal handlers exit so the EXIT trap always runs.
+trap 'cleanup_backup' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 if [ -e "$ARCHIVE" ] || [ -e "$MANIFEST" ] || [ -e "$TMP" ] || [ -e "$MANIFEST_TMP" ]; then
   echo '备份目标已存在；未覆盖现有文件。' >&2
   exit 8

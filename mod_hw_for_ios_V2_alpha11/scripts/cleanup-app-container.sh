@@ -45,7 +45,7 @@ for META in "$APP_ROOT"/*/.com.apple.mobile_container_manager.metadata.plist; do
   if [ "$IDENTIFIER" = "$BUNDLE_ID" ]; then MATCH="$(dirname "$META")"; COUNT=$((COUNT + 1)); fi
 done
 [ "$COUNT" -eq 1 ] || fail "目标数据容器匹配数量为 $COUNT，不是唯一值。"
-[ -d "$MATCH" ] && [ ! -L "$MATCH" ] || fail "目标数据容器路径不安全。"
+[ -d "$MATCH" ] && [ ! -L "$MATCH" ] || fail '目标数据容器路径不安全。'
 
 # Create and verify an archive before changing anything.
 BACKUP_OUTPUT="$("/var/jb/usr/bin/mod-hw-app-backup" "$BUNDLE_ID")" || fail '自动备份失败；未清理数据。'
@@ -53,41 +53,72 @@ ARCHIVE_PATH="$(printf '%s\n' "$BACKUP_OUTPUT" | sed -n 's/^应用数据容器�
 [ -n "$ARCHIVE_PATH" ] || fail '无法从备份工具结果中定位归档；未清理数据。'
 ARCHIVE_NAME="$(basename "$ARCHIVE_PATH")"
 "/var/jb/usr/bin/mod-hw-app-backup-verify" "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
-# The restore helper deliberately refuses links and special files. Enforce the
-# same policy before destructive cleanup so the generated archive is restorable.
+
+[ -d "$BACKUP_ROOT" ] && [ ! -L "$BACKUP_ROOT" ] || fail '备份目录不存在或不安全。'
+[ "$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '备份目录必须由 root 拥有。'
+chmod 0700 "$BACKUP_ROOT"
 DETAIL_LIST="$(mktemp "$BACKUP_ROOT/.cleanup-archive-list.XXXXXX")" || fail '无法创建归档检查临时文件。'
-trap 'rm -f "$DETAIL_LIST"' EXIT HUP INT TERM
+SNAPSHOT_READY=0
+DESTRUCTIVE_STARTED=0
+SUCCESS=0
+SNAPSHOT=''
+cleanup_on_exit() {
+  STATUS=$?
+  trap - EXIT HUP INT TERM
+  [ -n "$DETAIL_LIST" ] && rm -f "$DETAIL_LIST"
+  if [ "$DESTRUCTIVE_STARTED" -eq 1 ] && [ "$SNAPSHOT_READY" -eq 1 ] && [ "$SUCCESS" -ne 1 ]; then
+    echo '检测到清理未正常完成，正在从清理前快照自动回滚……' >&2
+    if [ -d "$MATCH" ] && [ ! -L "$MATCH" ] &&
+       find "$MATCH" -mindepth 1 -maxdepth 1 -exec rm -rf {} + &&
+       cp -Rp "$SNAPSHOT/." "$MATCH/"; then
+      ROLLBACK_ID="$(plutil -extract MCMMetadataIdentifier raw -o - "$MATCH/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null || true)"
+      if [ "$ROLLBACK_ID" = "$BUNDLE_ID" ]; then
+        echo "自动回滚成功；快照保留：$SNAPSHOT" >&2
+      else
+        echo "自动回滚后的容器元数据校验失败；请保留快照：$SNAPSHOT" >&2
+        STATUS=1
+      fi
+    else
+      echo "自动回滚失败；请保留快照并人工恢复：$SNAPSHOT" >&2
+      STATUS=1
+    fi
+  fi
+  exit "$STATUS"
+}
+trap 'cleanup_on_exit' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 if ! tar -tvzf "$ARCHIVE_PATH" > "$DETAIL_LIST"; then
-  rm -f "$DETAIL_LIST"
   fail '无法读取备份归档目录；已中止清理。'
 fi
 if ! awk 'substr($0,1,1) != "-" && substr($0,1,1) != "d" { bad=1 } END { exit bad }' "$DETAIL_LIST"; then
-  rm -f "$DETAIL_LIST"
   fail '备份包含符号链接或特殊文件，当前还原工具无法安全处理；已中止清理。'
 fi
 rm -f "$DETAIL_LIST"
+DETAIL_LIST=''
 
 STAMP="$(date '+%Y%m%d-%H%M%S')"
-SNAPSHOT="$SNAPSHOT_ROOT/$BUNDLE_ID.$STAMP.pid-$PPID"
+if [ -L "$SNAPSHOT_ROOT" ]; then fail '清理快照目录不能是符号链接。'; fi
 mkdir -p "$SNAPSHOT_ROOT"
+[ -d "$SNAPSHOT_ROOT" ] && [ ! -L "$SNAPSHOT_ROOT" ] || fail '清理快照目录不安全。'
+[ "$(stat -f '%u' "$SNAPSHOT_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '清理快照目录必须由 root 拥有。'
 chmod 0700 "$SNAPSHOT_ROOT"
-mkdir "$SNAPSHOT"
+SNAPSHOT="$SNAPSHOT_ROOT/$BUNDLE_ID.$STAMP.pid-$$"
+mkdir "$SNAPSHOT" || fail '无法创建唯一的清理前快照目录。'
 chmod 0700 "$SNAPSHOT"
 cp -Rp "$MATCH/." "$SNAPSHOT/" || fail '清理前快照创建失败；未清理数据。'
+SNAPSHOT_READY=1
 
 # Keep the MCM metadata marker so iOS retains the current container registration.
-if ! find "$MATCH" -mindepth 1 -maxdepth 1 ! -name '.com.apple.mobile_container_manager.metadata.plist' -exec rm -rf {} +; then
-  find "$MATCH" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
-  cp -Rp "$SNAPSHOT/." "$MATCH/" || fail '清理失败且自动回滚失败；请保留快照目录。'
-  fail '清理过程中发生错误，已回滚。'
-fi
+DESTRUCTIVE_STARTED=1
+find "$MATCH" -mindepth 1 -maxdepth 1 ! -name '.com.apple.mobile_container_manager.metadata.plist' -exec rm -rf {} + ||
+  fail '清理过程中发生错误；已触发自动回滚。'
 CURRENT_ID="$(plutil -extract MCMMetadataIdentifier raw -o - "$MATCH/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null || true)"
-if [ "$CURRENT_ID" != "$BUNDLE_ID" ]; then
-  find "$MATCH" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
-  cp -Rp "$SNAPSHOT/." "$MATCH/" || fail '元数据校验失败且自动回滚失败；请保留快照目录。'
-  fail '容器元数据校验失败，已回滚。'
-fi
+[ "$CURRENT_ID" = "$BUNDLE_ID" ] || fail '容器元数据校验失败；已触发自动回滚。'
 
+SUCCESS=1
 echo "App 本地数据容器清理完成：$BUNDLE_ID"
 echo "自动备份：$ARCHIVE_NAME"
 echo "回滚快照：$SNAPSHOT"
