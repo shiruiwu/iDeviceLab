@@ -180,10 +180,27 @@ static NSDictionary *AppMaintenanceInventory(void) {
             @"cleanableBytes": @(caches + temporary)
         }];
     }
-    NSUInteger orphanCount = 0;
-    for (NSString *bundleID in containers) if (![installedIDs containsObject:bundleID]) orphanCount++;
-    return @{@"ok":@YES, @"apps":apps, @"orphanedContainerCount":@(orphanCount),
-             @"scope":@"Only Library/Caches and tmp are eligible for cleanup; app documents, preferences, databases and credentials are excluded."};
+    NSMutableArray *orphans = [NSMutableArray array];
+    for (NSString *bundleID in containers) {
+        if ([installedIDs containsObject:bundleID]) continue;
+        NSString *container = containers[bundleID];
+        NSString *containerUUID = container.lastPathComponent ?: @"";
+        struct stat containerInfo = {0};
+        BOOL accessible = lstat(container.fileSystemRepresentation, &containerInfo) == 0 && S_ISDIR(containerInfo.st_mode);
+        unsigned long long bytes = accessible ? SafeDirectoryBytes(container) : 0;
+        [orphans addObject:@{
+            @"bundleIdentifier": bundleID,
+            @"containerUUID": containerUUID,
+            @"accessible": @(accessible),
+            @"containerBytes": @(bytes)
+        }];
+    }
+    [orphans sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [a[@"bundleIdentifier"] localizedCaseInsensitiveCompare:b[@"bundleIdentifier"]];
+    }];
+    return @{@"ok":@YES, @"apps":apps, @"orphanedContainerCount":@(orphans.count),
+             @"orphanedContainers":orphans,
+             @"scope":@"Only Library/Caches and tmp are eligible for cleanup; orphan containers are listed for review only and are never deleted automatically."};
 }
 
 static NSDictionary *ClearAppCaches(NSData *body) {
@@ -213,13 +230,28 @@ static NSDictionary *HookInstallationStatus(void) {
     NSString *directory = @"/var/jb/Library/MobileSubstrate/DynamicLibraries";
     NSString *dylib = [directory stringByAppendingPathComponent:@"mod_hw_for_ios.dylib"];
     NSString *filter = [directory stringByAppendingPathComponent:@"mod_hw_for_ios.plist"];
+    struct stat dylibInfo = {0}, filterInfo = {0};
+    BOOL dylibRegular = lstat(dylib.fileSystemRepresentation, &dylibInfo) == 0 && S_ISREG(dylibInfo.st_mode);
+    BOOL filterRegular = lstat(filter.fileSystemRepresentation, &filterInfo) == 0 && S_ISREG(filterInfo.st_mode);
+    NSDictionary *filterPlist = filterRegular ? [NSDictionary dictionaryWithContentsOfFile:filter] : nil;
+    NSDictionary *filterRoot = [filterPlist[@"Filter"] isKindOfClass:NSDictionary.class] ? filterPlist[@"Filter"] : nil;
+    NSArray *bundles = [filterRoot[@"Bundles"] isKindOfClass:NSArray.class] ? filterRoot[@"Bundles"] : @[];
+    NSArray *executables = [filterRoot[@"Executables"] isKindOfClass:NSArray.class] ? filterRoot[@"Executables"] : @[];
+    NSMutableArray *targets = [NSMutableArray array];
+    for (id item in bundles) if ([item isKindOfClass:NSString.class]) [targets addObject:item];
+    for (id item in executables) if ([item isKindOfClass:NSString.class]) [targets addObject:item];
+    NSDictionary *attributes = dylibRegular ? [NSFileManager.defaultManager attributesOfItemAtPath:dylib error:nil] : @{};
     return @{
         @"ok":@YES,
         @"coreServiceRunning":@YES,
-        @"tweakLibraryFound":@([NSFileManager.defaultManager fileExistsAtPath:dylib]),
-        @"tweakFilterFound":@([NSFileManager.defaultManager fileExistsAtPath:filter]),
+        @"tweakLibraryFound":@(dylibRegular),
+        @"tweakFilterFound":@(filterRegular),
+        @"filterParseable":@(filterRoot != nil),
+        @"filterTargetCount":@(targets.count),
+        @"filterTargets":targets,
+        @"tweakLibraryBytes":@(dylibRegular ? [attributes[NSFileSize] unsignedLongLongValue] : 0),
         @"runtimeInjectionVerified":@NO,
-        @"note":@"File presence is installation evidence only; this endpoint does not claim that a target process loaded the tweak."
+        @"note":@"This checks file type, filter plist structure and declared targets only. It does not verify that any target process loaded the tweak."
     };
 }
 
