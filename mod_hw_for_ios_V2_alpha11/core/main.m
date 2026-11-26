@@ -114,6 +114,55 @@ static NSArray *InstalledProfiles(void) {
     return profiles;
 }
 
+
+static NSArray *AvailableBackups(void) {
+    NSString *root = @"/var/mobile/Library/Application Support/mod_hw_for_ios/app-container-backups";
+    BOOL isDirectory = NO;
+    if (![NSFileManager.defaultManager fileExistsAtPath:root isDirectory:&isDirectory] || !isDirectory) return @[];
+    NSDictionary *rootAttrs = [NSFileManager.defaultManager attributesOfItemAtPath:root error:nil];
+    if (![rootAttrs[NSFileType] isEqualToString:NSFileTypeDirectory] ||
+        [rootAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0) return @[];
+    NSArray *files = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    NSMutableArray *backups = [NSMutableArray array];
+    for (NSString *file in files) {
+        if (![file hasSuffix:@".tar.gz"] || [file containsString:@"/"] || [file containsString:@".."]) continue;
+        NSString *archive = [root stringByAppendingPathComponent:file];
+        NSDictionary *attrs = [NSFileManager.defaultManager attributesOfItemAtPath:archive error:nil];
+        if (![attrs[NSFileType] isEqualToString:NSFileTypeRegular] ||
+            [attrs[NSFileOwnerAccountID] unsignedIntValue] != 0 ||
+            ([attrs[NSFilePosixPermissions] unsignedShortValue] & 0077) != 0) continue;
+        NSString *manifestPath = [archive stringByReplacingOccurrencesOfString:@".tar.gz" withString:@".txt"];
+        NSDictionary *manifestAttrs = [NSFileManager.defaultManager attributesOfItemAtPath:manifestPath error:nil];
+        if (![manifestAttrs[NSFileType] isEqualToString:NSFileTypeRegular] ||
+            [manifestAttrs[NSFileOwnerAccountID] unsignedIntValue] != 0) continue;
+        NSString *manifest = [NSString stringWithContentsOfFile:manifestPath encoding:NSUTF8StringEncoding error:nil];
+        NSMutableDictionary *fields = [NSMutableDictionary dictionary];
+        for (NSString *line in [manifest componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
+            NSRange separator = [line rangeOfString:@"="];
+            if (separator.location == NSNotFound) continue;
+            NSString *key = [line substringToIndex:separator.location];
+            NSString *value = [line substringFromIndex:separator.location + 1];
+            if ([@[@"bundle_id", @"container_id", @"created_at", @"archive", @"sha256", @"scope"] containsObject:key]) fields[key] = value;
+        }
+        NSString *hash = fields[@"sha256"];
+        if (![fields[@"archive"] isEqualToString:file] ||
+            ![fields[@"bundle_id"] isKindOfClass:NSString.class] ||
+            ![hash isKindOfClass:NSString.class] || hash.length != 64) continue;
+        [backups addObject:@{
+            @"archive": file,
+            @"bundleIdentifier": fields[@"bundle_id"],
+            @"containerIdentifier": fields[@"container_id"] ?: @"",
+            @"createdAt": fields[@"created_at"] ?: @"",
+            @"sha256": hash,
+            @"sizeBytes": attrs[NSFileSize] ?: @0
+        }];
+    }
+    [backups sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [b[@"createdAt"] compare:a[@"createdAt"]];
+    }];
+    return backups;
+}
+
 static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"/";
     if (![method isEqualToString:@"GET"]) {
@@ -126,6 +175,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     if ([path isEqualToString:@"/apps"]) return @{@"ok": @YES, @"apps": InstalledApplications()};
     if ([path isEqualToString:@"/tools"]) return @{@"ok": @YES, @"tools": InstalledMaintenanceTools()};
     if ([path isEqualToString:@"/profiles"]) return @{@"ok": @YES, @"profiles": InstalledProfiles(), @"directory": @"/var/mobile/Library/Preferences/com.modhw.ios.profiles"};
+    if ([path isEqualToString:@"/backups"]) return @{@"ok": @YES, @"backups": AvailableBackups()};
     return @{@"ok": @NO, @"error": @"not found"};
 }
 
@@ -190,7 +240,8 @@ int main(void) {
                                      [path isEqualToString:@"/system"] ||
                                      [path isEqualToString:@"/apps"] ||
                                      [path isEqualToString:@"/tools"] ||
-                                     [path isEqualToString:@"/profiles"];
+                                     [path isEqualToString:@"/profiles"] ||
+                                     [path isEqualToString:@"/backups"];
                         NSDictionary *result = ProcessRequest(method, target);
                         int status = ![method isEqualToString:@"GET"] ? 405 : (known ? 200 : 404);
                         Reply(client, result, status);
