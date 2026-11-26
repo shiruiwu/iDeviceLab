@@ -232,32 +232,6 @@ static NSDictionary *AppDataContainerIndex(NSError **scanError) {
     return index;
 }
 
-static unsigned long long SafeDirectoryBytes(NSString *path) {
-    struct stat rootInfo = {0};
-    if (lstat(path.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode)) return 0;
-    unsigned long long total = 0;
-    NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:[NSURL fileURLWithPath:path]
-        includingPropertiesForKeys:@[NSURLIsRegularFileKey, NSURLFileSizeKey, NSURLIsSymbolicLinkKey]
-        options:0 errorHandler:^BOOL(__unused NSURL *url, __unused NSError *error) { return YES; }];
-    for (NSURL *url in enumerator) {
-        NSNumber *isLink = nil, *isFile = nil, *size = nil;
-        [url getResourceValue:&isLink forKey:NSURLIsSymbolicLinkKey error:nil];
-        if (isLink.boolValue) { [enumerator skipDescendants]; continue; }
-        [url getResourceValue:&isFile forKey:NSURLIsRegularFileKey error:nil];
-        if (isFile.boolValue) {
-            [url getResourceValue:&size forKey:NSURLFileSizeKey error:nil];
-            total += size.unsignedLongLongValue;
-        }
-    }
-    return total;
-}
-
-static unsigned long long SafePathBytes(NSString *path, const struct stat *info) {
-    if (S_ISREG(info->st_mode)) return (unsigned long long)MAX((off_t)0, info->st_size);
-    if (S_ISDIR(info->st_mode)) return SafeDirectoryBytes(path);
-    return 0;
-}
-
 static void SetMaintenanceError(NSError **error, NSInteger code, NSString *description) {
     if (error && !*error) *error = [NSError errorWithDomain:@"iDeviceLab.AppMaintenance" code:code
         userInfo:@{NSLocalizedDescriptionKey:description ?: @"maintenance operation failed"}];
@@ -519,21 +493,8 @@ static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relative
             SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to inspect cleanup item %@: %s", child, strerror(savedErrno)]);
             return NO;
         }
-        if (dryRun) {
-            NSString *childRelativePath = [relativePath stringByAppendingPathComponent:child];
-            if (!ValidateRemovalTree(candidate, childRelativePath, failedAt, error)) return NO;
-        } else {
-            unsigned long long itemBytes = SafePathBytes(candidate, &childInfo);
-            NSError *removeError = nil;
-            if (![NSFileManager.defaultManager removeItemAtPath:candidate error:&removeError]) {
-                if (failedAt) *failedAt = [relativePath stringByAppendingPathComponent:child];
-                if (error && !*error) *error = removeError ?: [NSError errorWithDomain:@"iDeviceLab.AppMaintenance" code:18
-                    userInfo:@{NSLocalizedDescriptionKey:@"unable to remove cleanup item"}];
-                return NO;
-            }
-            if (removedBytes) *removedBytes += itemBytes;
-            if (removedItems) (*removedItems)++;
-        }
+        NSString *childRelativePath = [relativePath stringByAppendingPathComponent:child];
+        if (!ValidateRemovalTree(candidate, childRelativePath, failedAt, error)) return NO;
     }
     return YES;
 }
