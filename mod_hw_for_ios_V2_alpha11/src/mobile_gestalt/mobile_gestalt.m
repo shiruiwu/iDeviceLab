@@ -813,8 +813,12 @@ void HOOK_IDFV() {
 //_MSInitialize
 //////////////////////////////////////////////////////////
 __attribute__((__constructor__)) static void _MSInitialize(void) {
-  dlopen("/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony", RTLD_NOW);
   initPrefFile();
+  if (cf_device == nil || [cf_device count] == 0) {
+    NSLog(@"[mod_hw] No valid profile for this process; skipping Hook installation.");
+    return;
+  }
+  dlopen("/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony", RTLD_NOW);
   initGlobalSysCtl();
   MobileGestaltHooker();
   hook_sysctlbyname();
