@@ -114,7 +114,7 @@ struct ContentView: View {
                         Text(canExportPerAppProfile
                              ? "配置结构符合原作者 Hook 的必需字段要求。"
                              : "当前 plist 尚不满足分 App 配置要求：需要 40 位十六进制 UniqueDeviceID；启用 MAC Data 字段时也必须提供有效的 12 位十六进制地址。")
-                            .font(.footnote).foregroundStyle(canExportPerAppProfile ? .secondary : .orange)
+                            .font(.footnote).foregroundStyle(canExportPerAppProfile ? Color.secondary : Color.orange)
                         Text("只生成独立 plist 文件；导出后需手动放入 com.modhw.ios.profiles 目录，不会自动写入越狱目录。")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
