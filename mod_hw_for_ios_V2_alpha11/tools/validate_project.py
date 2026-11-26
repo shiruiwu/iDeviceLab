@@ -65,6 +65,9 @@ if app_verify.is_file():
     src = app_verify.read_text()
     check("sha256sum" in src and "tar -tzf" in src and "BACKUP_ROOT" in src,
           "App-container verifier checks checksum and archive readability in backup directory")
+    check("length($2) != 64" in src and "[ ! -L \"$ARCHIVE\" ]" in src and
+          "[ ! -L \"$MANIFEST\" ]" in src and "sha_count != 1" in src,
+          "App-container verifier rejects malformed/duplicate manifests and symlink inputs")
 
 check('mod-hw-config-backup' in package_builder and 'mod-hw-config-restore' in package_builder,
       "Rootless utility DEB packages config backup and restore commands")
