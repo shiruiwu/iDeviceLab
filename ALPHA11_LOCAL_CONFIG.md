@@ -9,7 +9,7 @@
 - iDeviceLab Rootless Core 作为本机诊断服务运行，监听回环地址 `127.0.0.1:18080`，不会连接云端。
 - `GET /config/status` 检查主配置文件是否存在、是否可解析、Alpha11 加载器要求的 `UniqueDeviceID` 字段是否存在且为字符串、字段数量、字段名和修改时间；不会返回任何字段值。
 - 管理器可导入 plist 文件，但只向 Core 提交 8 个允许字段：`HWModelStr`、`ProductVersion`、`BuildVersion`、`HardwarePlatform`、`ModelNumber`、`RegionInfo`、`RegionCode`、`ProductType`。
-- `POST /config/update` 要求现有 plist 已存在且结构有效，保留原文件其他字段，仅更新上述白名单字段，并通过原子写入保存；序列号、IMEI、UDID、MAC、IDFA、IDFV 等字段不会被导入覆盖。
+- `POST /config/update` 要求现有 plist 已存在且结构有效，保留原文件其他字段，仅更新上述白名单字段，并通过原子写入保存；更新前自动保存原始字节，备份文件权限收紧为仅 mobile 用户可读写；序列号、IMEI、UDID、MAC、IDFA、IDFV 等字段不会被导入覆盖。
 - 管理器的「Alpha11 本地配置文件」区域展示上述诊断结果。
 
 ## 重要区别
@@ -21,7 +21,7 @@
 ## 安全与维护
 
 - 诊断接口只返回字段名，不返回序列号、IMEI、UDID、MAC、IDFA、IDFV 等字段的具体内容。
-- `/config/status` 返回文件状态及本地回滚备份状态，不返回字段值；`/config/update` 仅对固定白名单字段执行类型/长度/格式检查，先自动备份，再原子更新现有 plist；`POST /config/restore` 仅恢复 Core 自己创建的本地备份。
+- `/config/status` 返回文件状态及本地回滚备份状态，不返回字段值；`/config/update` 仅对固定白名单字段执行类型/长度/格式检查，先自动备份，再原子更新现有 plist；`POST /config/restore` 仅恢复 Core 自己创建的本地备份。即使当前 plist 文件已丢失，只要本地备份有效也可恢复；若目标路径是符号链接或目录则拒绝覆盖。备份与恢复后的 plist 权限设为仅文件所有者可读写。
 - 不会新建空白身份配置，也不会修改或返回设备唯一标识字段的值。
 - 不应将空白示例 plist 误认为已配置或已启用。
 - 导入前应在设备本地另行备份原文件；更新后重新检查文件可解析，再重启目标进程并逐项进行兼容性验证。
@@ -46,7 +46,7 @@ sh device-smoke-test.sh
 - [ ] 管理器能连接本机 Core，系统信息和已安装 App 清单可读取。
 - [ ] 管理器能正确报告 Alpha11 plist 缺失、格式错误和格式正常三种状态。
 - [ ] 用测试 plist 验证 8 个允许字段能更新；混入唯一标识字段时确认它们被忽略且原值不变。
-- [ ] 验证更新前自动生成本地备份，恢复操作能还原更新前文件字节。
+- [ ] 验证更新前自动生成仅所有者可读写的本地备份，恢复操作能还原更新前文件字节；删除当前 plist 后仍可从备份恢复；目标为符号链接/目录时恢复必须拒绝。
 - [ ] Alpha11 tweak 能加载，日志无崩溃；分别验证 SpringBoard 与设置 App 的加载情况。
 - [ ] 完成配置备份/恢复、回滚、缓存清理的实机回归。
 - [ ] 记录设备型号、iOS 版本、越狱方案、包版本和验证结果。
