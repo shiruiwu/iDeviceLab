@@ -64,22 +64,25 @@ static BOOL IsArm64()
   });
   return arm64 ;
 }
+// Configuration values are untrusted input. Accept only the exact byte
+// lengths used by the corresponding hardware-address fields.
+static BOOL IsHexStringOfLength(NSString *value, NSUInteger expectedLength) {
+  if (![value isKindOfClass:[NSString class]] || value.length != expectedLength) return NO;
+  NSCharacterSet *nonHex = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
+  return [value rangeOfCharacterFromSet:nonHex].location == NSNotFound;
+}
+
 static NSData* dataFromHexString(NSString* str) {
-  NSString *command = str;
-  NSMutableData *commandToSend= [[NSMutableData alloc] init];
-  unsigned char whole_byte;
-  char byte_chars[5] = {'\0','\0','\0'};
-  int i;
-  for (i=0; i < [command length]/2; i++) {
-    byte_chars[0] = [command characterAtIndex:i*2];
-    byte_chars[1] = [command characterAtIndex:i*2+1];
-    whole_byte = strtol(byte_chars, NULL, 16);
-    [commandToSend appendBytes:&whole_byte length:1];
+  if (!IsHexStringOfLength(str, 12)) return nil;
+  UInt8 bytes[6] = {0};
+  for (NSUInteger i = 0; i < 6; i++) {
+    NSString *pair = [str substringWithRange:NSMakeRange(i * 2, 2)];
+    unsigned int value = 0;
+    NSScanner *scanner = [NSScanner scannerWithString:pair];
+    if (![scanner scanHexInt:&value] || !scanner.isAtEnd) return nil;
+    bytes[i] = (UInt8)value;
   }
-  //NSLog(@"%@", commandToSend);
-  //<xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx>
-  NSData *immutableData = [NSData dataWithData:commandToSend];
-  return [immutableData copy];
+  return [NSData dataWithBytes:bytes length:sizeof(bytes)];
 }
 static CFDataRef HexToByte(const char* hex_str){
   unsigned char val[1024] = {0};
@@ -118,30 +121,19 @@ static CFStringRef APCopyHexStringFromData(CFDataRef data)
 /* http://stackoverflow.com/a/12535482 */
 static CFDataRef APCopyDataFromHexString(CFStringRef string)
 {
-  CFIndex length = CFStringGetLength(string);
-  CFIndex maxSize =CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8);
-  char *cString = (char *)malloc(maxSize);
-  CFStringGetCString(string, cString, maxSize, kCFStringEncodingUTF8);
-  
-  
-  /* allocate the buffer */
-  UInt8 * buffer = malloc((strlen(cString) / 2));
-  
-  char *h = cString; /* this will walk through the hex string */
-  UInt8 *b = buffer; /* point inside the buffer */
-  
-  /* offset into this string is the numeric value */
-  char translate[] = "0123456789abcdef";
-  
-  for ( ; *h; h += 2, ++b) /* go by twos through the hex string */
-    *b = ((strchr(translate, *h) - translate) * 16) /* multiply leading digit by 16 */
-    + ((strchr(translate, *(h+1)) - translate));
-  
-  CFDataRef data = CFDataCreate(kCFAllocatorDefault, buffer, (strlen(cString) / 2));
-  free(cString);
-  free(buffer);
-  
-  return data;
+  if (string == NULL || CFGetTypeID(string) != CFStringGetTypeID()) return NULL;
+  NSString *hex = (__bridge NSString *)string;
+  // A UDID is 20 bytes represented by exactly 40 hexadecimal characters.
+  if (!IsHexStringOfLength(hex, 40)) return NULL;
+  UInt8 bytes[20] = {0};
+  for (NSUInteger i = 0; i < 20; i++) {
+    NSString *pair = [hex substringWithRange:NSMakeRange(i * 2, 2)];
+    unsigned int value = 0;
+    NSScanner *scanner = [NSScanner scannerWithString:pair];
+    if (![scanner scanHexInt:&value] || !scanner.isAtEnd) return NULL;
+    bytes[i] = (UInt8)value;
+  }
+  return CFDataCreate(kCFAllocatorDefault, bytes, sizeof(bytes));
 }
 static int NumberCountOfString(NSString* str,const char a){
   int count=0;
