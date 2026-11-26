@@ -58,14 +58,19 @@ done
 EXECUTABLE="$(plutil -extract CFBundleExecutable raw -o - "$APP_MATCH" 2>/dev/null || true)"
 [ -n "$EXECUTABLE" ] || fail '无法读取 App 可执行文件名称。'
 command -v pgrep >/dev/null 2>&1 || fail '缺少 pgrep，无法确认 App 已退出。'
-if pgrep -x "$EXECUTABLE" >/dev/null 2>&1; then fail '目标 App 仍在运行，请完全退出后重试。'; fi
+if pgrep -x "$EXECUTABLE" >/dev/null 2>&1; then
+  fail '目标 App 仍在运行，请完全退出后重试。'
+else
+  PGP_STATUS=$?
+  [ "$PGP_STATUS" -eq 1 ] || fail '无法可靠确认 App 进程状态。'
+fi
 
 # Only restore regular files and directories. Reject traversal, links, devices and FIFOs.
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 STAGE="$BACKUP_ROOT/.restore-stage.$$"
 LIST="$BACKUP_ROOT/.restore-list.$$"
 DETAIL="$BACKUP_ROOT/.restore-detail.$$"
-SNAPSHOT="$ROLLBACK_ROOT/$BUNDLE_ID.$STAMP.$SAVED_CONTAINER"
+SNAPSHOT="$ROLLBACK_ROOT/$BUNDLE_ID.$STAMP.$SAVED_CONTAINER.$"
 mkdir -p "$ROLLBACK_ROOT"
 chmod 0700 "$ROLLBACK_ROOT"
 mkdir "$STAGE"
@@ -93,7 +98,9 @@ mkdir "$SNAPSHOT"
 chmod 0700 "$SNAPSHOT"
 cp -Rp "$MATCH/." "$SNAPSHOT/" || fail '还原前快照创建失败；原数据未更改。'
 if ! find "$MATCH" -mindepth 1 -maxdepth 1 -exec rm -rf {} +; then
-  fail '无法清空目标容器；已保留还原前快照。'
+  find "$MATCH" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
+  cp -Rp "$SNAPSHOT/." "$MATCH/" || fail '清空失败且自动回滚失败；请保留快照目录。'
+  fail '清空目标容器失败，已从快照回滚。'
 fi
 if ! cp -Rp "$STAGE/." "$MATCH/"; then
   find "$MATCH" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
