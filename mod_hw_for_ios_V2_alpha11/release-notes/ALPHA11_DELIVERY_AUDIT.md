@@ -145,3 +145,13 @@ This section supersedes any earlier checkpoint above where the same feature is d
 - The original tweak's preference loader still reads the global com.modhw.ios.devices.plist path (with a legacy fallback); no per-bundle profile lookup is present in the reviewed source.
 - The cleanup and restore scripts are source-implemented but have not been executed on the target device. Their rollback paths are not a substitute for fault-injection testing.
 - The latest observed Theos and IPA Actions runs were pending/queued or in progress during this source review; check the branch's Actions page for their final conclusion before treating the latest source revision as built.
+
+## Per-app Hook profile resolution — source implementation
+
+- The original MobileGestalt configuration loader now resolves the current process Bundle ID and checks `/var/mobile/Library/Preferences/com.modhw.ios.profiles/<Bundle-ID>.plist` first.
+- If no valid per-app path is present, it preserves compatibility by falling back to the global `com.modhw.ios.devices.plist`, then the legacy `/tmp/devices.plist`.
+- Bundle IDs are restricted to alphanumeric characters, dot, underscore, and hyphen; leading dots, trailing dots, and consecutive dots are rejected before constructing the profile path.
+- The tweak logs only which source class was selected (per-app/global/legacy), not profile contents.
+- The selected plist is read during tweak initialization. This is not hot reload; restart the target process after changing its profile.
+- Static regression checks now assert that per-app lookup precedes global/legacy fallback. Build and target-device process-isolation tests are pending.
+- The manager still does not have a privileged profile-write API. Profile files must currently be placed in the Rootless preference directory through an authorized device file-management workflow.
