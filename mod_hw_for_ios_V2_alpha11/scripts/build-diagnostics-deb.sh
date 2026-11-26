@@ -9,9 +9,9 @@ mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/bin" "$OUT"
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.modhw.ios.diagnostics
 Name: mod_hw_for_ios V2 Config Tools
-Version: 2.0.0~final5
+Version: 2.0.0~final6
 Architecture: iphoneos-arm64
-Description: Rootless config diagnostics, config backup/restore, and guarded app-container backup/restore tools.
+Description: Rootless config diagnostics, config backup/restore, and backup, guarded restore, and backup-first app-container cleanup tools.
 Maintainer: mod_hw_for_ios contributors
 Depends: coreutils, procps
 Section: Utilities
@@ -21,6 +21,7 @@ install -m 0755 "$ROOT/scripts/backup-config.sh" "$PKG/var/jb/usr/bin/mod-hw-con
 install -m 0755 "$ROOT/scripts/restore-config.sh" "$PKG/var/jb/usr/bin/mod-hw-config-restore"
 install -m 0755 "$ROOT/scripts/backup-app-container.sh" "$PKG/var/jb/usr/bin/mod-hw-app-backup"
 install -m 0755 "$ROOT/scripts/restore-app-container.sh" "$PKG/var/jb/usr/bin/mod-hw-app-restore"
+install -m 0755 "$ROOT/scripts/cleanup-app-container.sh" "$PKG/var/jb/usr/bin/mod-hw-app-clean"
 install -m 0755 "$ROOT/scripts/verify-app-container-backup.sh" "$PKG/var/jb/usr/bin/mod-hw-app-backup-verify"
 install -m 0755 "$ROOT/scripts/selftest-device.sh" "$PKG/var/jb/usr/bin/mod-hw-selftest"
 printf '2.0\n' > "$WORK/debian-binary"
