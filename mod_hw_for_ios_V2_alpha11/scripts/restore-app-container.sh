@@ -92,6 +92,8 @@ awk '
 tar -tvzf "$ARCHIVE" > "$DETAIL" || fail '无法读取 tar 文件类型清单。'
 awk 'substr($0,1,1) != "-" && substr($0,1,1) != "d" { exit 1 }' "$DETAIL" || fail '归档包含符号链接、硬链接或特殊文件；为防止越界写入，拒绝还原。'
 tar -xzpf "$ARCHIVE" -C "$STAGE" || fail '归档解压到隔离暂存目录失败。'
+STAGED_ID="$(plutil -extract MCMMetadataIdentifier raw -o - "$STAGE/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null || true)"
+[ "$STAGED_ID" = "$BUNDLE_ID" ] || fail '备份内的容器元数据与指定 Bundle ID 不匹配。'
 
 # Preserve the current container as a same-filesystem rollback snapshot before replacement.
 mkdir "$SNAPSHOT"
