@@ -1,16 +1,34 @@
 #!/bin/sh
-set -e
+set -eu
 PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
 LABEL="system/com.idevelab.core.alpha11"
 if [ "$1" = "configure" ]; then
-  [ -x /bin/launchctl ] || { echo "launchctl unavailable; Core not started" >&2; exit 1; }
   [ -x /var/jb/usr/libexec/idevelab-core ] || { echo "Core executable missing" >&2; exit 1; }
   mkdir -p /var/mobile/Library/Logs
   chown mobile:mobile /var/mobile/Library/Logs 2>/dev/null || true
-  /bin/launchctl bootout system "$PLIST" >/dev/null 2>&1 || true
-  /bin/launchctl enable "$LABEL" >/dev/null 2>&1 || true
-  /bin/launchctl bootstrap system "$PLIST"
-  /bin/launchctl kickstart -k "$LABEL"
-  /bin/launchctl print "$LABEL" >/dev/null
+
+  # Rootless jailbreaks do not expose launchctl at one consistent path.
+  LAUNCHCTL=""
+  for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/usr/bin/launchctl; do
+    if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
+  done
+  if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
+    LAUNCHCTL="$(command -v launchctl)"
+  fi
+  if [ -z "$LAUNCHCTL" ]; then
+    echo "Alpha11 Core installed; launchctl not found in this jailbreak environment. Start it after restoring the launchctl path." >&2
+    exit 0
+  fi
+
+  "$LAUNCHCTL" bootout system "$PLIST" >/dev/null 2>&1 || true
+  "$LAUNCHCTL" enable "$LABEL" >/dev/null 2>&1 || true
+  if ! "$LAUNCHCTL" bootstrap system "$PLIST"; then
+    echo "Alpha11 Core installed, but launchd bootstrap failed; inspect launchd logs." >&2
+    exit 0
+  fi
+  "$LAUNCHCTL" kickstart -k "$LABEL" >/dev/null 2>&1 || true
+  if ! "$LAUNCHCTL" print "$LABEL" >/dev/null 2>&1; then
+    echo "Alpha11 Core is installed but launchd has not confirmed it running." >&2
+  fi
 fi
 exit 0
