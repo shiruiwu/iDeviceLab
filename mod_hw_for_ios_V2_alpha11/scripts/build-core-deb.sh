@@ -11,6 +11,8 @@ mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/libexec" "$PKG/var/jb/Library/LaunchDaem
 xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -isysroot "$SDK" -fobjc-arc -Wall -Wextra -framework Foundation "$ROOT/core/main.m" -o "$PKG/var/jb/usr/libexec/idevelab-core"
 chmod 0755 "$PKG/var/jb/usr/libexec/idevelab-core"
 install -m 0644 "$ROOT/core/layout/Library/LaunchDaemons/com.idevelab.core.alpha11.plist" "$PKG/var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
+install -m 0755 "$ROOT/core/layout/DEBIAN/postinst" "$PKG/DEBIAN/postinst"
+install -m 0755 "$ROOT/core/layout/DEBIAN/prerm" "$PKG/DEBIAN/prerm"
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.idevelab.core.alpha11
 Name: iDeviceLab Alpha11 Core
