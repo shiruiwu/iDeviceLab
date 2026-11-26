@@ -8,14 +8,16 @@ rm -rf "$WORK"
 mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/bin" "$OUT"
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.modhw.ios.diagnostics
-Name: mod_hw_for_ios V2 Diagnostics
-Version: 2.0.0~final2
+Name: mod_hw_for_ios V2 Config Tools
+Version: 2.0.0~final3
 Architecture: iphoneos-arm64
-Description: Read-only configuration plist diagnostics for rootless iOS.
+Description: Rootless config diagnostics and reversible plist backup/restore tools.
 Maintainer: mod_hw_for_ios contributors
 Section: Utilities
 EOF
 install -m 0755 "$ROOT/scripts/diagnose-config.sh" "$PKG/var/jb/usr/bin/mod-hw-diagnose"
+install -m 0755 "$ROOT/scripts/backup-config.sh" "$PKG/var/jb/usr/bin/mod-hw-config-backup"
+install -m 0755 "$ROOT/scripts/restore-config.sh" "$PKG/var/jb/usr/bin/mod-hw-config-restore"
 printf '2.0\n' > "$WORK/debian-binary"
 (cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 .)
 (cd "$PKG/DEBIAN" && tar --format=ustar -czf "$WORK/control.tar.gz" --owner=0 --group=0 .)
