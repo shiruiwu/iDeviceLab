@@ -58,3 +58,10 @@ These findings are intentionally documented rather than silently changing the up
 
 ## Not claimed
 This audit does not claim that deep cleanup, keychain erasure, app-container restoration, full manager/Core integration, or real-device runtime validation is complete. No new device-side operation was performed by this audit.
+
+
+## Follow-up hardening (2026-11-26)
+- Tightened the app-container backup verifier: the manifest must contain exactly one valid lowercase 64-character SHA-256 field and exactly one matching archive filename field.
+- The verifier rejects archive/manifest symlink inputs and refuses to proceed if the backup root itself is a symlink.
+- Verification remains non-destructive: it checks the checksum and tar readability only. It does not extract archives or establish restore safety.
+- Manager/Core integration remains unimplemented in this change. The legacy Core is a separate component and its profile store is not consumed by the Alpha11 tweak; connecting the manager to it without a supported, packaged, authenticated helper would create a misleading "connected" state.
