@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import sys
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/JailbreakCore"
@@ -75,7 +76,7 @@ check("SafeDirectoryMetrics" in MAIN and 'cachesMetrics[@"fileCount"]' in MAIN a
 check("SafeDirectoryMetrics" in MAIN and '"cachesScanStatus"' in MAIN and '"temporaryScanStatus"' in MAIN, "Core distinguishes complete, partial, missing and inaccessible directory scans")
 check("scanStatusLabel" in MAINTENANCE and "部分扫描" in MAINTENANCE and "权限不足 / 不可访问" in MAINTENANCE, "Manager displays scan completeness and access failures")
 check('"removedItems"' in MAIN and '"failedArea"' in MAIN and '"partial"' in MAIN, "Core reports partial cleanup item counts and failure location")
-check(MAIN.index("static unsigned long long SafePathBytes") < MAIN.index("static BOOL ClearDirectDirectoryContents") and MAIN.index("static void SetMaintenanceError") < MAIN.index("static BOOL ClearDirectDirectoryContents"), "Cleanup helpers are declared before first use")
+check(MAIN.index("static void SetMaintenanceError") < MAIN.index("static BOOL ValidateRemovalTree") < MAIN.index("static BOOL ClearDirectDirectoryContents"), "Cleanup validation helpers are declared before first use")
 check('"removedItems"' in MAINTENANCE and '"failedArea"' in MAINTENANCE, "Manager persists partial cleanup details in maintenance history")
 check("cachesFileCount" in MAINTENANCE and "temporaryFileCount" in MAINTENANCE, "Manager displays per-directory cleanup preview counts")
 check("AppMaintenanceResponse" in MAINTENANCE and "clearSelectedAppCaches()" in MAINTENANCE, "Manager previews and executes selected app cache maintenance")
@@ -136,6 +137,13 @@ check("<string>SpringBoard</string>" in ALPHA11_FILTER and "<string>com.apple.Pr
 check("HookerForMGCopyAnswer();" in mobile_gestalt_body and re.search(r"^\s*HookerForMGCopyMultipleAnswers\(\);", mobile_gestalt_body, re.M) is None, "Alpha11 MobileGestalt constructor path enables MGCopyAnswer but not MGCopyMultipleAnswers")
 check("hook_sysctlbyname();" in constructor_body and "hook_sysctl();" not in constructor_body, "Alpha11 constructor registers sysctlbyname but not sysctl")
 check("CTMobileEquipmentInfo_setIMEI();" in constructor_body and "CTMobileEquipmentInfo_setMEID();" in constructor_body and "HOOK_IDFA();" in constructor_body and "HOOK_IDFV();" in constructor_body, "Alpha11 constructor registers CoreTelephony setter and advertising/vendor ID hook entry points")
+
+check("removeItemAtPath:candidate" not in MAIN and "unlinkat(" in MAIN, "App cleanup has no pathname-based recursive deletion fallback")
+check("iDeviceLabAppCleanupHistoryV1" in MAINTENANCE and "persistAppCleanupRecord" in MAINTENANCE and "appCleanupHistory" in MAINTENANCE, "Manager persists and exports the latest 20 App cleanup records")
+device_script = ROOT / "scripts/device_acceptance.sh"
+shell_syntax = subprocess.run(["sh", "-n", str(device_script)], capture_output=True, text=True)
+check(shell_syntax.returncode == 0, "Device acceptance script passes POSIX shell syntax validation")
+check("manager_installed" in device_script.read_text() and "package_installed" in device_script.read_text(), "Device acceptance script verifies both Manager IPA and Rootless package installation")
 
 print(f"Rootless validation: {len(passed)} passed, {len(errors)} failed")
 for item in passed:

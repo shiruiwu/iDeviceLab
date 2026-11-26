@@ -15,7 +15,7 @@ Audited source: `mod_hw_for_ios_V2_alpha11`.
 - `MobileGestaltHooker()` calls `HookerForMGCopyAnswer()`; its `HookerForMGCopyMultipleAnswers()` call is commented out.
 - `hook_sysctl()` is defined, but the constructor does not call it. `replace_sysctl()` delegates to the original implementation and logs selected keys; it does not provide a configured replacement.
 - CoreTelephony setter hooks and IDFA / IDFV hooks are present in source and registered from the constructor, but source presence is not runtime evidence.
-- IOKit hook wrappers are present in source; runtime loading and behavior are not verified by the Manager.
+- IOKit wrappers use the source's `HOOK_FUNCTION` macro, which generates constructor-time registration when the tweak library is loaded. The filter still limits eligible processes to its declared targets, and runtime loading / behavior are not verified by the Manager.
 
 ## Manager capability boundary
 
