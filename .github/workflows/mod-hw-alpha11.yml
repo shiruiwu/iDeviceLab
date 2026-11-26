@@ -41,6 +41,7 @@ jobs:
           bash -n scripts/backup-config.sh
           bash -n scripts/restore-config.sh
           bash -n scripts/backup-app-container.sh
+          bash -n scripts/verify-app-container-backup.sh
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
 
