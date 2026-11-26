@@ -38,6 +38,8 @@ check(hook_filter_config.get("Mode") == "Any" and "com.apple.UIKit" in hook_filt
       "Substrate filter loads the Hook in UIKit apps while retaining explicit daemon targets")
 check("IsHexStringOfLength(str, 12)" in gestalt_source and "IsHexStringOfLength(hex, 40)" in gestalt_source,
       "Hardware-address and UDID hex inputs require exact lengths and hexadecimal characters")
+check(gestalt_source.count("if (data != nil) return CFDataCreate(NULL, [data bytes],[data length]);") == 6,
+      "All six IOKit hardware-data conversions preserve the original value when hex parsing fails")
 check("PreferenceBooleanIsTrue" in gestalt_source and "a == NULL" in gestalt_source,
       "Malformed plist booleans and invalid UDID bytes are rejected before use")
 check('com.modhw.ios.profiles' in gestalt_source and 'bundleIdentifier' in gestalt_source and
