@@ -13,7 +13,7 @@ Version: 2.0.0~final5
 Architecture: iphoneos-arm64
 Description: Rootless config diagnostics, config backup/restore, and guarded app-container backup/restore tools.
 Maintainer: mod_hw_for_ios contributors
-Depends: coreutils
+Depends: coreutils, procps
 Section: Utilities
 EOF
 install -m 0755 "$ROOT/scripts/diagnose-config.sh" "$PKG/var/jb/usr/bin/mod-hw-diagnose"
