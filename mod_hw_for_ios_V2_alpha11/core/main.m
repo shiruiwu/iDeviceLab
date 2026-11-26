@@ -11,7 +11,7 @@
 #import <stdlib.h>
 
 // Alpha11 companion Core: read-only local diagnostics, bound to loopback.
-static const int kPort = 18080;
+static const int kPort = 18081;
 
 static NSString *SysctlString(const char *key) {
     size_t size = 0;
