@@ -82,7 +82,7 @@ jobs:
               control_member = next(m for m in archive.getmembers() if m.name.lstrip('./') == 'control')
               metadata = archive.extractfile(control_member).read().decode()
           assert 'Architecture: iphoneos-arm64' in metadata, metadata
-          assert 'Depends: coreutils' in metadata, metadata
+          assert 'Depends: coreutils, procps' in metadata, metadata
           with tarfile.open(fileobj=io.BytesIO(members['data.tar.gz']), mode='r:gz') as archive:
               installed = {m.name.lstrip('./') for m in archive.getmembers()}
           expected = {
@@ -95,7 +95,7 @@ jobs:
               'var/jb/usr/bin/mod-hw-selftest',
           }
           assert expected.issubset(installed), sorted(installed)
-          print('DEB ar members, architecture, dependency, and all five installed tools verified')
+          print('DEB ar members, architecture, dependency, and all seven installed tools verified')
           PY
 
       - name: Upload IPA and diagnostics DEB artifacts
