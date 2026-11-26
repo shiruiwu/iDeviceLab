@@ -61,13 +61,11 @@ jobs:
       - name: Verify DEB package structure
         run: |
           test -s release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
-          python3 - <<'PY'
-          import subprocess
-          p = subprocess.run(['ar', 't', 'release/mod_hw_for_ios_V2_diagnostics_FINAL.deb'], check=True, text=True, capture_output=True)
-          names = [n.rstrip('/') for n in p.stdout.splitlines()]
-          assert names == ['debian-binary', 'control.tar.gz', 'data.tar.gz'], names
-          print('DEB ar members verified:', ', '.join(names))
-          PY
+          dpkg-deb --info release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
+          dpkg-deb --contents release/mod_hw_for_ios_V2_diagnostics_FINAL.deb | tee diagnostics-package-contents.txt
+          grep -F 'mod-hw-diagnose' diagnostics-package-contents.txt
+          test "$(dpkg-deb -f release/mod_hw_for_ios_V2_diagnostics_FINAL.deb Package)" = "com.modhw.ios.diagnostics"
+          test "$(dpkg-deb -f release/mod_hw_for_ios_V2_diagnostics_FINAL.deb Version)" = "2.0.0~final2"
 
       - name: Upload IPA and diagnostics DEB artifacts
         uses: actions/upload-artifact@v4
