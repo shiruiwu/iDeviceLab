@@ -65,3 +65,15 @@ This audit does not claim that deep cleanup, keychain erasure, app-container res
 - The verifier rejects archive/manifest symlink inputs and refuses to proceed if the backup root itself is a symlink.
 - Verification remains non-destructive: it checks the checksum and tar readability only. It does not extract archives or establish restore safety.
 - Manager/Core integration remains unimplemented in this change. The legacy Core is a separate component and its profile store is not consumed by the Alpha11 tweak; connecting the manager to it without a supported, packaged, authenticated helper would create a misleading "connected" state.
+
+
+## Six outstanding workstreams — progress checkpoint (2026-11-26)
+
+1. **App-container restore:** not implemented yet. The current archive is verified but has not been proven safe to extract into a live iOS container. Restore remains blocked on path/link validation, app-process quiescence, ownership/permission preservation, pre-restore snapshot, and rollback tests.
+2. **Deep cleanup:** not implemented. The current project does not claim a factory-reset-equivalent result. A cleanup design must distinguish the app data container from App Groups, Keychain, caches owned by other services, and server-side state.
+3. **Keychain handling:** no Keychain export, wipe, or restore is implemented. The app-container archive explicitly excludes Keychain. No credentials or tokens are read or printed.
+4. **Manager/Core integration:** first implementation step added to the Alpha11 manager: a user-triggered, read-only GET to `127.0.0.1:18080/status`, with a three-second timeout and response-shape validation. The IPA build script adds the narrow `NSAllowsLocalNetworking` ATS setting. This only detects the legacy Core; it does not yet package/start it or prove end-to-end installation on-device.
+5. **Per-app configuration:** not implemented. The legacy Core profile store is not consumed by the Alpha11 tweak. No profile is represented as active until there is an explicit, tested app-scoped configuration path. Runtime rewriting of hardware/account identifiers is not part of this integration step.
+6. **Real-device validation:** not completed. CI syntax/package checks cannot validate injection, launch daemon startup, loopback reachability, data restore, or cleanup on an iPhone 12 running iOS 16.2. A device-side test run and logs are still required.
+
+The manager/Core status probe is a concrete integration milestone, not a claim that the six workstreams are complete. Continue with separately testable changes and keep device-only checks marked pending until device evidence is available.
