@@ -439,11 +439,11 @@ struct ContentView: View {
                           let installed = row["installed"] as? Bool else { return nil }
                     return MaintenanceTool(name: name, path: path, installed: installed)
                 }
-                let count = maintenanceTools.filter(\\.installed).count
-                toolsStatus = "已检测 \\(count)/\\(maintenanceTools.count) 个维护工具"
+                let count = maintenanceTools.filter(\.installed).count
+                toolsStatus = "已检测 \(count)/\(maintenanceTools.count) 个维护工具"
             } catch {
                 maintenanceTools = []
-                toolsStatus = "检查失败：\\(error.localizedDescription)"
+                toolsStatus = "检查失败：\(error.localizedDescription)"
             }
         }
     }
