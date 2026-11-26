@@ -116,7 +116,7 @@ static unsigned long long SafeDirectoryBytes(NSString *path) {
     unsigned long long total = 0;
     NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:[NSURL fileURLWithPath:path]
         includingPropertiesForKeys:@[NSURLIsRegularFileKey, NSURLFileSizeKey, NSURLIsSymbolicLinkKey]
-        options:0 errorHandler:^BOOL(NSURL *url, NSError *error) { return YES; }];
+        options:0 errorHandler:^BOOL(__unused NSURL *url, __unused NSError *error) { return YES; }];
     for (NSURL *url in enumerator) {
         NSNumber *isLink = nil, *isFile = nil, *size = nil;
         [url getResourceValue:&isLink forKey:NSURLIsSymbolicLinkKey error:nil];
