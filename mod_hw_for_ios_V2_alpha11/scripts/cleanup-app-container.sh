@@ -53,6 +53,9 @@ ARCHIVE_PATH="$(printf '%s\n' "$BACKUP_OUTPUT" | sed -n 's/^应用数据容器�
 [ -n "$ARCHIVE_PATH" ] || fail '无法从备份工具结果中定位归档；未清理数据。'
 ARCHIVE_NAME="$(basename "$ARCHIVE_PATH")"
 "/var/jb/usr/bin/mod-hw-app-backup-verify" "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
+# The restore helper deliberately refuses links and special files. Enforce the
+# same policy before destructive cleanup so the generated archive is restorable.
+tar -tvzf "$ARCHIVE_PATH" | awk 'substr($0,1,1) != "-" && substr($0,1,1) != "d" { exit 1 }' || fail '备份包含符号链接或特殊文件，当前还原工具无法安全处理；已中止清理。'
 
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 SNAPSHOT="$SNAPSHOT_ROOT/$BUNDLE_ID.$STAMP.pid-$PPID"
