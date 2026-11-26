@@ -52,3 +52,12 @@ sh device-smoke-test.sh
 - [ ] 记录设备型号、iOS 版本、越狱方案、包版本和验证结果。
 
 只有全部适用项目完成并保留实测记录，才标记为正式交付。CI 成功不等同于设备端验证成功。
+
+
+## Rootless Core 0.1.9：App 本地维护与 Hook 安装诊断
+
+- `GET /maintenance/apps` 将已安装 App 的 Bundle ID 与数据容器元数据匹配，返回容器可访问状态、`Library/Caches` / `tmp` 目录大小，以及疑似孤立容器数量。不会返回容器绝对路径或文件内容。
+- `POST /maintenance/clear` 只接受当前已安装应用的 Bundle ID，只清理对应容器的 `Library/Caches` 和 `tmp` 直接内容；路径必须位于应用数据容器根目录下，缓存根目录不能是符号链接。Documents、Preferences、Application Support、数据库和 Keychain 不在清理范围内。建议清理前退出目标 App。
+- `GET /hooks/status` 检查 Alpha11 动态库与过滤 plist 文件是否存在。文件存在仅代表安装文件可见，不代表目标进程实际加载；接口明确将 `runtimeInjectionVerified` 保持为 false。
+- 管理器「指定 App 本地缓存维护」提供扫描预览、选择 App、确认清理、清理后复扫；「疑似卸载残留容器」目前只报告数量，不自动删除无法确认归属的数据。
+- 本功能不是 App 出厂重置：不会删除 App 文档、数据库、偏好设置、钥匙串、登录凭据或云端状态。
