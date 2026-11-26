@@ -33,11 +33,13 @@ diagnostic = ROOT / "scripts/diagnose-config.sh"
 backup = ROOT / "scripts/backup-config.sh"
 restore = ROOT / "scripts/restore-config.sh"
 app_backup = ROOT / "scripts/backup-app-container.sh"
+app_verify = ROOT / "scripts/verify-app-container-backup.sh"
 for path, label in [
     (diagnostic, "Read-only config diagnostic"),
     (backup, "Timestamped config backup"),
     (restore, "Validated config restore with rollback snapshot"),
     (app_backup, "Scoped app-container backup"),
+    (app_verify, "App-container backup integrity verifier"),
 ]:
     check(path.is_file(), label + " script exists")
 
