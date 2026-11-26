@@ -155,37 +155,143 @@ static unsigned long long SafeDirectoryFileCount(NSString *path) {
     return count;
 }
 
-static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath, unsigned long long *removedBytes, BOOL dryRun, NSError **error) {
+static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath,
+    unsigned long long *removedBytes, unsigned long long *removedItems, BOOL dryRun,
+    NSString **failedAt, NSError **error) {
     NSString *root = @"/var/mobile/Containers/Data/Application";
     NSString *canonicalContainer = container.stringByStandardizingPath;
-    // Only a direct UUID child of the known app-data root is eligible.
-    if (![canonicalContainer.stringByDeletingLastPathComponent isEqualToString:root]) return NO;
-    if ([[NSUUID alloc] initWithUUIDString:canonicalContainer.lastPathComponent] == nil) return NO;
-    if (![canonicalContainer.stringByResolvingSymlinksInPath isEqualToString:canonicalContainer]) return NO;
-    // Keep the deletion surface to the two explicitly supported cache locations.
-    if (![relativePath isEqualToString:@"Library/Caches"] && ![relativePath isEqualToString:@"tmp"]) return NO;
-    NSString *target = [[canonicalContainer stringByAppendingPathComponent:relativePath] stringByStandardizingPath];
-    // Reject symlinks in every path component, including the intermediate Library directory.
-    if (![target.stringByResolvingSymlinksInPath isEqualToString:target]) return NO;
-    struct stat info = {0};
-    if (lstat(target.fileSystemRepresentation, &info) != 0) {
-        if (errno == ENOENT) return YES;
+    if (![canonicalContainer.stringByDeletingLastPathComponent isEqualToString:root]) {
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, 10, @"app container is not a direct child of the application data root");
         return NO;
     }
-    if (!S_ISDIR(info.st_mode)) return NO;
-    unsigned long long before = SafeDirectoryBytes(target);
+    if ([[NSUUID alloc] initWithUUIDString:canonicalContainer.lastPathComponent] == nil) {
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, 11, @"app container directory name is not a UUID");
+        return NO;
+    }
+    if (![canonicalContainer.stringByResolvingSymlinksInPath isEqualToString:canonicalContainer]) {
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, 12, @"app container path resolves through a symbolic link");
+        return NO;
+    }
+    if (![relativePath isEqualToString:@"Library/Caches"] && ![relativePath isEqualToString:@"tmp"]) {
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, 13, @"requested cleanup path is outside the allowed cache locations");
+        return NO;
+    }
+    NSString *target = [[canonicalContainer stringByAppendingPathComponent:relativePath] stringByStandardizingPath];
+    if (![target.stringByResolvingSymlinksInPath isEqualToString:target]) {
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, 14, @"cleanup target contains an intermediate symbolic link");
+        return NO;
+    }
+    struct stat info = {0};
+    if (lstat(target.fileSystemRepresentation, &info) != 0) {
+        int savedErrno = errno;
+        if (savedErrno == ENOENT) return YES;
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to inspect %@: %s", relativePath, strerror(savedErrno)]);
+        return NO;
+    }
+    if (!S_ISDIR(info.st_mode)) {
+        if (failedAt) *failedAt = relativePath;
+        SetMaintenanceError(error, 15, [NSString stringWithFormat:@"%@ exists but is not a directory", relativePath]);
+        return NO;
+    }
     NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:target error:error];
-    if (!children) return NO;
+    if (!children) {
+        if (failedAt) *failedAt = relativePath;
+        if (error && !*error) SetMaintenanceError(error, 16, [NSString stringWithFormat:@"unable to enumerate %@", relativePath]);
+        return NO;
+    }
     for (NSString *child in children) {
-        if ([child isEqualToString:@"."] || [child isEqualToString:@".."] || [child containsString:@"/"]) return NO;
+        if ([child isEqualToString:@"."] || [child isEqualToString:@".."] || [child containsString:@"/"]) {
+            if (failedAt) *failedAt = relativePath;
+            SetMaintenanceError(error, 17, @"directory enumeration returned an invalid child name");
+            return NO;
+        }
         NSString *candidate = [target stringByAppendingPathComponent:child];
         struct stat childInfo = {0};
-        if (lstat(candidate.fileSystemRepresentation, &childInfo) != 0) return NO;
-        // removeItemAtPath removes a symlink itself; it does not resolve its destination.
-        if (!dryRun && ![NSFileManager.defaultManager removeItemAtPath:candidate error:error]) return NO;
+        if (lstat(candidate.fileSystemRepresentation, &childInfo) != 0) {
+            int savedErrno = errno;
+            if (failedAt) *failedAt = [relativePath stringByAppendingPathComponent:child];
+            SetMaintenanceError(error, savedErrno, [NSString stringWithFormat:@"unable to inspect cleanup item %@: %s", child, strerror(savedErrno)]);
+            return NO;
+        }
+        if (!dryRun) {
+            unsigned long long itemBytes = SafePathBytes(candidate, &childInfo);
+            NSError *removeError = nil;
+            if (![NSFileManager.defaultManager removeItemAtPath:candidate error:&removeError]) {
+                if (failedAt) *failedAt = [relativePath stringByAppendingPathComponent:child];
+                if (error && !*error) *error = removeError ?: [NSError errorWithDomain:@"iDeviceLab.AppMaintenance" code:18
+                    userInfo:@{NSLocalizedDescriptionKey:@"unable to remove cleanup item"}];
+                return NO;
+            }
+            if (removedBytes) *removedBytes += itemBytes;
+            if (removedItems) (*removedItems)++;
+        }
     }
-    if (removedBytes) *removedBytes += before;
     return YES;
+}
+
+static NSDictionary *SafeDirectoryMetrics(NSString *path) {
+    struct stat rootInfo = {0};
+    if (lstat(path.fileSystemRepresentation, &rootInfo) != 0) {
+        int savedErrno = errno;
+        return @{@"bytes":@0, @"fileCount":@0,
+                 @"status":@(savedErrno == ENOENT ? @"missing" : @"inaccessible"),
+                 @"error":@(savedErrno == ENOENT ? @"" : [NSString stringWithUTF8String:strerror(savedErrno)] ?: @"unable to inspect directory")};
+    }
+    if (!S_ISDIR(rootInfo.st_mode))
+        return @{@"bytes":@0, @"fileCount":@0, @"status":@"notDirectory", @"error":@"target is not a directory"};
+
+    __block NSError *scanError = nil;
+    unsigned long long totalBytes = 0, totalFiles = 0;
+    NSDirectoryEnumerator *enumerator = [NSFileManager.defaultManager enumeratorAtURL:[NSURL fileURLWithPath:path]
+        includingPropertiesForKeys:@[NSURLIsRegularFileKey, NSURLFileSizeKey, NSURLIsSymbolicLinkKey]
+        options:0 errorHandler:^BOOL(__unused NSURL *url, NSError *error) {
+            if (!scanError) scanError = error;
+            return YES;
+        }];
+    if (!enumerator)
+        return @{@"bytes":@0, @"fileCount":@0, @"status":@"inaccessible", @"error":@"unable to enumerate directory"};
+
+    for (NSURL *url in enumerator) {
+        NSNumber *isLink = nil, *isFile = nil, *size = nil;
+        NSError *resourceError = nil;
+        if (![url getResourceValue:&isLink forKey:NSURLIsSymbolicLinkKey error:&resourceError]) {
+            if (!scanError) scanError = resourceError;
+            continue;
+        }
+        if (isLink.boolValue) { [enumerator skipDescendants]; continue; }
+        if (![url getResourceValue:&isFile forKey:NSURLIsRegularFileKey error:&resourceError]) {
+            if (!scanError) scanError = resourceError;
+            continue;
+        }
+        if (isFile.boolValue) {
+            if (![url getResourceValue:&size forKey:NSURLFileSizeKey error:&resourceError]) {
+                if (!scanError) scanError = resourceError;
+                continue;
+            }
+            totalFiles++;
+            totalBytes += size.unsignedLongLongValue;
+        }
+    }
+    return @{@"bytes":@(totalBytes), @"fileCount":@(totalFiles),
+             @"status":@(scanError ? @"partial" : @"complete"),
+             @"error":scanError.localizedDescription ?: @""};
+}
+
+static unsigned long long SafePathBytes(NSString *path, const struct stat *info) {
+    if (S_ISREG(info->st_mode)) return (unsigned long long)MAX((off_t)0, info->st_size);
+    if (S_ISDIR(info->st_mode)) return SafeDirectoryBytes(path);
+    return 0;
+}
+
+static void SetMaintenanceError(NSError **error, NSInteger code, NSString *description) {
+    if (error && !*error) *error = [NSError errorWithDomain:@"iDeviceLab.AppMaintenance" code:code
+        userInfo:@{NSLocalizedDescriptionKey:description ?: @"maintenance operation failed"}];
 }
 
 static NSDictionary *AppMaintenanceInventory(void) {
@@ -200,10 +306,10 @@ static NSDictionary *AppMaintenanceInventory(void) {
         NSString *container = containers[bundleID];
         NSString *cachesPath = container ? [container stringByAppendingPathComponent:@"Library/Caches"] : nil;
         NSString *temporaryPath = container ? [container stringByAppendingPathComponent:@"tmp"] : nil;
-        unsigned long long caches = cachesPath ? SafeDirectoryBytes(cachesPath) : 0;
-        unsigned long long temporary = temporaryPath ? SafeDirectoryBytes(temporaryPath) : 0;
-        unsigned long long cachesFiles = cachesPath ? SafeDirectoryFileCount(cachesPath) : 0;
-        unsigned long long temporaryFiles = temporaryPath ? SafeDirectoryFileCount(temporaryPath) : 0;
+        NSDictionary *cachesMetrics = cachesPath ? SafeDirectoryMetrics(cachesPath) : @{@"bytes":@0, @"fileCount":@0, @"status":@"unavailable", @"error":@"app container unavailable"};
+        NSDictionary *temporaryMetrics = temporaryPath ? SafeDirectoryMetrics(temporaryPath) : @{@"bytes":@0, @"fileCount":@0, @"status":@"unavailable", @"error":@"app container unavailable"};
+        unsigned long long caches = [cachesMetrics[@"bytes"] unsignedLongLongValue];
+        unsigned long long temporary = [temporaryMetrics[@"bytes"] unsignedLongLongValue];
         [apps addObject:@{
             @"name": app[@"name"] ?: bundleID,
             @"bundleIdentifier": bundleID,
@@ -211,8 +317,12 @@ static NSDictionary *AppMaintenanceInventory(void) {
             @"containerAvailable": @(container != nil),
             @"cachesBytes": @(caches),
             @"temporaryBytes": @(temporary),
-            @"cachesFileCount": @(cachesFiles),
-            @"temporaryFileCount": @(temporaryFiles),
+            @"cachesFileCount": cachesMetrics[@"fileCount"] ?: @0,
+            @"temporaryFileCount": temporaryMetrics[@"fileCount"] ?: @0,
+            @"cachesScanStatus": cachesMetrics[@"status"] ?: @"unknown",
+            @"temporaryScanStatus": temporaryMetrics[@"status"] ?: @"unknown",
+            @"cachesScanError": cachesMetrics[@"error"] ?: @"",
+            @"temporaryScanError": temporaryMetrics[@"error"] ?: @"",
             @"cleanableBytes": @(caches + temporary)
         }];
     }
@@ -252,16 +362,22 @@ static NSDictionary *ClearAppCaches(NSData *body) {
     if (!installed) return @{@"ok":@NO, @"error":@"only currently installed applications can be selected"};
     NSString *container = AppDataContainerIndex()[bundleID];
     if (!container) return @{@"ok":@NO, @"error":@"app data container is not accessible"};
-    unsigned long long removed = 0;
+    unsigned long long removed = 0, removedItems = 0;
     NSError *error = nil;
+    NSString *failedAt = nil;
     // Preflight both locations before deleting anything, reducing partial-cleanup failures.
-    if (!ClearDirectDirectoryContents(container, @"Library/Caches", NULL, YES, &error) ||
-        !ClearDirectDirectoryContents(container, @"tmp", NULL, YES, &error))
-        return @{@"ok":@NO, @"error":error.localizedDescription ?: @"cache cleanup preflight failed; no files were intentionally removed"};
-    if (!ClearDirectDirectoryContents(container, @"Library/Caches", &removed, NO, &error) ||
-        !ClearDirectDirectoryContents(container, @"tmp", &removed, NO, &error))
-        return @{@"ok":@NO, @"error":error.localizedDescription ?: @"cache cleanup failed after preflight; inspect the selected app container"};
-    return @{@"ok":@YES, @"bundleIdentifier":bundleID, @"removedBytes":@(removed),
+    if (!ClearDirectDirectoryContents(container, @"Library/Caches", NULL, NULL, YES, &failedAt, &error) ||
+        !ClearDirectDirectoryContents(container, @"tmp", NULL, NULL, YES, &failedAt, &error))
+        return @{@"ok":@NO, @"partial":@NO, @"removedBytes":@0, @"removedItems":@0,
+                 @"failedArea":failedAt ?: @"preflight", @"error":error.localizedDescription ?: @"cache cleanup preflight failed; no files were intentionally removed"};
+    if (!ClearDirectDirectoryContents(container, @"Library/Caches", &removed, &removedItems, NO, &failedAt, &error) ||
+        !ClearDirectDirectoryContents(container, @"tmp", &removed, &removedItems, NO, &failedAt, &error))
+        return @{@"ok":@NO, @"partial":@(removedItems > 0), @"bundleIdentifier":bundleID,
+                 @"removedBytes":@(removed), @"removedItems":@(removedItems),
+                 @"failedArea":failedAt ?: @"unknown",
+                 @"error":error.localizedDescription ?: @"cache cleanup failed after preflight; inspect the selected app container"};
+    return @{@"ok":@YES, @"partial":@NO, @"bundleIdentifier":bundleID,
+             @"removedBytes":@(removed), @"removedItems":@(removedItems),
              @"clearedAreas":@[@"Library/Caches", @"tmp"],
              @"excludedAreas":@[@"Documents", @"Library/Preferences", @"Library/Application Support", @"Keychain", @"cloud state"]};
 }

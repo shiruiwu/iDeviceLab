@@ -49,6 +49,10 @@ struct AppMaintenanceItem: Identifiable, Codable, Equatable {
     let temporaryBytes: Int64
     let cachesFileCount: Int
     let temporaryFileCount: Int
+    let cachesScanStatus: String
+    let temporaryScanStatus: String
+    let cachesScanError: String
+    let temporaryScanError: String
     let cleanableBytes: Int64
 }
 

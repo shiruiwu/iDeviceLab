@@ -91,6 +91,10 @@ struct MaintenanceView: View {
                             LabeledContent("tmp", value: ByteCountFormatter.string(fromByteCount: Int64(app.temporaryBytes), countStyle: .file))
                             LabeledContent("Caches 文件数", value: "\(app.cachesFileCount)")
                             LabeledContent("tmp 文件数", value: "\(app.temporaryFileCount)")
+                            LabeledContent("Caches 扫描", value: scanStatusLabel(app.cachesScanStatus))
+                            LabeledContent("tmp 扫描", value: scanStatusLabel(app.temporaryScanStatus))
+                            if !app.cachesScanError.isEmpty { Text("Caches：\(app.cachesScanError)").font(.caption2).foregroundStyle(.secondary) }
+                            if !app.temporaryScanError.isEmpty { Text("tmp：\(app.temporaryScanError)").font(.caption2).foregroundStyle(.secondary) }
                             LabeledContent("预计可清理", value: ByteCountFormatter.string(fromByteCount: Int64(app.cleanableBytes), countStyle: .file))
                             Button { Task { await refreshAppInventory() } } label: {
                                 Label("重新扫描应用数据", systemImage: "arrow.clockwise")
@@ -160,6 +164,18 @@ struct MaintenanceView: View {
         }
     }
 
+    private func scanStatusLabel(_ status: String) -> String {
+        switch status {
+        case "complete": return "完整"
+        case "partial": return "部分扫描"
+        case "missing": return "目录不存在"
+        case "inaccessible": return "权限不足 / 不可访问"
+        case "notDirectory": return "路径类型异常"
+        case "unavailable": return "容器不可用"
+        default: return "未知状态"
+        }
+    }
+
     @MainActor
     private func refreshAppInventory() async {
         do {
@@ -187,6 +203,7 @@ struct MaintenanceView: View {
         guard let app = selectedApp, app.containerAvailable, !isCleaningApp else { return }
         isCleaningApp = true
         defer { isCleaningApp = false }
+        var cleanupResponse: [String: Any]?
         do {
             let body = try JSONSerialization.data(withJSONObject: ["bundleIdentifier": app.bundleIdentifier])
             var request = URLRequest(url: coreURL.appendingPathComponent("maintenance/clear"))
@@ -195,6 +212,7 @@ struct MaintenanceView: View {
             request.httpBody = body
             let (data, response) = try await URLSession.shared.data(for: request)
             let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            cleanupResponse = object
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
                   object?["ok"] as? Bool == true else {
                 throw NSError(domain: "iDeviceLab.AppMaintenance", code: 1,
@@ -205,6 +223,8 @@ struct MaintenanceView: View {
                 "bundleIdentifier": app.bundleIdentifier,
                 "appName": app.name,
                 "removedBytes": removed,
+                "removedItems": (object?["removedItems"] as? NSNumber)?.intValue ?? 0,
+                "partial": false,
                 "completedAt": ISO8601DateFormatter().string(from: Date()),
                 "areas": ["Library/Caches", "tmp"]
             ]
@@ -213,6 +233,26 @@ struct MaintenanceView: View {
             await refreshAppInventory()
             message = "已清理 \(app.name) 的缓存和临时文件。没有删除应用文档、数据库、偏好设置或凭据。"
         } catch {
+            if let result = cleanupResponse {
+                let removed = (result["removedBytes"] as? NSNumber)?.int64Value ?? 0
+                let removedItems = (result["removedItems"] as? NSNumber)?.intValue ?? 0
+                let partial = result["partial"] as? Bool ?? false
+                lastAppCleanup = [
+                    "bundleIdentifier": app.bundleIdentifier,
+                    "appName": app.name,
+                    "removedBytes": removed,
+                    "removedItems": removedItems,
+                    "partial": partial,
+                    "failedArea": result["failedArea"] as? String ?? "",
+                    "error": result["error"] as? String ?? error.localizedDescription,
+                    "completedAt": ISO8601DateFormatter().string(from: Date()),
+                    "areas": ["Library/Caches", "tmp"]
+                ]
+                UserDefaults.standard.set(lastAppCleanup, forKey: "iDeviceLabLastAppCleanupV1")
+                if partial {
+                    appMaintenanceMessage = "部分清理：已删除 \(removedItems) 项，\(ByteCountFormatter.string(fromByteCount: removed, countStyle: .file))"
+                }
+            }
             message = "App 缓存清理失败：\(error.localizedDescription)"
             await refreshAppInventory()
         }
@@ -232,6 +272,10 @@ struct MaintenanceView: View {
                 "temporaryBytes": app.temporaryBytes,
                 "cachesFileCount": app.cachesFileCount,
                 "temporaryFileCount": app.temporaryFileCount,
+                "cachesScanStatus": app.cachesScanStatus,
+                "temporaryScanStatus": app.temporaryScanStatus,
+                "cachesScanError": app.cachesScanError,
+                "temporaryScanError": app.temporaryScanError,
                 "cleanableBytes": app.cleanableBytes
             ] as [String: Any]
         }
