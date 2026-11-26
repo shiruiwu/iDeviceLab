@@ -131,7 +131,7 @@ if core_source.is_file():
     check('@"version": @"0.2.0-alpha11"' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
-          'manifestAttrs[NSFilePosixPermissions]' in core and
+          'HasSecureBackupMetadata' in core and
           '[attrs[NSFileSize] unsignedLongLongValue] == 0' in core,
           "Backup inventory rejects non-hex hashes, malformed identities, public manifest permissions, and empty archives")
     check('HasSecureBackupMetadata' in core and 'lstat(path.fileSystemRepresentation, &st)' in core and
