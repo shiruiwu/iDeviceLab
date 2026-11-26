@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
+LABEL="system/com.idevelab.core.alpha11"
+if [ "$1" = "configure" ]; then
+  [ -x /bin/launchctl ] || { echo "launchctl unavailable; Core not started" >&2; exit 1; }
+  [ -x /var/jb/usr/libexec/idevelab-core ] || { echo "Core executable missing" >&2; exit 1; }
+  mkdir -p /var/mobile/Library/Logs
+  chown mobile:mobile /var/mobile/Library/Logs 2>/dev/null || true
+  /bin/launchctl bootout system "$PLIST" >/dev/null 2>&1 || true
+  /bin/launchctl enable "$LABEL" >/dev/null 2>&1 || true
+  /bin/launchctl bootstrap system "$PLIST"
+  /bin/launchctl kickstart -k "$LABEL"
+  /bin/launchctl print "$LABEL" >/dev/null
+fi
+exit 0
