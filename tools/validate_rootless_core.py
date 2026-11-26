@@ -67,6 +67,11 @@ check("AppMaintenanceResponse" in MAINTENANCE and "clearSelectedAppCaches()" in 
 check("orphanedContainerCount" in MAINTENANCE and "疑似卸载残留容器" in MAINTENANCE, "Manager reports possible orphaned app containers")
 check("Library/Caches" in MAINTENANCE and "Keychain" in MAINTENANCE, "Maintenance UI documents cleanup scope and credential exclusions")
 check("HookInstallationStatus" in SWIFT and "refreshHookStatus()" in SWIFT, "Manager displays Hook installation diagnostics")
+check('@"orphanedContainers":orphans' in MAIN and '"containerUUID"' in MAIN, "Core returns per-container orphan diagnostics with UUID and bundle identifier")
+check('"filterParseable"' in MAIN and '"filterTargets"' in MAIN and '"runtimeInjectionVerified":@NO' in MAIN, "Hook diagnostics parse filter rules without claiming runtime injection")
+check('"installedAppInventory": appInventory' in MAINTENANCE and '"orphanedContainers": orphanInventory' in MAINTENANCE, "Maintenance report includes last app inventory and orphan container details")
+check("OrphanedContainerItem" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/Models.swift").read_text(), "Manager has typed orphan container response model")
+
 check('Label("同步当前配置档案"' in SWIFT, "Manager exposes selected-profile sync to Alpha11 local plist")
 check('"HWModelStr": profile.deviceModel' in SWIFT and '"ProductVersion": profile.iosVersion' in SWIFT and '"RegionCode": profile.region' in SWIFT, "Profile sync maps only explicit safe profile fields")
 
