@@ -33,6 +33,10 @@ jobs:
       - name: Run static project checks
         run: python3 tools/validate_project.py
 
+      - name: Compile Alpha11 Core against the iOS SDK
+        run: |
+          xcrun --sdk iphoneos clang -fsyntax-only -target arm64-apple-ios16.0 -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" -fobjc-arc -Wall -Wextra -framework Foundation core/main.m
+
       - name: Check Swift and shell syntax
         run: |
           swiftc -frontend -parse manager/ModHWManager/ModHWManagerApp.swift
