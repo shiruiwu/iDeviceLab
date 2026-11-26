@@ -100,7 +100,7 @@ if selftest.is_file():
           "On-device self-test checks Core and tools without destructive operations")
 if app_cleanup.is_file():
     src = app_cleanup.read_text()
-    check("mod-hw-app-backup" in src and "mod-hw-app-backup-verify" in src and "cleanup-snapshots" in src and "--confirm" in src,
+    check("mod-hw-app-backup" in src and "mod-hw-app-backup-verify" in src and "cleanup-snapshots" in src and "--confirm" in src and "tar -tvzf" in src,
           "App cleanup creates and verifies a backup and rollback snapshot before clearing data")
     check("Keychain" in src and "App Groups" in src,
           "App cleanup documents Keychain and App Groups as excluded")
