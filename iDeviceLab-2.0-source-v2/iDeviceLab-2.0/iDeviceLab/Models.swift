@@ -37,3 +37,22 @@ struct ManagedApp: Identifiable, Codable, Equatable {
     var bundleIdentifier: String
     var profileID: UUID
 }
+
+
+struct AppMaintenanceItem: Identifiable, Codable, Equatable {
+    var id: String { bundleIdentifier }
+    let name: String
+    let bundleIdentifier: String
+    let version: String
+    let containerAvailable: Bool
+    let cachesBytes: Int64
+    let temporaryBytes: Int64
+    let cleanableBytes: Int64
+}
+
+struct AppMaintenanceResponse: Codable {
+    let ok: Bool
+    let apps: [AppMaintenanceItem]
+    let orphanedContainerCount: Int
+    let scope: String?
+}
