@@ -64,7 +64,7 @@ tar -czpf "$TMP" -C "$MATCH" .
 tar -tzf "$TMP" >/dev/null
 mv "$TMP" "$ARCHIVE"
 chmod 0600 "$ARCHIVE"
-HASH="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+HASH="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 {
   echo "bundle_id=$BUNDLE_ID"
   echo "container_id=$CONTAINER_ID"
