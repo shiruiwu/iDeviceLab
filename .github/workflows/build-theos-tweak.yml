@@ -1,4 +1,4 @@
-name: Manual upstream Alpha11 Theos build (not part of safe release)
+name: Manual Alpha11 upstream source audit (no tweak package)
 
 on:
   workflow_dispatch:
@@ -6,53 +6,29 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: mod-hw-alpha11-theos-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  build-tweak:
-    runs-on: macos-15-intel
-    timeout-minutes: 45
+  audit:
+    runs-on: macos-15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: mod_hw_for_ios_V2_alpha11
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Install packaging tools
+      - uses: actions/checkout@v4
+      - name: Install Swift tools
+        run: xcodebuild -version
+      - name: Validate retained upstream source and safe companion
+        run: python3 tools/validate_project.py
+      - name: Parse companion manager and scripts
         run: |
-          brew install ldid dpkg
-
-      - name: Install Theos and iOS SDKs
+          swiftc -frontend -parse manager/ModHWManager/ModHWManagerApp.swift
+          bash -n scripts/build-trollstore-ipa.sh
+          bash -n scripts/diagnose-config.sh
+          bash -n scripts/build-release.sh
+          bash -n scripts/build-diagnostics-deb.sh
+      - name: Confirm optional cloud hook is excluded from package recipe
         run: |
-          set -euo pipefail
-          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/theos/theos.git "$GITHUB_WORKSPACE/theos"
-          git clone --depth 1 https://github.com/theos/sdks.git "$RUNNER_TEMP/theos-sdks"
-          rsync -a "$RUNNER_TEMP/theos-sdks/" "$GITHUB_WORKSPACE/theos/sdks/"
-          test -d "$GITHUB_WORKSPACE/theos/sdks"
-          find "$GITHUB_WORKSPACE/theos/sdks" -maxdepth 1 -type d -name 'iPhoneOS*.sdk' -print | head -5
-          test -n "$(find "$GITHUB_WORKSPACE/theos/sdks" -maxdepth 1 -type d -name 'iPhoneOS*.sdk' -print -quit)"
-
-      - name: Build Rootless tweak package
-        env:
-          THEOS: ${{ github.workspace }}/theos
-        run: |
-          set -euo pipefail
-          make clean package FINALPACKAGE=1
-          PACKAGE="$(find packages -maxdepth 1 -type f -name '*.deb' -print -quit)"
-          test -n "$PACKAGE"
-          dpkg-deb --info "$PACKAGE"
-          dpkg-deb --contents "$PACKAGE" | tee package-contents.txt
-          grep -F 'mod_hw_for_ios.dylib' package-contents.txt
-          grep -F 'mod_hw_for_ios.plist' package-contents.txt
-          test "$(dpkg-deb -f "$PACKAGE" Package)" = "com.modhw.ios"
-
-      - name: Upload Rootless Debian package
-        uses: actions/upload-artifact@v4
-        with:
-          name: mod-hw-alpha11-rootless-deb
-          path: mod_hw_for_ios_V2_alpha11/packages/*.deb
-          if-no-files-found: error
-          retention-days: 90
+          ! grep -F 'src/captain_hook/hook.mm' Makefile
+          grep -F 'src/mobile_gestalt/mobile_gestalt.m' Makefile
+          grep -F 'src/cydia_substrate_hook/HookUtil.m' Makefile
+          echo "Source audit only: no runtime tweak DEB is built or uploaded."
