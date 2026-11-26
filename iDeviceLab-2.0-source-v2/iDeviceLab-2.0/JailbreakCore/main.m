@@ -8,6 +8,7 @@
 #import <string.h>
 #import <math.h>
 #import <sys/sysctl.h>
+#import <sys/stat.h>
 
 static const int kPort = 18080;
 
@@ -104,8 +105,8 @@ static NSDictionary *ApplySafeAlpha11ConfigUpdate(NSData *body) {
         return @{@"ok":@NO, @"error":@"configuration must be a JSON object"};
 
     NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
-    NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
-    if (![attributes[NSFileType] isEqualToString:NSFileTypeRegular])
+    struct stat pathInfo = {0};
+    if (lstat(path.fileSystemRepresentation, &pathInfo) != 0 || !S_ISREG(pathInfo.st_mode))
         return @{@"ok":@NO, @"error":@"existing regular Alpha11 plist is required"};
     NSMutableDictionary *current = [NSMutableDictionary dictionaryWithContentsOfFile:path];
     if (![current isKindOfClass:NSMutableDictionary.class] ||
@@ -183,7 +184,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
-        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.6", @"port":@(kPort)};
+        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.7", @"port":@(kPort)};
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/config/status"]) return Alpha11ConfigStatus();
