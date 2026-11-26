@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import Foundation
 import UniformTypeIdentifiers
 import CoreFoundation
 
@@ -12,6 +14,15 @@ private struct CoreApp: Identifiable {
     let bundleIdentifier: String
     let version: String
     var id: String { bundleIdentifier }
+}
+
+private struct DeviceSummary: Decodable {
+    let productType: String
+    let architecture: String
+    let osVersion: String
+    let diskTotalBytes: UInt64
+    let diskFreeBytes: UInt64
+    let uptimeSeconds: Double
 }
 
 private struct PlistEntry: Identifiable {
@@ -30,6 +41,8 @@ struct ContentView: View {
     @State private var isValid = false
     @State private var rootType = "未知"
     @State private var coreStatus = "尚未检测 Core 服务"
+    @State private var deviceSummary: DeviceSummary?
+    @State private var systemStatus = "尚未读取设备信息"
     @State private var coreChecking = false
     @State private var appsLoading = false
     @State private var appInventoryStatus = "尚未读取 App 清单"
@@ -50,9 +63,24 @@ struct ContentView: View {
                             statusCard("Alpha11 Core", value: coreStatus, systemImage: "cpu")
                             statusCard("App 清单", value: installedApps.isEmpty ? "尚未读取" : "\(installedApps.count) 个 App", systemImage: "square.grid.2x2")
                         }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("设备信息").font(.headline)
+                            if let summary = deviceSummary {
+                                LabeledContent("设备型号", value: summary.productType)
+                                LabeledContent("系统版本", value: summary.osVersion)
+                                LabeledContent("架构", value: summary.architecture)
+                                LabeledContent("存储空间", value: "\\(ByteCountFormatter.string(fromByteCount: Int64(clamping: summary.diskFreeBytes), countStyle: .file)) 可用 / \\(ByteCountFormatter.string(fromByteCount: Int64(clamping: summary.diskTotalBytes), countStyle: .file))")
+                            } else {
+                                Text(systemStatus).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding()
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                         Button {
                             checkCore()
                             fetchInstalledApps()
+                            fetchSystemSummary()
                         } label: {
                             Label(coreChecking || appsLoading ? "正在检查…" : "刷新设备状态", systemImage: "arrow.clockwise")
                                 .frame(maxWidth: .infinity)
@@ -109,6 +137,7 @@ struct ContentView: View {
         .task {
             checkCore()
             fetchInstalledApps()
+            fetchSystemSummary()
         }
     }
 
@@ -301,6 +330,28 @@ struct ContentView: View {
                 coreStatus = "已连接：\(service) · v\(version)"
             } catch {
                 coreStatus = "未连接：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func fetchSystemSummary() {
+        systemStatus = "正在读取设备信息…"
+        Task {
+            do {
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:18081/system")!)
+                request.httpMethod = "GET"
+                request.timeoutInterval = 4
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
+                }
+                let summary = try JSONDecoder().decode(DeviceSummary.self, from: data)
+                deviceSummary = summary
+                systemStatus = "设备信息已更新"
+            } catch {
+                deviceSummary = nil
+                systemStatus = "读取失败：\\(error.localizedDescription)"
             }
         }
     }
