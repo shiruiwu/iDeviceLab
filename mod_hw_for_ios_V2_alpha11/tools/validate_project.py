@@ -89,6 +89,18 @@ check("RawPlistDocument" in manager and "regularFileWithContents: data" in manag
 check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "IPA build targets arm64 and verifies archive")
 check(core_source.is_file() and core_makefile.is_file() and core_control.is_file() and core_daemon.is_file(),
       "Alpha11 read-only Core source and Rootless package files exist")
+postinst = ROOT / "core/layout/DEBIAN/postinst"
+prerm = ROOT / "core/layout/DEBIAN/prerm"
+if postinst.is_file() and prerm.is_file():
+    post = postinst.read_text()
+    pre = prerm.read_text()
+    check("/var/jb/usr/libexec/launchctl" in post and "/var/jb/basebin/launchctl" in post and
+          'find /var/jb -name launchctl -perm -111' in post and
+          'bootstrap system "$PLIST"' in post,
+          "Core installer searches common rootless launchctl locations and reports startup failure without aborting package installation")
+    check("/var/jb/usr/libexec/launchctl" in pre and 'find /var/jb -name launchctl -perm -111' in pre,
+          "Core removal script can locate launchctl in extended rootless paths")
+
 if core_source.is_file():
     core = core_source.read_text()
     check('@"GET"' in core and '@"POST"' not in core and 'read-only endpoint' in core,
