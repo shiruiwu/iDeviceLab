@@ -54,6 +54,7 @@ diagnostic = ROOT / "scripts/diagnose-config.sh"
 backup = ROOT / "scripts/backup-config.sh"
 restore = ROOT / "scripts/restore-config.sh"
 app_backup = ROOT / "scripts/backup-app-container.sh"
+app_restore = ROOT / "scripts/restore-app-container.sh"
 app_verify = ROOT / "scripts/verify-app-container-backup.sh"
 selftest = ROOT / "scripts/selftest-device.sh"
 for path, label in [
@@ -61,6 +62,7 @@ for path, label in [
     (backup, "Timestamped config backup"),
     (restore, "Validated config restore with rollback snapshot"),
     (app_backup, "Scoped app-container backup"),
+    (app_restore, "Guarded app-container restore with rollback"),
     (app_verify, "App-container backup integrity verifier"),
     (selftest, "Non-destructive on-device self-test"),
 ]:
@@ -88,6 +90,12 @@ if selftest.is_file():
     src = selftest.read_text()
     check("127.0.0.1:18081/status" in src and "mod-hw-app-backup-verify" in src and "rm -rf" not in src,
           "On-device self-test checks Core and tools without destructive operations")
+if app_restore.is_file():
+    src = app_restore.read_text()
+    check("--confirm" in src and "restore-snapshots" in src and "pgrep -x" in src,
+          "App restore requires explicit confirmation, closed app, and rollback snapshot")
+    check("tar -tvzf" in src and "directory traversal" in src and "符号链接" in src,
+          "App restore rejects unsafe archive paths and link/special-file entries")
 if app_verify.is_file():
     src = app_verify.read_text()
     check("sha256sum" in src and "tar -tzf" in src and "BACKUP_ROOT" in src,
@@ -98,7 +106,7 @@ if app_verify.is_file():
 
 check('mod-hw-config-backup' in package_builder and 'mod-hw-config-restore' in package_builder,
       "Rootless utility DEB packages config backup and restore commands")
-check('mod-hw-app-backup' in package_builder and 'mod-hw-app-backup-verify' in package_builder and 'mod-hw-selftest' in package_builder,
+check('mod-hw-app-backup' in package_builder and 'mod-hw-app-restore' in package_builder and 'mod-hw-app-backup-verify' in package_builder and 'mod-hw-selftest' in package_builder,
       "Rootless utility DEB packages app-container backup and verification commands")
 check("Depends: coreutils" in package_builder, "Backup tooling declares its SHA-256 utility dependency")
 
