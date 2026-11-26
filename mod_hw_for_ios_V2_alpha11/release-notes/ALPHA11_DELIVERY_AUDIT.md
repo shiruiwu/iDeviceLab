@@ -189,3 +189,22 @@ This section supersedes any earlier checkpoint above where the same feature is d
 - Audited the original IOKit property hooks and found six call sites that dereferenced the result of the 12-hex-character decoder without checking for `nil`.
 - All six now return a replacement CFData only when decoding succeeds; malformed values leave the system's original IOKit result unchanged.
 - The project validator asserts all six guarded conversions are present. Device-level behavior still requires runtime testing.
+
+
+## Read-only profile inventory and release build verification (2026-11-26)
+
+- Alpha11 Core now exposes `GET /profiles` in addition to `/status`, `/system`, `/apps`, and `/tools`. The endpoint scans only the fixed original Hook profile directory `/var/mobile/Library/Preferences/com.modhw.ios.profiles`, accepts regular `.plist` files, and reports Bundle ID, path, and whether the plist root is a dictionary.
+- The manager's per-App configuration page now displays this installed profile inventory and structural validity. It deliberately does not display profile values or claim that a target process has loaded the file.
+- The profile inventory is read-only. Exported profiles still need to be transferred into the Hook profile directory through an authorized device file-management workflow. The Hook resolves the selected Bundle ID profile during process initialization; restart the target App after replacing a profile.
+- The Alpha11 release build for source revision `fef14bd8` completed successfully: TrollStore IPA and diagnostics DEB package verification passed; Theos Rootless tweak and Alpha11 Core DEBs were built and uploaded. The artifacts were downloaded and inspected: IPA ZIP integrity passed; all three DEBs had valid ar/control/data members, expected package identifiers/architecture, and executable payloads. The Core DEB includes its LaunchDaemon plist, Core executable, and the updated launchctl-discovery postinst/prerm scripts.
+- The profile inventory changes after `fef14bd8` are newer source changes and require their own CI build before being included in a device test bundle.
+
+### Current delivery distinction
+
+| Item | Current status |
+|---|---|
+| Latest fully inspected package set | Build `fef14bd8`; IPA + tweak DEB + Core DEB + diagnostics DEB inspected |
+| Manager profile inventory UI and Core endpoint | Implemented on branch after `fef14bd8`; CI build pending |
+| Manager in-app backup / restore / cleanup execution | Not implemented; current maintenance page documents copyable terminal commands |
+| Manager privileged profile file transfer | Not implemented; profile installation remains manual |
+| Device launchd / localhost / injection / profile isolation | Pending iPhone 12 / iOS 16.2 evidence |
