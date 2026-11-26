@@ -138,12 +138,18 @@ static NSDictionary *ApplySafeAlpha11ConfigUpdate(NSData *body) {
     if (applied.count == 0)
         return @{@"ok":@NO, @"error":@"no valid supported fields were supplied", @"ignoredKeys":ignored};
 
-    NSPropertyListFormat format = NSPropertyListXMLFormat_v1_0;
     NSData *oldData = [NSData dataWithContentsOfFile:path];
-    if (oldData) {
-        [NSPropertyListSerialization propertyListWithData:oldData options:NSPropertyListMutableContainersAndLeaves format:&format error:nil];
-    }
+    if (!oldData)
+        return @{@"ok":@NO, @"error":@"unable to read original plist for rollback backup"};
+    NSString *backupPath = [path stringByAppendingString:@".idevelab-backup"];
+    struct stat backupInfo = {0};
+    if (lstat(backupPath.fileSystemRepresentation, &backupInfo) == 0 && !S_ISREG(backupInfo.st_mode))
+        return @{@"ok":@NO, @"error":@"rollback backup path is not a regular file"};
     NSError *writeError = nil;
+    if (![oldData writeToFile:backupPath options:NSDataWritingAtomic error:&writeError])
+        return @{@"ok":@NO, @"error":writeError.localizedDescription ?: @"unable to create rollback backup"};
+    NSPropertyListFormat format = NSPropertyListXMLFormat_v1_0;
+    [NSPropertyListSerialization propertyListWithData:oldData options:NSPropertyListMutableContainersAndLeaves format:&format error:nil];
     NSData *newData = [NSPropertyListSerialization dataWithPropertyList:current format:format options:0 error:&writeError];
     if (!newData || ![newData writeToFile:path options:NSDataWritingAtomic error:&writeError])
         return @{@"ok":@NO, @"error":writeError.localizedDescription ?: @"unable to save plist"};
@@ -151,19 +157,42 @@ static NSDictionary *ApplySafeAlpha11ConfigUpdate(NSData *body) {
              @"ignoredKeys":[ignored sortedArrayUsingSelector:@selector(compare:)], @"path":path};
 }
 
+static NSDictionary *RestoreAlpha11ConfigBackup(void) {
+    NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
+    NSString *backupPath = [path stringByAppendingString:@".idevelab-backup"];
+    struct stat targetInfo = {0}, backupInfo = {0};
+    if (lstat(path.fileSystemRepresentation, &targetInfo) != 0 || !S_ISREG(targetInfo.st_mode))
+        return @{@"ok":@NO, @"error":@"current Alpha11 plist is missing or not a regular file"};
+    if (lstat(backupPath.fileSystemRepresentation, &backupInfo) != 0 || !S_ISREG(backupInfo.st_mode))
+        return @{@"ok":@NO, @"error":@"no valid local rollback backup exists"};
+    NSData *backupData = [NSData dataWithContentsOfFile:backupPath];
+    NSDictionary *backupPlist = backupData ? [NSPropertyListSerialization propertyListWithData:backupData options:NSPropertyListImmutable format:nil error:nil] : nil;
+    if (![backupPlist isKindOfClass:NSDictionary.class] || ![backupPlist[@"UniqueDeviceID"] isKindOfClass:NSString.class])
+        return @{@"ok":@NO, @"error":@"rollback backup is invalid or has an incompatible Alpha11 schema"};
+    NSError *error = nil;
+    if (![backupData writeToFile:path options:NSDataWritingAtomic error:&error])
+        return @{@"ok":@NO, @"error":error.localizedDescription ?: @"unable to restore rollback backup"};
+    return @{@"ok":@YES, @"restored":@YES, @"path":path};
+}
+
 static NSDictionary *Alpha11ConfigStatus(void) {
     NSString *path = @"/var/mobile/Library/Preferences/com.modhw.ios.devices.plist";
     NSFileManager *fm = NSFileManager.defaultManager;
     BOOL exists = [fm fileExistsAtPath:path];
+    NSString *backupPath = [path stringByAppendingString:@".idevelab-backup"];
+    struct stat backupInfo = {0};
+    BOOL backupExists = lstat(backupPath.fileSystemRepresentation, &backupInfo) == 0 && S_ISREG(backupInfo.st_mode);
+    NSDictionary *backupPlist = backupExists ? [NSDictionary dictionaryWithContentsOfFile:backupPath] : nil;
+    BOOL backupParseable = [backupPlist isKindOfClass:NSDictionary.class] && [backupPlist[@"UniqueDeviceID"] isKindOfClass:NSString.class];
     if (!exists) {
         return @{@"ok":@YES, @"exists":@NO, @"parseable":@NO, @"path":path,
-                 @"keyCount":@0, @"keys":@[]};
+                 @"keyCount":@0, @"keys":@[], @"backupExists":@(backupExists), @"backupParseable":@(backupParseable)};
     }
     NSDictionary *attributes = [fm attributesOfItemAtPath:path error:nil] ?: @{};
     NSDictionary *plist = [NSDictionary dictionaryWithContentsOfFile:path];
     if (![plist isKindOfClass:NSDictionary.class]) {
         return @{@"ok":@YES, @"exists":@YES, @"parseable":@NO, @"path":path,
-                 @"keyCount":@0, @"keys":@[], @"modifiedAt":@([attributes[NSFileModificationDate] timeIntervalSince1970])};
+                 @"keyCount":@0, @"keys":@[], @"backupExists":@(backupExists), @"backupParseable":@(backupParseable), @"modifiedAt":@([attributes[NSFileModificationDate] timeIntervalSince1970])};
     }
     NSArray *keys = [[plist allKeys] sortedArrayUsingComparator:^NSComparisonResult(id a, id b) {
         return [[a description] localizedCaseInsensitiveCompare:[b description]];
@@ -177,6 +206,7 @@ static NSDictionary *Alpha11ConfigStatus(void) {
     // Deliberately return key names and diagnostics only, never identifier values.
     return @{@"ok":@YES, @"exists":@YES, @"parseable":@YES, @"schemaCompatible":@(schemaCompatible), @"path":path,
              @"keyCount":@(safeKeys.count), @"keys":safeKeys,
+             @"backupExists":@(backupExists), @"backupParseable":@(backupParseable),
              @"modifiedAt":@([attributes[NSFileModificationDate] timeIntervalSince1970])};
 }
 
@@ -184,11 +214,12 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
     NSArray *parts = [target componentsSeparatedByString:@"?"];
     NSString *path = parts.firstObject ?: @"/";
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
-        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.7", @"port":@(kPort)};
+        return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.8", @"port":@(kPort)};
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/config/status"]) return Alpha11ConfigStatus();
     if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/config/update"]) return ApplySafeAlpha11ConfigUpdate(body);
+    if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/config/restore"]) return RestoreAlpha11ConfigBackup();
 
     return @{@"ok":@NO, @"error":@"not found"};
 }
@@ -259,7 +290,7 @@ int main(void) {
                             body = [requestData subdataWithRange:NSMakeRange(headerEnd, requestData.length - headerEnd)];
                         NSDictionary *result = ProcessRequest(method, target, body);
                         NSString *requestPath = [[target componentsSeparatedByString:@"?"] firstObject] ?: target;
-                        BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/config/status", @"/config/update"] containsObject:requestPath];
+                        BOOL known = [@[@"/status", @"/system", @"/compatibility", @"/apps", @"/config/status", @"/config/update", @"/config/restore"] containsObject:requestPath];
                         NSInteger httpStatus = !known ? 404 : ([result[@"ok"] respondsToSelector:@selector(boolValue)] && ![result[@"ok"] boolValue] ? 400 : 200);
                         Reply(client, result, (int)httpStatus);
                     } else Reply(client, @{@"ok":@NO, @"error":@"malformed request"}, 400);
