@@ -41,6 +41,15 @@ check("UserName</key><string>mobile" in LAUNCHD, "Core runs as mobile user for p
 check("launchctl bootstrap system" in POSTINST and "launchctl kickstart -k" in POSTINST, "Package postinst bootstraps and starts Core")
 check("launchctl bootout system" in PRERM, "Package prerm stops Core cleanly")
 
+
+check("Core binds only to loopback", "htonl(INADDR_LOOPBACK)" in MAIN, "Core HTTP listener is loopback-only")
+check("Core config diagnostics return field names only", '@"keys":safeKeys' in MAIN and '@"UniqueDeviceID":' not in MAIN, "Config diagnostics return field names only")
+check("Core restricts field characters and length", "value.length > 64" in MAIN and "SELF MATCHES" in MAIN, "Safe fields have length and character validation")
+check("Core rejects empty updates", "applied.count == 0" in MAIN, "Core rejects updates with no valid allowlisted values")
+check("Manager has a user-visible import action", 'Label("导入安全字段"' in SWIFT, "Manager exposes safe plist import")
+check("Manager refreshes after write", "await refreshAlpha11Config()" in SWIFT, "Manager refreshes plist status after import")
+check("Local networking ATS exception is configured", "NSAllowsLocalNetworking: true" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/project.yml").read_text(), "App transport security permits local Core connection")
+
 print(f"Rootless validation: {len(passed)} passed, {len(errors)} failed")
 for item in passed:
     print("[OK]", item)
