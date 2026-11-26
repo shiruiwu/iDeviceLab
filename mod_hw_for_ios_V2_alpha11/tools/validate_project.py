@@ -108,7 +108,7 @@ check('mod-hw-config-backup' in package_builder and 'mod-hw-config-restore' in p
       "Rootless utility DEB packages config backup and restore commands")
 check('mod-hw-app-backup' in package_builder and 'mod-hw-app-restore' in package_builder and 'mod-hw-app-backup-verify' in package_builder and 'mod-hw-selftest' in package_builder,
       "Rootless utility DEB packages app-container backup and verification commands")
-check("Depends: coreutils" in package_builder, "Backup tooling declares its SHA-256 utility dependency")
+check("Depends: coreutils, procps" in package_builder, "Backup/restore tooling declares SHA-256 and process-inspection dependencies")
 
 for rel in [
     "src/mobile_gestalt/mobile_gestalt.m",
