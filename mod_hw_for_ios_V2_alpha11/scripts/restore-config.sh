@@ -1,5 +1,5 @@
 #!/bin/sh
-# Restore the most recently created backup, keeping a pre-restore snapshot.
+# Restore the newest validated config backup and preserve the pre-restore state.
 set -eu
 CONFIG='/var/mobile/Library/Preferences/com.modhw.ios.devices.plist'
 BACKUP_DIR='/var/mobile/Library/Preferences/mod_hw_for_ios_backups'
@@ -21,10 +21,10 @@ if ! plutil -convert xml1 -o - "$LATEST" 2>/dev/null | grep -q '<dict>'; then
   exit 4
 fi
 DIR="$(dirname "$CONFIG")"
-mkdir -p "$DIR"
+mkdir -p "$DIR" "$BACKUP_DIR/rollback-snapshots"
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 if [ -f "$CONFIG" ]; then
-  cp -p "$CONFIG" "$BACKUP_DIR/com.modhw.ios.devices.pre-restore.$STAMP.plist"
+  cp -p "$CONFIG" "$BACKUP_DIR/rollback-snapshots/current-before-restore.$STAMP.$$.plist"
 fi
 TMP="$DIR/.com.modhw.ios.devices.restore.$$"
 trap 'rm -f "$TMP"' EXIT HUP INT TERM
