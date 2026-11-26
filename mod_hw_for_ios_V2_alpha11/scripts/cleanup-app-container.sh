@@ -56,7 +56,8 @@ ARCHIVE_NAME="$(basename "$ARCHIVE_PATH")"
 
 [ -d "$BACKUP_ROOT" ] && [ ! -L "$BACKUP_ROOT" ] || fail '备份目录不存在或不安全。'
 [ "$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '备份目录必须由 root 拥有。'
-chmod 0700 "$BACKUP_ROOT"
+chown root:mobile "$BACKUP_ROOT"
+chmod 0750 "$BACKUP_ROOT"
 DETAIL_LIST="$(mktemp "$BACKUP_ROOT/.cleanup-archive-list.XXXXXX")" || fail '无法创建归档检查临时文件。'
 SNAPSHOT_READY=0
 DESTRUCTIVE_STARTED=0
