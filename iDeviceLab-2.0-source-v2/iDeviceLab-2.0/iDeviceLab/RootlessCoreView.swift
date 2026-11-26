@@ -154,12 +154,19 @@ struct RootlessCoreView: View {
                             Label("导入安全字段", systemImage: "square.and.arrow.down")
                         }
                         .disabled(serviceState != "已连接" || !((alpha11Config?.exists ?? false) && (alpha11Config?.schemaCompatible ?? false)))
+                        Button {
+                            Task { await applySelectedProfileToAlpha11() }
+                        } label: {
+                            Label("同步当前配置档案", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .disabled(serviceState != "已连接" || store.selectedProfile == nil ||
+                                  !((alpha11Config?.exists ?? false) && (alpha11Config?.schemaCompatible ?? false)))
                         Button(role: .destructive) { confirmRestoreBackup = true } label: {
                             Label("恢复上次备份", systemImage: "arrow.uturn.backward")
                         }
                         .disabled(serviceState != "已连接" || alpha11Config?.backupParseable != true)
                     }
-                    Text("可导入 HWModelStr、ProductVersion、BuildVersion、HardwarePlatform、ModelNumber、RegionInfo、RegionCode、ProductType。其他字段一律忽略，原文件中的唯一标识字段保持不变。")
+                    Text("支持从当前档案同步 HWModelStr（设备型号文本）、ProductVersion（系统版本）、RegionCode（地区代码）到本地 plist。其余字段不猜测、不自动填充；同步只更新配置文件，不代表 Alpha11 Hook 已加载或第三方 App 已读取。")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
 
@@ -217,6 +224,37 @@ struct RootlessCoreView: View {
             systemInfo = nil
             installedApps = []
             alpha11Config = nil
+        }
+    }
+
+    @MainActor
+    private func applySelectedProfileToAlpha11() async {
+        guard let profile = store.selectedProfile else {
+            message = "请先选择一个配置档案。"
+            return
+        }
+        do {
+            let values = ["HWModelStr": profile.deviceModel, "ProductVersion": profile.iosVersion, "RegionCode": profile.region]
+            let body = try JSONSerialization.data(withJSONObject: values, options: [])
+            var request = URLRequest(url: baseURL.appendingPathComponent("config/update"))
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(String(body.count), forHTTPHeaderField: "Content-Length")
+            request.httpBody = body
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  let result = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  result["ok"] as? Bool == true else {
+                let error = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                throw NSError(domain: "iDeviceLab.ProfileSync", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: error?["error"] as? String ?? "核心拒绝同步"])
+            }
+            let applied = result["appliedKeys"] as? [String] ?? []
+            let ignored = result["ignoredKeys"] as? [String] ?? []
+            message = "已同步到 Alpha11 本地 plist。写入：\(applied.joined(separator: "、"))；忽略：\(ignored.isEmpty ? "无" : ignored.joined(separator: "、"))。这只是配置文件同步，Hook 加载和目标 App 读取仍需单独验证。"
+            await refreshAlpha11Config()
+        } catch {
+            message = "档案同步失败：\(error.localizedDescription)"
         }
     }
 
