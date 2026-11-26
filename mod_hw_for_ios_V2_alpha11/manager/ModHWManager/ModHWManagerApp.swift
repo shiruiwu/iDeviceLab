@@ -108,7 +108,11 @@ struct ContentView: View {
                             exportAsPerAppProfile = true
                             exportOpen = true
                         }
-                        .disabled(importedData == nil || selectedProfileBundleID.isEmpty)
+                        .disabled(importedData == nil || selectedProfileBundleID.isEmpty || !canExportPerAppProfile)
+                        Text(canExportPerAppProfile
+                             ? "配置结构符合原作者 Hook 的必需字段要求。"
+                             : "当前 plist 尚不满足分 App 配置要求：需要 40 位十六进制 UniqueDeviceID；启用 MAC Data 字段时也必须提供有效的 12 位十六进制地址。")
+                            .font(.footnote).foregroundStyle(canExportPerAppProfile ? .secondary : .orange)
                         Text("只生成独立 plist 文件；导出后需手动放入 com.modhw.ios.profiles 目录，不会自动写入越狱目录。")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
@@ -217,6 +221,28 @@ struct ContentView: View {
                 appInventoryStatus = "读取失败：\(error.localizedDescription)"
             }
         }
+    }
+
+    private var canExportPerAppProfile: Bool {
+        guard let data = importedData,
+              let object = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
+              let dictionary = object as? [String: Any],
+              let udid = dictionary["UniqueDeviceID"] as? String,
+              udid.count == 40,
+              udid.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0) }) else {
+            return false
+        }
+        for (enabledKey, valueKey) in [("WifiAddressData", "WifiAddress"), ("BluetoothAddressData", "BluetoothAddress")] {
+            if (dictionary[enabledKey] as? Bool) == true {
+                guard let address = dictionary[valueKey] as? String else { return false }
+                let normalized = address.replacingOccurrences(of: ":", with: "")
+                guard normalized.count == 12,
+                      normalized.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0) }) else {
+                    return false
+                }
+            }
+        }
+        return true
     }
 
     private var backupName: String {
