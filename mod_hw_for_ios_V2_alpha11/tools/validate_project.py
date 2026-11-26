@@ -32,10 +32,12 @@ check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "IPA build targets arm64 and v
 diagnostic = ROOT / "scripts/diagnose-config.sh"
 backup = ROOT / "scripts/backup-config.sh"
 restore = ROOT / "scripts/restore-config.sh"
+app_backup = ROOT / "scripts/backup-app-container.sh"
 for path, label in [
     (diagnostic, "Read-only config diagnostic"),
     (backup, "Timestamped config backup"),
     (restore, "Validated config restore with rollback snapshot"),
+    (app_backup, "Scoped app-container backup"),
 ]:
     check(path.is_file(), label + " script exists")
 
