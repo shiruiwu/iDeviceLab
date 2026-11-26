@@ -129,7 +129,7 @@ struct RootlessCoreView: View {
                         .font(.caption2).foregroundStyle(.secondary)
                 }
 
-                Section("Alpha11 本地配置文件（只读诊断）") {
+                Section("Alpha11 本地配置文件") {
                     if let config = alpha11Config {
                         LabeledContent("文件状态", value: !config.exists ? "尚未创建" : (config.parseable ? "存在且可解析" : "文件格式异常"))
                         LabeledContent("结构检查", value: !config.exists ? "文件未创建" : (!config.parseable ? "无法解析" : (config.schemaCompatible == true ? "Alpha11 必需字段存在" : "缺少 Alpha11 必需字段")))
@@ -156,7 +156,7 @@ struct RootlessCoreView: View {
                 }
 
                 Section {
-                    Text("此 Rootless 核心提供本机设备诊断、已安装应用清单和 Alpha11 plist 状态检查；配置档案由管理器本身保存。")
+                    Text("此 Rootless 核心提供本机设备诊断、已安装应用清单，以及 Alpha11 plist 状态检查和白名单字段更新。配置档案由管理器本身保存。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
