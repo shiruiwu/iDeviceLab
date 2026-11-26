@@ -118,8 +118,12 @@ struct MaintenanceView: View {
                                 Text(orphan.bundleIdentifier).font(.subheadline)
                                 Text("容器 UUID：\(orphan.containerUUID)")
                                     .font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
-                                Text("\(orphan.accessible ? "可访问" : "不可访问") · \(ByteCountFormatter.string(fromByteCount: orphan.containerBytes, countStyle: .file))")
+                                Text("\(orphan.accessible ? "可访问" : "不可访问") · \(ByteCountFormatter.string(fromByteCount: orphan.containerBytes, countStyle: .file)) · \(scanStatusLabel(orphan.containerScanStatus))")
                                     .font(.caption2).foregroundStyle(.secondary)
+                                if !orphan.containerScanError.isEmpty {
+                                    Text(orphan.containerScanError).font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Text(orphan.diagnosticReason).font(.caption2).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -284,7 +288,10 @@ struct MaintenanceView: View {
                 "bundleIdentifier": item.bundleIdentifier,
                 "containerUUID": item.containerUUID,
                 "accessible": item.accessible,
-                "containerBytes": item.containerBytes
+                "containerBytes": item.containerBytes,
+                "containerScanStatus": item.containerScanStatus,
+                "containerScanError": item.containerScanError,
+                "diagnosticReason": item.diagnosticReason
             ] as [String: Any]
         }
         let report: [String: Any] = [

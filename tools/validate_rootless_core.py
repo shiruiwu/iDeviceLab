@@ -81,6 +81,8 @@ check('@"orphanedContainers":orphans' in MAIN and '"containerUUID"' in MAIN, "Co
 check('"filterParseable"' in MAIN and '"filterTargets"' in MAIN and '"runtimeInjectionVerified":@NO' in MAIN, "Hook diagnostics parse filter rules without claiming runtime injection")
 check('"installedAppInventory": appInventory' in MAINTENANCE and '"orphanedContainers": orphanInventory' in MAINTENANCE, "Maintenance report includes last app inventory and orphan container details")
 check("OrphanedContainerItem" in (ROOT / "iDeviceLab-2.0-source-v2/iDeviceLab-2.0/iDeviceLab/Models.swift").read_text(), "Manager has typed orphan container response model")
+check('"diagnosticReason"' in MAIN and '"containerScanStatus"' in MAIN, "Core explains orphan candidate evidence and scan completeness")
+check("diagnosticReason" in MAINTENANCE and "containerScanStatus" in MAINTENANCE, "Manager displays orphan evidence and scan completeness")
 
 check('Label("同步当前配置档案"' in SWIFT, "Manager exposes selected-profile sync to Alpha11 local plist")
 check('"HWModelStr": profile.deviceModel' in SWIFT and '"ProductVersion": profile.iosVersion' in SWIFT and '"RegionCode": profile.region' in SWIFT, "Profile sync maps only explicit safe profile fields")

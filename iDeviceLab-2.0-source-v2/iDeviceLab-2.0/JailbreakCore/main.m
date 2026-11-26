@@ -333,12 +333,15 @@ static NSDictionary *AppMaintenanceInventory(void) {
         NSString *containerUUID = container.lastPathComponent ?: @"";
         struct stat containerInfo = {0};
         BOOL accessible = lstat(container.fileSystemRepresentation, &containerInfo) == 0 && S_ISDIR(containerInfo.st_mode);
-        unsigned long long bytes = accessible ? SafeDirectoryBytes(container) : 0;
+        NSDictionary *containerMetrics = SafeDirectoryMetrics(container);
         [orphans addObject:@{
             @"bundleIdentifier": bundleID,
             @"containerUUID": containerUUID,
             @"accessible": @(accessible),
-            @"containerBytes": @(bytes)
+            @"containerBytes": containerMetrics[@"bytes"] ?: @0,
+            @"containerScanStatus": containerMetrics[@"status"] ?: @"unknown",
+            @"containerScanError": containerMetrics[@"error"] ?: @"",
+            @"diagnosticReason": @"Container metadata references a Bundle ID absent from the current installed-app inventory; this is a candidate only, not proof that the data is stale."
         }];
     }
     [orphans sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {

@@ -62,6 +62,9 @@ struct OrphanedContainerItem: Identifiable, Codable, Equatable {
     let containerUUID: String
     let accessible: Bool
     let containerBytes: Int64
+    let containerScanStatus: String
+    let containerScanError: String
+    let diagnosticReason: String
 }
 
 struct AppMaintenanceResponse: Codable {
