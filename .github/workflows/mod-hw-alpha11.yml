@@ -42,6 +42,7 @@ jobs:
           bash -n scripts/restore-config.sh
           bash -n scripts/backup-app-container.sh
           bash -n scripts/verify-app-container-backup.sh
+          bash -n scripts/selftest-device.sh
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
 
@@ -89,6 +90,7 @@ jobs:
               'var/jb/usr/bin/mod-hw-config-restore',
               'var/jb/usr/bin/mod-hw-app-backup',
               'var/jb/usr/bin/mod-hw-app-backup-verify',
+              'var/jb/usr/bin/mod-hw-selftest',
           }
           assert expected.issubset(installed), sorted(installed)
           print('DEB ar members, architecture, dependency, and all five installed tools verified')
