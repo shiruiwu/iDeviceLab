@@ -242,7 +242,7 @@ struct MaintenanceView: View {
             "installedAppInventory": appInventory,
             "orphanedContainers": orphanInventory,
             "orphanedContainerCount": orphanedContainerCount,
-            "lastAppCleanup": lastAppCleanup ?? NSNull(),
+            "lastAppCleanup": lastAppCleanup.map { $0 as Any } ?? NSNull(),
             "scope": [
                 "included": ["iDeviceLab Caches", "iDeviceLab tmp", "installed app cache and tmp sizes from the last Rootless scan", "orphan container identifiers and aggregate sizes", "local profile counts"],
                 "notInspected": ["app document contents", "Keychain items", "account sessions", "cloud-side state", "whole-device backup"],
