@@ -73,7 +73,7 @@ This audit does not claim that deep cleanup, keychain erasure, app-container res
 2. **Deep cleanup:** a backup-first `mod-hw-app-clean` command now clears the selected app's local data container after verifying an automatic backup and preserving a rollback snapshot. This is a scoped local-data reset only, not factory-reset equivalence; Keychain, App Groups, shared/system stores, and server-side state remain untouched.
 3. **Keychain handling:** no Keychain export, wipe, or restore is implemented. The app-container archive explicitly excludes Keychain. No credentials or tokens are read or printed.
 4. **Manager/Core integration:** first implementation step added to the Alpha11 manager: a user-triggered, read-only GET to `127.0.0.1:18080/status`, with a three-second timeout and response-shape validation. The IPA build script adds the narrow `NSAllowsLocalNetworking` ATS setting. This only detects the legacy Core; it does not yet package/start it or prove end-to-end installation on-device.
-5. **Per-app configuration:** not implemented. The legacy Core profile store is not consumed by the Alpha11 tweak. No profile is represented as active until there is an explicit, tested app-scoped configuration path. Runtime rewriting of hardware/account identifiers is not part of this integration step.
+5. **Per-app configuration:** the manager now reads an installed-App inventory (name, Bundle ID, version) from the read-only Core, providing reliable per-app targets for backup/restore/cleanup. Independent per-app Hook configuration and proof that the tweak consumes it are still not implemented; the inventory is not an active profile.
 6. **Real-device validation:** a non-destructive `mod-hw-selftest` command is now included in the diagnostics package plan. It checks Rootless paths, Core launchd state, helper commands, and loopback status when curl is available. It has not yet been run on the iPhone 12 / iOS 16.2; hook injection and restore behavior still require device logs and tests.
 
 The manager/Core status probe is a concrete integration milestone, not a claim that the six workstreams are complete. Continue with separately testable changes and keep device-only checks marked pending until device evidence is available.
@@ -105,3 +105,9 @@ The manager/Core status probe is a concrete integration milestone, not a claim t
 - It rolls back from the snapshot if the operation or metadata validation fails.
 - Keychain, App Groups, shared containers, system databases, notification services, and server-side state are outside its scope. This is not a full deep-clean / fresh-flash equivalent.
 - Device-side destructive-operation tests and rollback fault-injection remain pending.
+
+
+## Per-app target inventory milestone (2026-11-26)
+
+- Added a manager view that retrieves installed App names, Bundle IDs, and versions through Core `GET /apps`.
+- This gives the maintenance tools a concrete Bundle ID selection source. It is read-only and does not claim per-app device profile or Hook isolation is complete.
