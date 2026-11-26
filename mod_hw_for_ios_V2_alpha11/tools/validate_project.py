@@ -41,6 +41,22 @@ if filter_path.is_file():
     except Exception as exc:
         errors.append("Invalid tweak injection filter: " + str(exc))
 
+source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
+constructor_start = source.find("__attribute__((__constructor__))")
+constructor = source[constructor_start:] if constructor_start >= 0 else ""
+check("HookerForMGCopyAnswer();" in constructor, "Constructor registers the MobileGestalt answer hook")
+check("hook_sysctlbyname();" in constructor and "hook_sysctl();" not in constructor,
+      "Constructor registers sysctlbyname but not the separate sysctl hook")
+check("// HookerForMGCopyMultipleAnswers();" in source,
+      "MGCopyMultipleAnswers registration remains explicitly inactive")
+sysctl_body = source[source.find("int replace_sysctl("):source.find("static void hook_sysctl()")]
+check("NSLog(" in sysctl_body and "orig_sysctl(name" in sysctl_body,
+      "Separate sysctl replacement currently delegates and logs; no configured replacement")
+check("ALPHA11_RUNTIME_AUDIT.md" in (ROOT / "ALPHA11_RUNTIME_AUDIT.md").read_text(),
+      "Runtime source audit report is present")
+check("src/captain_hook/hook.mm" not in makefile,
+      "CaptainHook response module remains excluded from package source list")
+
 diagnostic = ROOT / "scripts/diagnose-config.sh"
 check(diagnostic.is_file(), "Read-only device diagnostic exists")
 if diagnostic.is_file():
