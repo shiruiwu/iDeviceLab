@@ -504,10 +504,10 @@ struct ContentView: View {
                           let path = row["path"] as? String else { return nil }
                     return AppProfile(bundleIdentifier: bundle, valid: valid, path: path)
                 }
-                profilesStatus = "已读取 \\(appProfiles.count) 个分 App 配置"
+                profilesStatus = "已读取 \(appProfiles.count) 个分 App 配置"
             } catch {
                 appProfiles = []
-                profilesStatus = "读取失败：\\(error.localizedDescription)"
+                profilesStatus = "读取失败：\(error.localizedDescription)"
             }
         }
     }
