@@ -70,7 +70,7 @@ This audit does not claim that deep cleanup, keychain erasure, app-container res
 ## Six outstanding workstreams — progress checkpoint (2026-11-26)
 
 1. **App-container restore:** a guarded restore command is now implemented. It requires explicit `--confirm`, checks the bundle/container identity, requires the app process to be stopped, validates tar paths and rejects links/special files, extracts to staging, snapshots the live container, and attempts rollback on copy/metadata failure. Device-side execution and rollback fault-injection tests remain pending.
-2. **Deep cleanup:** not implemented. The current project does not claim a factory-reset-equivalent result. A cleanup design must distinguish the app data container from App Groups, Keychain, caches owned by other services, and server-side state.
+2. **Deep cleanup:** a backup-first `mod-hw-app-clean` command now clears the selected app's local data container after verifying an automatic backup and preserving a rollback snapshot. This is a scoped local-data reset only, not factory-reset equivalence; Keychain, App Groups, shared/system stores, and server-side state remain untouched.
 3. **Keychain handling:** no Keychain export, wipe, or restore is implemented. The app-container archive explicitly excludes Keychain. No credentials or tokens are read or printed.
 4. **Manager/Core integration:** first implementation step added to the Alpha11 manager: a user-triggered, read-only GET to `127.0.0.1:18080/status`, with a three-second timeout and response-shape validation. The IPA build script adds the narrow `NSAllowsLocalNetworking` ATS setting. This only detects the legacy Core; it does not yet package/start it or prove end-to-end installation on-device.
 5. **Per-app configuration:** not implemented. The legacy Core profile store is not consumed by the Alpha11 tweak. No profile is represented as active until there is an explicit, tested app-scoped configuration path. Runtime rewriting of hardware/account identifiers is not part of this integration step.
@@ -96,3 +96,12 @@ The manager/Core status probe is a concrete integration milestone, not a claim t
 - Added `scripts/selftest-device.sh`, packaged as `mod-hw-selftest`, for non-destructive on-device checks.
 - Diagnostics package version advanced to `2.0.0~final5`; package now declares `coreutils, procps`.
 - Static validation and CI packaging are pending for the current HEAD. No physical-device result is claimed.
+
+
+## Scoped local cleanup milestone (2026-11-26)
+
+- Added `scripts/cleanup-app-container.sh`, packaged as `mod-hw-app-clean`.
+- It requires explicit `--confirm`, verifies the target app is not running, creates and verifies an app-container backup, snapshots the current container, and clears only the container's contents while retaining the MCM metadata marker.
+- It rolls back from the snapshot if the operation or metadata validation fails.
+- Keychain, App Groups, shared containers, system databases, notification services, and server-side state are outside its scope. This is not a full deep-clean / fresh-flash equivalent.
+- Device-side destructive-operation tests and rollback fault-injection remain pending.
