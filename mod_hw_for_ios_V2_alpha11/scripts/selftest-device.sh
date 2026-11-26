@@ -48,6 +48,7 @@ fi
 check 'App-container backup command installed' command -v mod-hw-app-backup
 check 'App-container backup verifier installed' command -v mod-hw-app-backup-verify
 check 'Guarded App-container restore command installed' command -v mod-hw-app-restore
+check 'Backup-first App-container cleanup command installed' command -v mod-hw-app-clean
 check 'Config diagnostic command installed' command -v mod-hw-diagnose
 echo "Result: $PASS passed, $FAIL failed, $SKIP skipped"
 [ "$FAIL" -eq 0 ]
