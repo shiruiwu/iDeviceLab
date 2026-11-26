@@ -36,7 +36,7 @@ MANIFEST="${ARCHIVE%.tar.gz}.txt"
 }
 
 # Require exactly one SHA-256 and archive entry; reject duplicate/malformed fields.
-if ! awk -F= -v name="$NAME" '
+EXPECTED="$(awk -F= -v name="$NAME" '
   $1 == "sha256" {
     sha_count++
     if (NF != 2 || length($2) != 64 || $2 ~ /[^0-9a-f]/) bad=1
@@ -50,13 +50,10 @@ if ! awk -F= -v name="$NAME" '
     if (sha_count != 1 || archive_count != 1 || bad) exit 1
     print sha
   }
-' "$MANIFEST" > "$MANIFEST.check.$$"; then
-  rm -f "$MANIFEST.check.$$"
+' "$MANIFEST")" || {
   echo '清单中的 SHA-256 或归档文件名字段无效/重复。' >&2
   exit 6
-fi
-EXPECTED="$(cat "$MANIFEST.check.$$")"
-rm -f "$MANIFEST.check.$$"
+}
 
 ACTUAL="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 [ "$ACTUAL" = "$EXPECTED" ] || {
