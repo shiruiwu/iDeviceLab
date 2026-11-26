@@ -59,7 +59,7 @@ check("TabView" in manager and "设备总览" in manager and "配置管理" in m
       "备份与维护" in manager and "设备诊断" in manager,
       "Manager exposes the integrated dashboard, profiles, maintenance, and diagnostics navigation")
 check("mod-hw-app-backup" in manager and "mod-hw-app-backup-verify" in manager and
-      "mod-hw-app-restore" in manager and "mod-hw-app-clean" in manager and
+      "mod-hw-app-restore" in manager and "mod-hw-app-clean" in manager,
       "Manager generates a target-specific maintenance command set without claiming in-app execution")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
