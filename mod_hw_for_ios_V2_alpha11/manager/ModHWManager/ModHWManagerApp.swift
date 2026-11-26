@@ -79,11 +79,6 @@ struct ContentView: View {
                     }
                 }
                 Section {
-                    // Keep this explicit header form to avoid SwiftUI selecting the Table Section overload.
-                    VStack(alignment: .leading, spacing: 0) { EmptyView() }
-                } header: {
-                    Text("越狱 Core 连接（只读检测）")
-                }
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("127.0.0.1:18081")
@@ -134,6 +129,8 @@ struct ContentView: View {
                     }
                     Text("仅请求只读 /status 和 /apps 接口；不会读取或切换配置，也不会修改设备数据。需要先在越狱环境安装并启动 Alpha11 Core。")
                         .font(.footnote).foregroundStyle(.secondary)
+                } header: {
+                    Text("越狱 Core 连接（只读检测）")
                 }
                 Section("运行说明") {
                     Text(status).font(.footnote).foregroundStyle(.secondary)
