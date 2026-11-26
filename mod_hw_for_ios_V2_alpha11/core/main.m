@@ -7,6 +7,8 @@
 #import <errno.h>
 #import <string.h>
 #import <sys/sysctl.h>
+#import <sys/time.h>
+#import <stdlib.h>
 
 // Alpha11 companion Core: read-only local diagnostics, bound to loopback.
 static const int kPort = 18080;
