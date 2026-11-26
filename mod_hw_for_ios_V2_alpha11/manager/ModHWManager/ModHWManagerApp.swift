@@ -23,6 +23,13 @@ private struct MaintenanceTool: Decodable, Identifiable {
     var id: String { name }
 }
 
+private struct AppProfile: Decodable, Identifiable {
+    let bundleIdentifier: String
+    let valid: Bool
+    let path: String
+    var id: String { bundleIdentifier }
+}
+
 private struct DeviceSummary: Decodable {
     let productType: String
     let architecture: String
@@ -52,6 +59,8 @@ struct ContentView: View {
     @State private var systemStatus = "尚未读取设备信息"
     @State private var maintenanceTools: [MaintenanceTool] = []
     @State private var toolsStatus = "尚未检查维护工具"
+    @State private var appProfiles: [AppProfile] = []
+    @State private var profilesStatus = "尚未读取已安装配置"
     @State private var coreChecking = false
     @State private var appsLoading = false
     @State private var appInventoryStatus = "尚未读取 App 清单"
@@ -91,6 +100,7 @@ struct ContentView: View {
                             fetchInstalledApps()
                             fetchSystemSummary()
                             fetchMaintenanceTools()
+                            fetchAppProfiles()
                         } label: {
                             Label(coreChecking || appsLoading ? "正在检查…" : "刷新设备状态", systemImage: "arrow.clockwise")
                                 .frame(maxWidth: .infinity)
@@ -149,6 +159,7 @@ struct ContentView: View {
             fetchInstalledApps()
             fetchSystemSummary()
             fetchMaintenanceTools()
+            fetchAppProfiles()
         }
     }
 
@@ -207,8 +218,32 @@ struct ContentView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
+            Section("越狱端已安装配置") {
+                Text(profilesStatus).font(.footnote).foregroundStyle(.secondary)
+                Button("刷新配置清单") { fetchAppProfiles() }
+                if appProfiles.isEmpty {
+                    Text("尚未发现配置文件。配置目录：/var/mobile/Library/Preferences/com.modhw.ios.profiles")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    ForEach(appProfiles) { profile in
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack {
+                                Text(profile.bundleIdentifier).font(.subheadline.monospaced())
+                                Spacer()
+                                Label(profile.valid ? "格式有效" : "格式无效",
+                                      systemImage: profile.valid ? "checkmark.circle.fill" : "xmark.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(profile.valid ? .green : .orange)
+                            }
+                            Text(profile.path).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Text("此清单只读取文件名和 plist 格式，不显示配置字段值，也不代表目标 App 已加载该配置。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
             Section("配置文件应用方式") {
-                Text("导出后，将对应 Bundle ID 命名的 plist 放入越狱目录 com.modhw.ios.profiles；当前版本只负责生成文件，不会自动写入越狱目录或切换 Hook 配置。")
+                Text("管理器当前负责生成独立配置；Core 可读取越狱端已安装配置清单。将导出的 plist 放入上方目录后，目标 App 下次启动时由原作者 Hook 按 Bundle ID 选择配置。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("操作结果") { Text(status).font(.footnote).foregroundStyle(.secondary) }
@@ -444,6 +479,35 @@ struct ContentView: View {
             } catch {
                 maintenanceTools = []
                 toolsStatus = "检查失败：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func fetchAppProfiles() {
+        profilesStatus = "正在读取越狱端配置清单…"
+        Task {
+            do {
+                var request = URLRequest(url: URL(string: "http://127.0.0.1:18081/profiles")!)
+                request.httpMethod = "GET"
+                request.timeoutInterval = 4
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                      let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      payload["ok"] as? Bool == true,
+                      let rows = payload["profiles"] as? [[String: Any]] else {
+                    throw URLError(.cannotParseResponse)
+                }
+                appProfiles = rows.compactMap { row in
+                    guard let bundle = row["bundleIdentifier"] as? String,
+                          let valid = row["valid"] as? Bool,
+                          let path = row["path"] as? String else { return nil }
+                    return AppProfile(bundleIdentifier: bundle, valid: valid, path: path)
+                }
+                profilesStatus = "已读取 \\(appProfiles.count) 个分 App 配置"
+            } catch {
+                appProfiles = []
+                profilesStatus = "读取失败：\\(error.localizedDescription)"
             }
         }
     }
