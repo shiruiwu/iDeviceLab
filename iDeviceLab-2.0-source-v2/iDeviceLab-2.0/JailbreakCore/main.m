@@ -95,7 +95,7 @@ static NSDictionary *AppDataContainerIndex(void) {
     NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
     NSMutableDictionary *index = [NSMutableDictionary dictionary];
     for (NSString *child in children) {
-        if ([child hasPrefix:@"."]) continue;
+        if ([child hasPrefix:@"."] || [[NSUUID alloc] initWithUUIDString:child] == nil) continue;
         NSString *container = [root stringByAppendingPathComponent:child];
         struct stat info = {0};
         if (lstat(container.fileSystemRepresentation, &info) != 0 || !S_ISDIR(info.st_mode)) continue;
@@ -135,6 +135,7 @@ static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relative
     NSString *canonicalContainer = container.stringByStandardizingPath;
     // Only a direct UUID child of the known app-data root is eligible.
     if (![canonicalContainer.stringByDeletingLastPathComponent isEqualToString:root]) return NO;
+    if ([[NSUUID alloc] initWithUUIDString:canonicalContainer.lastPathComponent] == nil) return NO;
     if (![canonicalContainer.stringByResolvingSymlinksInPath isEqualToString:canonicalContainer]) return NO;
     // Keep the deletion surface to the two explicitly supported cache locations.
     if (![relativePath isEqualToString:@"Library/Caches"] && ![relativePath isEqualToString:@"tmp"]) return NO;
