@@ -69,7 +69,7 @@ jobs:
           members, offset = {}, 8
           while offset < len(raw):
               header = raw[offset:offset + 60]
-              assert len(header) == 60 and header[58:60] == b'\`\n', repr(header[58:60])
+              assert len(header) == 60 and header[58:60] == bytes((96, 10)), repr(header[58:60])
               name = header[:16].decode('ascii').strip().rstrip('/')
               size = int(header[48:58].decode('ascii').strip())
               start = offset + 60
