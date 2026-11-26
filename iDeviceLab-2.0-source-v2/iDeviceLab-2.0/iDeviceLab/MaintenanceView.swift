@@ -20,6 +20,9 @@ struct MaintenanceView: View {
     @State private var orphanedContainers: [OrphanedContainerItem] = []
     @State private var inventoryScannedAt: Date?
     @State private var inventoryLastError: String?
+    @State private var installedAppScanStatus = "unknown"
+    @State private var containerIndexScanStatus = "unknown"
+    @State private var orphanScanStatus = "unknown"
     @State private var lastAppCleanup: [String: Any]?
     @State private var appMaintenanceMessage = "尚未扫描"
     @State private var isCleaningApp = false
@@ -109,7 +112,10 @@ struct MaintenanceView: View {
                         Text("尚未发现可维护的应用容器，或 Rootless 核心没有读取权限。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    LabeledContent("疑似卸载残留容器", value: "\(orphanedContainerCount) 个")
+                    LabeledContent("已安装 App 清单", value: scanStatusLabel(installedAppScanStatus))
+                    LabeledContent("App 容器索引", value: scanStatusLabel(containerIndexScanStatus))
+                    LabeledContent("残留判定", value: orphanScanStatus == "complete" ? "扫描完整" : "资料不完整，暂不判定")
+                    LabeledContent("疑似卸载残留容器", value: orphanScanStatus == "complete" ? "\(orphanedContainerCount) 个" : "无法可靠判断")
                     if let inventoryScannedAt {
                         LabeledContent("最近成功扫描", value: inventoryScannedAt.formatted(date: .abbreviated, time: .shortened))
                     }
@@ -217,12 +223,17 @@ struct MaintenanceView: View {
             appItems = result.apps
             orphanedContainerCount = result.orphanedContainerCount
             orphanedContainers = result.orphanedContainers ?? []
+            installedAppScanStatus = result.installedAppScanStatus
+            containerIndexScanStatus = result.containerIndexScanStatus
+            orphanScanStatus = result.orphanScanStatus
             inventoryScannedAt = Date()
-            inventoryLastError = nil
+            inventoryLastError = [result.installedAppScanError, result.containerIndexScanError].filter { !$0.isEmpty }.joined(separator: "；").nilIfEmpty
             if !appItems.contains(where: { $0.bundleIdentifier == selectedAppBundleID }) {
                 selectedAppBundleID = appItems.first?.bundleIdentifier ?? ""
             }
-            appMaintenanceMessage = "已扫描 \(appItems.count) 个已安装应用"
+            appMaintenanceMessage = result.installedAppScanStatus == "complete" && result.containerIndexScanStatus == "complete"
+                ? "已扫描 \(appItems.count) 个已安装应用"
+                : "扫描不完整：部分应用或容器数据不可用"
             return true
         } catch {
             inventoryLastError = error.localizedDescription
@@ -338,6 +349,10 @@ struct MaintenanceView: View {
             "installedAppInventory": appInventory,
             "orphanedContainers": orphanInventory,
             "orphanedContainerCount": orphanedContainerCount,
+            "installedAppScanStatus": installedAppScanStatus,
+            "containerIndexScanStatus": containerIndexScanStatus,
+            "orphanScanStatus": orphanScanStatus,
+            "inventoryScanError": inventoryLastError ?? "",
             "lastAppCleanup": lastAppCleanup.map { $0 as Any } ?? NSNull(),
             "scope": [
                 "included": ["iDeviceLab Caches", "iDeviceLab tmp", "installed app cache and tmp sizes from the last Rootless scan", "orphan container identifiers and aggregate sizes", "local profile counts"],

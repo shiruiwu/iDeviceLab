@@ -60,23 +60,65 @@ static NSDictionary *SystemSummary(void) {
     };
 }
 
-static NSArray *InstalledApplications(void) {
+static void RecordInventoryError(NSError **scanError, NSError *error, NSString *fallback) {
+    if (!scanError || *scanError) return;
+    *scanError = error ?: [NSError errorWithDomain:@"iDeviceLab.Inventory" code:1
+        userInfo:@{NSLocalizedDescriptionKey:fallback ?: @"inventory scan was incomplete"}];
+}
+
+static NSArray *InstalledApplications(NSError **scanError) {
     NSString *root = @"/var/containers/Bundle/Application";
-    NSArray *containers = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    struct stat rootInfo = {0};
+    if (lstat(root.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode)) {
+        int savedErrno = errno;
+        RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"installed app bundle root is unavailable: %s", strerror(savedErrno)]);
+        return @[];
+    }
+    NSError *rootError = nil;
+    NSArray *containers = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:&rootError];
+    if (!containers) {
+        RecordInventoryError(scanError, rootError, @"unable to enumerate installed app bundle root");
+        return @[];
+    }
     NSMutableArray *apps = [NSMutableArray array];
     for (NSString *container in containers) {
         if ([container hasPrefix:@"."]) continue;
         NSString *containerPath = [root stringByAppendingPathComponent:container];
-        NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:containerPath error:nil] ?: @[];
+        struct stat containerInfo = {0};
+        if (lstat(containerPath.fileSystemRepresentation, &containerInfo) != 0) {
+            if (errno != ENOENT) RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app bundle container %@", container]);
+            continue;
+        }
+        if (!S_ISDIR(containerInfo.st_mode)) continue;
+        NSError *childrenError = nil;
+        NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:containerPath error:&childrenError];
+        if (!children) {
+            RecordInventoryError(scanError, childrenError, [NSString stringWithFormat:@"unable to enumerate app bundle container %@", container]);
+            continue;
+        }
         for (NSString *child in children) {
             if (![child.pathExtension.lowercaseString isEqualToString:@"app"]) continue;
             NSString *appPath = [containerPath stringByAppendingPathComponent:child];
+            struct stat appInfo = {0};
+            if (lstat(appPath.fileSystemRepresentation, &appInfo) != 0 || !S_ISDIR(appInfo.st_mode)) {
+                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app bundle %@", child]);
+                continue;
+            }
             NSString *plistPath = [appPath stringByAppendingPathComponent:@"Info.plist"];
+            struct stat plistInfo = {0};
+            if (lstat(plistPath.fileSystemRepresentation, &plistInfo) != 0 || !S_ISREG(plistInfo.st_mode)) {
+                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app bundle %@ has no readable regular Info.plist", child]);
+                continue;
+            }
             NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:plistPath];
-            NSString *bundleID = info[@"CFBundleIdentifier"];
-            if (![bundleID isKindOfClass:NSString.class] || bundleID.length == 0) continue;
-            NSString *name = info[@"CFBundleDisplayName"] ?: info[@"CFBundleName"] ?: child.stringByDeletingPathExtension;
-            NSString *version = info[@"CFBundleShortVersionString"] ?: @"";
+            NSString *bundleID = [info[@"CFBundleIdentifier"] isKindOfClass:NSString.class] ? info[@"CFBundleIdentifier"] : nil;
+            if (bundleID.length == 0) {
+                RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app bundle %@ has no valid Bundle ID", child]);
+                continue;
+            }
+            NSString *name = [info[@"CFBundleDisplayName"] isKindOfClass:NSString.class] ? info[@"CFBundleDisplayName"] :
+                ([info[@"CFBundleName"] isKindOfClass:NSString.class] ? info[@"CFBundleName"] : child.stringByDeletingPathExtension);
+            NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"";
             [apps addObject:@{@"name":name, @"bundleIdentifier":bundleID, @"version":version}];
         }
     }
@@ -87,25 +129,51 @@ static NSArray *InstalledApplications(void) {
 }
 
 
-static NSDictionary *AppDataContainerIndex(void) {
+static NSDictionary *AppDataContainerIndex(NSError **scanError) {
     NSString *root = @"/var/mobile/Containers/Data/Application";
     struct stat rootInfo = {0};
-    if (lstat(root.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode))
+    if (lstat(root.fileSystemRepresentation, &rootInfo) != 0 || !S_ISDIR(rootInfo.st_mode)) {
+        int savedErrno = errno;
+        RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"app data container root is unavailable: %s", strerror(savedErrno)]);
         return @{};
-    NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    }
+    NSError *childrenError = nil;
+    NSArray *children = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:&childrenError];
+    if (!children) {
+        RecordInventoryError(scanError, childrenError, @"unable to enumerate app data containers");
+        return @{};
+    }
     NSMutableDictionary *index = [NSMutableDictionary dictionary];
     NSMutableSet *ambiguousBundleIDs = [NSMutableSet set];
     for (NSString *child in children) {
         if ([child hasPrefix:@"."] || [[NSUUID alloc] initWithUUIDString:child] == nil) continue;
         NSString *container = [root stringByAppendingPathComponent:child];
         struct stat info = {0};
-        if (lstat(container.fileSystemRepresentation, &info) != 0 || !S_ISDIR(info.st_mode)) continue;
+        if (lstat(container.fileSystemRepresentation, &info) != 0) {
+            if (errno != ENOENT) RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect app data container %@", child]);
+            continue;
+        }
+        if (!S_ISDIR(info.st_mode)) continue;
         NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
         struct stat metadataInfo = {0};
-        if (lstat(metadataPath.fileSystemRepresentation, &metadataInfo) != 0 || !S_ISREG(metadataInfo.st_mode)) continue;
+        if (lstat(metadataPath.fileSystemRepresentation, &metadataInfo) != 0) {
+            if (errno != ENOENT) RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"unable to inspect metadata for container %@", child]);
+            continue;
+        }
+        if (!S_ISREG(metadataInfo.st_mode)) {
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"container %@ metadata is not a regular file", child]);
+            continue;
+        }
         NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
-        NSString *bundleID = metadata[@"MCMMetadataIdentifier"];
-        if (![bundleID isKindOfClass:NSString.class] || bundleID.length == 0 || bundleID.length > 255) continue;
+        if (![metadata isKindOfClass:NSDictionary.class]) {
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"container %@ metadata is unreadable or invalid", child]);
+            continue;
+        }
+        NSString *bundleID = [metadata[@"MCMMetadataIdentifier"] isKindOfClass:NSString.class] ? metadata[@"MCMMetadataIdentifier"] : nil;
+        if (bundleID.length == 0 || bundleID.length > 255) {
+            RecordInventoryError(scanError, nil, [NSString stringWithFormat:@"container %@ metadata has no valid Bundle ID", child]);
+            continue;
+        }
         // Never select an arbitrary container if metadata maps one bundle ID more than once.
         if ([ambiguousBundleIDs containsObject:bundleID]) continue;
         if (index[bundleID] != nil) {
@@ -279,8 +347,9 @@ static NSDictionary *SafeDirectoryMetrics(NSString *path) {
 
 
 static NSDictionary *AppMaintenanceInventory(void) {
-    NSDictionary *containers = AppDataContainerIndex();
-    NSArray *installed = InstalledApplications();
+    NSError *installedScanError = nil, *containerScanError = nil;
+    NSArray *installed = InstalledApplications(&installedScanError);
+    NSDictionary *containers = AppDataContainerIndex(&containerScanError);
     NSMutableSet *installedIDs = [NSMutableSet set];
     NSMutableArray *apps = [NSMutableArray array];
     for (NSDictionary *app in installed) {
@@ -311,7 +380,8 @@ static NSDictionary *AppMaintenanceInventory(void) {
         }];
     }
     NSMutableArray *orphans = [NSMutableArray array];
-    for (NSString *bundleID in containers) {
+    BOOL orphanScanComplete = installedScanError == nil && containerScanError == nil;
+    if (orphanScanComplete) for (NSString *bundleID in containers) {
         if ([installedIDs containsObject:bundleID]) continue;
         NSString *container = containers[bundleID];
         NSString *containerUUID = container.lastPathComponent ?: @"";
@@ -333,7 +403,12 @@ static NSDictionary *AppMaintenanceInventory(void) {
     }];
     return @{@"ok":@YES, @"apps":apps, @"orphanedContainerCount":@(orphans.count),
              @"orphanedContainers":orphans,
-             @"scope":@"Only Library/Caches and tmp are eligible for cleanup; orphan containers are listed for review only and are never deleted automatically."};
+             @"installedAppScanStatus":@(installedScanError ? @"partial" : @"complete"),
+             @"installedAppScanError":installedScanError.localizedDescription ?: @"",
+             @"containerIndexScanStatus":@(containerScanError ? @"partial" : @"complete"),
+             @"containerIndexScanError":containerScanError.localizedDescription ?: @"",
+             @"orphanScanStatus":@(orphanScanComplete ? @"complete" : @"unavailable"),
+             @"scope":@"Orphan candidates are emitted only when both installed-app and app-container inventories completed without scan errors. Only Library/Caches and tmp are eligible for cleanup."};
 }
 
 static NSDictionary *ClearAppCaches(NSData *body) {
@@ -342,12 +417,20 @@ static NSDictionary *ClearAppCaches(NSData *body) {
     NSString *bundleID = [input isKindOfClass:NSDictionary.class] ? input[@"bundleIdentifier"] : nil;
     if (![bundleID isKindOfClass:NSString.class] || bundleID.length == 0 || bundleID.length > 255)
         return @{@"ok":@NO, @"error":@"a valid bundleIdentifier is required"};
+    NSError *installedScanError = nil;
+    NSArray *installedApps = InstalledApplications(&installedScanError);
+    if (installedScanError)
+        return @{@"ok":@NO, @"error":[NSString stringWithFormat:@"installed app inventory is incomplete; cleanup refused: %@", installedScanError.localizedDescription]};
     BOOL installed = NO;
-    for (NSDictionary *app in InstalledApplications()) {
+    for (NSDictionary *app in installedApps) {
         if ([app[@"bundleIdentifier"] isEqualToString:bundleID]) { installed = YES; break; }
     }
     if (!installed) return @{@"ok":@NO, @"error":@"only currently installed applications can be selected"};
-    NSString *container = AppDataContainerIndex()[bundleID];
+    NSError *containerScanError = nil;
+    NSDictionary *containerIndex = AppDataContainerIndex(&containerScanError);
+    if (containerScanError)
+        return @{@"ok":@NO, @"error":[NSString stringWithFormat:@"app container inventory is incomplete; cleanup refused: %@", containerScanError.localizedDescription]};
+    NSString *container = containerIndex[bundleID];
     if (!container) return @{@"ok":@NO, @"error":@"app data container is not accessible"};
     unsigned long long removed = 0, removedItems = 0;
     NSError *error = nil;
@@ -538,7 +621,13 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSData *
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/status"])
         return @{@"ok":@YES, @"service":@"iDeviceLab Rootless Core", @"version":@"0.1.9", @"port":@(kPort)};
     if ([method isEqualToString:@"GET"] && ([path isEqualToString:@"/system"] || [path isEqualToString:@"/compatibility"])) return SystemSummary();
-    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) return @{@"ok":@YES, @"apps":InstalledApplications()};
+    if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/apps"]) {
+        NSError *scanError = nil;
+        NSArray *apps = InstalledApplications(&scanError);
+        return @{@"ok":@YES, @"apps":apps,
+                 @"inventoryScanStatus":scanError ? @"partial" : @"complete",
+                 @"inventoryScanError":scanError.localizedDescription ?: @""};
+    }
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/maintenance/apps"]) return AppMaintenanceInventory();
     if ([method isEqualToString:@"POST"] && [path isEqualToString:@"/maintenance/clear"]) return ClearAppCaches(body);
     if ([method isEqualToString:@"GET"] && [path isEqualToString:@"/hooks/status"]) return HookInstallationStatus();

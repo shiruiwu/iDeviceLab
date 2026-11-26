@@ -113,4 +113,29 @@ struct AppMaintenanceResponse: Codable {
     let orphanedContainerCount: Int
     let orphanedContainers: [OrphanedContainerItem]?
     let scope: String?
+    let installedAppScanStatus: String
+    let installedAppScanError: String
+    let containerIndexScanStatus: String
+    let containerIndexScanError: String
+    let orphanScanStatus: String
+
+    private enum CodingKeys: String, CodingKey {
+        case ok, apps, orphanedContainerCount, orphanedContainers, scope
+        case installedAppScanStatus, installedAppScanError, containerIndexScanStatus
+        case containerIndexScanError, orphanScanStatus
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        ok = try values.decodeIfPresent(Bool.self, forKey: .ok) ?? false
+        apps = try values.decodeIfPresent([AppMaintenanceItem].self, forKey: .apps) ?? []
+        orphanedContainerCount = try values.decodeIfPresent(Int.self, forKey: .orphanedContainerCount) ?? 0
+        orphanedContainers = try values.decodeIfPresent([OrphanedContainerItem].self, forKey: .orphanedContainers)
+        scope = try values.decodeIfPresent(String.self, forKey: .scope)
+        installedAppScanStatus = try values.decodeIfPresent(String.self, forKey: .installedAppScanStatus) ?? "unknown"
+        installedAppScanError = try values.decodeIfPresent(String.self, forKey: .installedAppScanError) ?? ""
+        containerIndexScanStatus = try values.decodeIfPresent(String.self, forKey: .containerIndexScanStatus) ?? "unknown"
+        containerIndexScanError = try values.decodeIfPresent(String.self, forKey: .containerIndexScanError) ?? ""
+        orphanScanStatus = try values.decodeIfPresent(String.self, forKey: .orphanScanStatus) ?? "unknown"
+    }
 }
