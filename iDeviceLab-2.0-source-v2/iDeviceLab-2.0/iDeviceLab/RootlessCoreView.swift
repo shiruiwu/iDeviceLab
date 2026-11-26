@@ -34,6 +34,10 @@ private struct HookInstallationStatus: Decodable {
     let coreServiceRunning: Bool
     let tweakLibraryFound: Bool
     let tweakFilterFound: Bool
+    let filterParseable: Bool?
+    let filterTargetCount: Int?
+    let filterTargets: [String]?
+    let tweakLibraryBytes: Int64?
     let runtimeInjectionVerified: Bool
     let note: String
 }
@@ -147,6 +151,15 @@ struct RootlessCoreView: View {
                         LabeledContent("Rootless 核心服务", value: hook.coreServiceRunning ? "运行中" : "未运行")
                         LabeledContent("Hook 动态库文件", value: hook.tweakLibraryFound ? "已发现" : "未发现")
                         LabeledContent("进程过滤配置", value: hook.tweakFilterFound ? "已发现" : "未发现")
+                        LabeledContent("过滤规则格式", value: hook.filterParseable == true ? "可解析" : (hook.tweakFilterFound ? "无法解析或缺少 Filter" : "无文件"))
+                        LabeledContent("声明的目标数", value: "\(hook.filterTargetCount ?? 0)")
+                        if let targets = hook.filterTargets, !targets.isEmpty {
+                            Text("Filter 目标：\(targets.joined(separator: "、"))")
+                                .font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
+                        }
+                        if let bytes = hook.tweakLibraryBytes {
+                            LabeledContent("动态库大小", value: ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
+                        }
                         LabeledContent("目标进程注入", value: hook.runtimeInjectionVerified ? "已验证" : "尚未验证")
                         Text(hook.note).font(.caption2).foregroundStyle(.secondary)
                     } else {
