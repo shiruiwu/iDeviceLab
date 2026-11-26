@@ -403,11 +403,11 @@ static NSDictionary *AppMaintenanceInventory(void) {
     }];
     return @{@"ok":@YES, @"apps":apps, @"orphanedContainerCount":@(orphans.count),
              @"orphanedContainers":orphans,
-             @"installedAppScanStatus":@(installedScanError ? @"partial" : @"complete"),
+             @"installedAppScanStatus":(installedScanError ? @"partial" : @"complete"),
              @"installedAppScanError":installedScanError.localizedDescription ?: @"",
-             @"containerIndexScanStatus":@(containerScanError ? @"partial" : @"complete"),
+             @"containerIndexScanStatus":(containerScanError ? @"partial" : @"complete"),
              @"containerIndexScanError":containerScanError.localizedDescription ?: @"",
-             @"orphanScanStatus":@(orphanScanComplete ? @"complete" : @"unavailable"),
+             @"orphanScanStatus":(orphanScanComplete ? @"complete" : @"unavailable"),
              @"scope":@"Orphan candidates are emitted only when both installed-app and app-container inventories completed without scan errors. Only Library/Caches and tmp are eligible for cleanup."};
 }
 
