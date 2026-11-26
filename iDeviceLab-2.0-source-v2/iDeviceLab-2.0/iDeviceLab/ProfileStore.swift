@@ -216,7 +216,7 @@ final class ProfileStore: ObservableObject {
     private func apply(_ archive: FullBackupArchive) {
         profiles = Self.normalized(archive.profiles)
         managedApps = archive.managedApps
-        let validIDs = Set(profiles.map(\\.id))
+        let validIDs = Set(profiles.map(\.id))
         selectedID = archive.selectedID.flatMap { validIDs.contains($0) ? $0 : nil } ?? profiles[0].id
     }
 
