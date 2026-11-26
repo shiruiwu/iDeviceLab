@@ -45,6 +45,7 @@ jobs:
           bash -n scripts/cleanup-app-container.sh
           bash -n scripts/verify-app-container-backup.sh
           bash -n scripts/selftest-device.sh
+          bash -n scripts/diagnose-keychain-access.sh
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
 
@@ -95,9 +96,10 @@ jobs:
               'var/jb/usr/bin/mod-hw-app-clean',
               'var/jb/usr/bin/mod-hw-app-backup-verify',
               'var/jb/usr/bin/mod-hw-selftest',
+              'var/jb/usr/bin/mod-hw-keychain-diagnose',
           }
           assert expected.issubset(installed), sorted(installed)
-          print('DEB ar members, architecture, dependency, and all eight installed tools verified')
+          print('DEB ar members, architecture, dependency, and all nine installed tools verified')
           PY
 
       - name: Upload IPA and diagnostics DEB artifacts
