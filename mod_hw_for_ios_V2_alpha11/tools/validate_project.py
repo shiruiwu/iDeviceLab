@@ -111,6 +111,8 @@ if app_cleanup.is_file():
           "App cleanup creates and verifies a backup and rollback snapshot before clearing data")
     check('if pgrep -x "$EXECUTABLE"' in src and '[ "$PGP_STATUS" -eq 1 ]' in src,
           "App cleanup distinguishes a stopped process from a pgrep execution error")
+    check('tar -tvzf "$ARCHIVE_PATH" > "$DETAIL_LIST"' in src and "END { exit bad }" in src,
+          "App cleanup propagates archive-listing failures instead of masking them in a pipeline")
     check("Keychain" in src and "App Groups" in src,
           "App cleanup documents Keychain and App Groups as excluded")
 if app_restore.is_file():
@@ -128,6 +130,8 @@ if app_verify.is_file():
     check("length($2) != 64" in src and "[ ! -L \"$ARCHIVE\" ]" in src and
           "[ ! -L \"$MANIFEST\" ]" in src and "sha_count != 1" in src,
           "App-container verifier rejects malformed/duplicate manifests and symlink inputs")
+    check("bundle_count != 1" in src and "container_count != 1" in src and "scope_count != 1" in src,
+          "App-container verifier validates required identity and scope fields")
 
 check('mod-hw-config-backup' in package_builder and 'mod-hw-config-restore' in package_builder,
       "Rootless utility DEB packages config backup and restore commands")

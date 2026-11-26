@@ -55,7 +55,17 @@ ARCHIVE_NAME="$(basename "$ARCHIVE_PATH")"
 "/var/jb/usr/bin/mod-hw-app-backup-verify" "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
 # The restore helper deliberately refuses links and special files. Enforce the
 # same policy before destructive cleanup so the generated archive is restorable.
-tar -tvzf "$ARCHIVE_PATH" | awk 'substr($0,1,1) != "-" && substr($0,1,1) != "d" { exit 1 }' || fail '备份包含符号链接或特殊文件，当前还原工具无法安全处理；已中止清理。'
+DETAIL_LIST="$BACKUP_ROOT/.cleanup-archive-list.$"
+[ ! -e "$DETAIL_LIST" ] && [ ! -L "$DETAIL_LIST" ] || fail '归档检查临时文件已存在；已中止清理。'
+if ! tar -tvzf "$ARCHIVE_PATH" > "$DETAIL_LIST"; then
+  rm -f "$DETAIL_LIST"
+  fail '无法读取备份归档目录；已中止清理。'
+fi
+if ! awk 'substr($0,1,1) != "-" && substr($0,1,1) != "d" { bad=1 } END { exit bad }' "$DETAIL_LIST"; then
+  rm -f "$DETAIL_LIST"
+  fail '备份包含符号链接或特殊文件，当前还原工具无法安全处理；已中止清理。'
+fi
+rm -f "$DETAIL_LIST"
 
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 SNAPSHOT="$SNAPSHOT_ROOT/$BUNDLE_ID.$STAMP.pid-$PPID"

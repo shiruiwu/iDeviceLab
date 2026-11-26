@@ -35,8 +35,8 @@ MANIFEST="${ARCHIVE%.tar.gz}.txt"
   exit 5
 }
 
-# Require exactly one SHA-256 and archive entry; reject duplicate/malformed fields.
-EXPECTED="$(awk -F= -v name="$NAME" '
+# Require one well-formed value for every identity/integrity field.
+MANIFEST_VALUES="$(awk -F= -v name="$NAME" '
   $1 == "sha256" {
     sha_count++
     if (NF != 2 || length($2) != 64 || $2 ~ /[^0-9a-f]/) bad=1
@@ -46,12 +46,34 @@ EXPECTED="$(awk -F= -v name="$NAME" '
     archive_count++
     if (NF != 2 || $2 != name) bad=1
   }
+  $1 == "bundle_id" {
+    bundle_count++
+    if (NF != 2 || $2 == "" || $2 ~ /[^A-Za-z0-9._-]/ || $2 ~ /^\\./ || $2 ~ /\\.\\./ || $2 ~ /\\.$/) bad=1
+    bundle=$2
+  }
+  $1 == "container_id" {
+    container_count++
+    if (NF != 2 || $2 == "" || $2 ~ /[^A-Za-z0-9._-]/ || $2 ~ /^\\./ || $2 ~ /\\.\\./ || $2 ~ /\\.$/) bad=1
+    container=$2
+  }
+  $1 == "scope" {
+    scope_count++
+    if (NF != 2 || $2 != "app-data-container-only") bad=1
+  }
   END {
-    if (sha_count != 1 || archive_count != 1 || bad) exit 1
-    print sha
+    if (sha_count != 1 || archive_count != 1 || bundle_count != 1 ||
+        container_count != 1 || scope_count != 1 || bad) exit 1
+    print sha "|" bundle "|" container
   }
 ' "$MANIFEST")" || {
-  echo '清单中的 SHA-256 或归档文件名字段无效/重复。' >&2
+  echo '清单中的 SHA-256、Bundle ID、容器 ID、scope 或归档字段无效/重复。' >&2
+  exit 6
+}
+EXPECTED=$(printf '%s' "$MANIFEST_VALUES" | cut -d '|' -f 1)
+MANIFEST_BUNDLE=$(printf '%s' "$MANIFEST_VALUES" | cut -d '|' -f 2)
+MANIFEST_CONTAINER=$(printf '%s' "$MANIFEST_VALUES" | cut -d '|' -f 3)
+[ "$MANIFEST_BUNDLE" != "$MANIFEST_CONTAINER" ] || {
+  echo '清单中的 Bundle ID 与容器 ID 不应相同。' >&2
   exit 6
 }
 
