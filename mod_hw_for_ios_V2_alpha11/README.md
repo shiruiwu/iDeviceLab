@@ -10,7 +10,7 @@
 
 - The Theos target includes the original hook source files and uses the Rootless package scheme. Source inclusion and successful cloud compilation do not establish that every hook works on a specific iOS release.
 - The TrollStore manager currently provides plist import, syntax/structure inspection, and byte-preserving export. It is not yet a full device manager and does not directly write to jailbreak system paths.
-- The existing export function is a configuration-file backup. The Rootless tools package also provides explicit-bundle-ID app-container backup with a SHA-256 manifest; it does not delete data, restore app containers, include Keychain/App Groups, or perform deep cleanup.
+- The existing export function is a configuration-file backup. The Rootless tools package also provides explicit-bundle-ID app-container backup with a SHA-256 manifest; it now includes a guarded app-container restore with a pre-restore snapshot and rollback path; neither backup nor restore includes Keychain/App Groups, shared containers, system databases, or server-side state.
 - The older iDeviceLab Core/profile code is a separate legacy component. Its saved profiles are not automatically applied to the Alpha11 tweak configuration.
 - Device installation, injection, configuration application, process filtering, and runtime behavior must be verified on the target device. A successful IPA/DEB build is only a build/package result.
 
@@ -68,12 +68,17 @@ See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the so
 ## 运行机制 | Runtime Behavior
 - The tweak loads its configured plist during initialization and contains hooks in the source tree. Actual hook coverage depends on target process, OS version, substrate environment, and runtime testing.
 - The manager is sandboxed and currently handles user-selected files. Import/export does not itself grant access to privileged jailbreak directories. Rootless backup commands are separate privileged tools and require an explicit bundle identifier.
-- The legacy Rootless Core stores profiles locally. It is not yet integrated with the Alpha11 manager or tweak configuration path.
+- Alpha11 now packages a separate read-only Rootless Core on `127.0.0.1:18081`; the manager can test its `/status` endpoint. It does not yet consume legacy profiles or apply per-app configuration to the tweak.
 
 ## 调试与扩展 | Debugging & Extension
-- Use `scripts/diagnose-config.sh` to check candidate configuration paths and plist structure. Use `scripts/backup-app-container.sh <bundle.identifier>` to create a private archive of one app's data container, then `scripts/verify-app-container-backup.sh <archive-name.tar.gz>` to check its SHA-256 manifest and archive readability; review documented exclusions before relying on it.
+- Use `scripts/diagnose-config.sh` to check candidate configuration paths and plist structure. Use `mod-hw-app-backup <bundle.identifier>` to back up one app data container and `mod-hw-app-backup-verify <archive-name.tar.gz>` to verify it. Restore only after the app is fully closed: `mod-hw-app-restore <bundle.identifier> <archive-name.tar.gz> --confirm`. Restore rejects archives with unsafe paths, symlinks, hardlinks, or special files, requires the original container ID to match, and preserves a rollback snapshot. It does not restore Keychain/App Groups/shared/system/server data.
 - Use the CI workflows to validate source syntax and build package artifacts.
 - Record target-device test results separately; do not infer runtime success from build logs.
 
 ## 致谢与许可 | Credits & License
 Third-party code such as choose, mongoose, and the UIDevice extensions remains under their respective licenses (see `src/third_party/choose/LICENSE`, etc.). This project is intended for security research and education only—do not deploy it on devices or in environments where you lack explicit permission.
+
+
+## On-device verification
+
+After installing the Alpha11 tweak, read-only Core DEB, and diagnostics tools DEB, run `mod-hw-selftest` as root. It checks the Rootless paths, launchd service, installed helper commands, and (when `curl` is available) the Core loopback status response. The manager's “检测连接” button provides the same status check if `curl` is unavailable. This is a smoke test, not a complete validation of every hook or a deep-clean guarantee.
