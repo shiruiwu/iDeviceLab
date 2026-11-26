@@ -121,6 +121,8 @@ if app_cleanup.is_file():
           "App cleanup distinguishes a stopped process from a pgrep execution error")
     check('tar -tvzf "$ARCHIVE_PATH" > "$DETAIL_LIST"' in src and "END { exit bad }" in src,
           "App cleanup propagates archive-listing failures instead of masking them in a pipeline")
+    check('mktemp "$BACKUP_ROOT/.cleanup-archive-list.XXXXXX"' in src and 'trap \'rm -f "$DETAIL_LIST"\'' in src,
+          "App cleanup uses a unique temporary archive listing and removes it on exit")
     check("Keychain" in src and "App Groups" in src,
           "App cleanup documents Keychain and App Groups as excluded")
 if app_restore.is_file():
