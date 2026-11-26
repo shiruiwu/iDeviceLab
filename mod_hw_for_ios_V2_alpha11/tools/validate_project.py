@@ -17,6 +17,8 @@ gestalt_source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
 project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
+core_package_builder_path = ROOT / "scripts/build-core-deb.sh"
+core_package_builder = core_package_builder_path.read_text() if core_package_builder_path.is_file() else ""
 core_source = ROOT / "core/main.m"
 core_makefile = ROOT / "core/Makefile"
 core_control = ROOT / "core/control"
@@ -100,6 +102,14 @@ check("RawPlistDocument" in manager and "regularFileWithContents: data" in manag
 check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "IPA build targets arm64 and verifies archive")
 check(core_source.is_file() and core_makefile.is_file() and core_control.is_file() and core_daemon.is_file(),
       "Alpha11 read-only Core source and Rootless package files exist")
+check(core_package_builder_path.is_file() and
+      'xcrun --sdk iphoneos clang' in core_package_builder and
+      'var/jb/usr/libexec/idevelab-core' in core_package_builder and
+      'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist' in core_package_builder and
+      'core/layout/DEBIAN/postinst' in core_package_builder and
+      'core/layout/DEBIAN/prerm' in core_package_builder and
+      'idevelab-core-alpha11.deb' in core_package_builder,
+      "Core builder compiles and packages the rootless daemon, launchd plist, and lifecycle hooks")
 postinst = ROOT / "core/layout/DEBIAN/postinst"
 prerm = ROOT / "core/layout/DEBIAN/prerm"
 if postinst.is_file() and prerm.is_file():
