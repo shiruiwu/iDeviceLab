@@ -47,23 +47,40 @@ if [ ! -r "$MATCH" ] || [ ! -x "$MATCH" ]; then
 fi
 
 mkdir -p "$BACKUP_ROOT"
+[ -d "$BACKUP_ROOT" ] && [ ! -L "$BACKUP_ROOT" ] || {
+  echo '备份目录不是安全的普通目录。' >&2
+  exit 7
+}
+BACKUP_OWNER="$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)"
+[ "$BACKUP_OWNER" = 0 ] || {
+  echo '备份目录必须由 root 拥有。' >&2
+  exit 7
+}
 chmod 0700 "$BACKUP_ROOT"
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 CONTAINER_ID="$(basename "$MATCH")"
 BASE="$BACKUP_ROOT/$BUNDLE_ID.$STAMP.$CONTAINER_ID"
 ARCHIVE="$BASE.tar.gz"
-TMP="$ARCHIVE.tmp.$$"
+TMP="$ARCHIVE.tmp.$"
 MANIFEST="$BASE.txt"
-trap 'rm -f "$TMP"' EXIT HUP INT TERM
-if [ -e "$ARCHIVE" ] || [ -e "$MANIFEST" ]; then
+MANIFEST_TMP="$MANIFEST.tmp.$"
+COMMITTED=0
+cleanup_backup() {
+  rm -f "$TMP" "$MANIFEST_TMP"
+  if [ "$COMMITTED" -ne 1 ]; then
+    rm -f "$ARCHIVE" "$MANIFEST"
+  fi
+}
+trap 'cleanup_backup' EXIT HUP INT TERM
+if [ -e "$ARCHIVE" ] || [ -e "$MANIFEST" ] || [ -e "$TMP" ] || [ -e "$MANIFEST_TMP" ]; then
   echo '备份目标已存在；未覆盖现有文件。' >&2
-  exit 7
+  exit 8
 fi
 
 tar -czpf "$TMP" -C "$MATCH" .
 tar -tzf "$TMP" >/dev/null
+chmod 0600 "$TMP"
 mv "$TMP" "$ARCHIVE"
-chmod 0600 "$ARCHIVE"
 HASH="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 {
   echo "bundle_id=$BUNDLE_ID"
@@ -73,8 +90,10 @@ HASH="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
   echo "sha256=$HASH"
   echo 'scope=app-data-container-only'
   echo 'excluded=Keychain, App Groups, shared containers, system databases'
-} > "$MANIFEST"
-chmod 0600 "$MANIFEST"
+} > "$MANIFEST_TMP"
+chmod 0600 "$MANIFEST_TMP"
+mv "$MANIFEST_TMP" "$MANIFEST"
+COMMITTED=1
 trap - EXIT HUP INT TERM
 echo "应用数据容器备份完成：$ARCHIVE"
 echo "SHA-256：$HASH"
