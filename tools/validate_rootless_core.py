@@ -133,7 +133,7 @@ mobile_gestalt_body = mobile_gestalt_match.group(1) if mobile_gestalt_match else
 check("src/mobile_gestalt/mobile_gestalt.m" in ALPHA11_MAKEFILE and "src/cydia_substrate_hook/HookUtil.m" in ALPHA11_MAKEFILE, "Alpha11 Makefile includes its declared MobileGestalt and substrate utility sources")
 check("src/captain_hook/hook.mm" not in ALPHA11_MAKEFILE and (ALPHA11 / "src/captain_hook/hook.mm").is_file(), "Alpha11 CaptainHook source exists but is excluded from the Makefile")
 check("<string>SpringBoard</string>" in ALPHA11_FILTER and "<string>com.apple.Preferences</string>" in ALPHA11_FILTER, "Alpha11 filter declares SpringBoard and Preferences only")
-check("HookerForMGCopyAnswer();" in mobile_gestalt_body and "HookerForMGCopyMultipleAnswers();" not in mobile_gestalt_body, "Alpha11 MobileGestalt constructor path enables MGCopyAnswer but not MGCopyMultipleAnswers")
+check("HookerForMGCopyAnswer();" in mobile_gestalt_body and re.search(r"^\s*HookerForMGCopyMultipleAnswers\(\);", mobile_gestalt_body, re.M) is None, "Alpha11 MobileGestalt constructor path enables MGCopyAnswer but not MGCopyMultipleAnswers")
 check("hook_sysctlbyname();" in constructor_body and "hook_sysctl();" not in constructor_body, "Alpha11 constructor registers sysctlbyname but not sysctl")
 check("CTMobileEquipmentInfo_setIMEI();" in constructor_body and "CTMobileEquipmentInfo_setMEID();" in constructor_body and "HOOK_IDFA();" in constructor_body and "HOOK_IDFV();" in constructor_body, "Alpha11 constructor registers CoreTelephony setter and advertising/vendor ID hook entry points")
 

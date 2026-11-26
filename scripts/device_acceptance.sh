@@ -16,7 +16,35 @@ check() {
 }
 
 check "Rootless Core executable exists" test -x /var/jb/usr/libexec/idevelab-core
-check "Debian package is installed" dpkg-query -W com.idevelab.core
+check "Debian package is installed" sh -c "dpkg -s com.idevelab.core 2>/dev/null | grep -q '^Status: install ok installed
+check "LaunchDaemon is loaded" launchctl print system/com.idevelab.core
+
+manager_installed() {
+    for plist in /var/containers/Bundle/Application/*/iDeviceLab.app/Info.plist; do
+        [ -f "$plist" ] || continue
+        bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$plist" 2>/dev/null || true)"
+        [ "$bundle_id" = "com.idevelab.manager" ] && return 0
+    done
+    return 1
+}
+
+api_check() {
+    route="$1"
+    code="$(curl --connect-timeout 2 --max-time 8 -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:18080/$route" 2>/dev/null || true)"
+    [ "$code" = "200" ]
+}
+for route in status system compatibility apps maintenance/apps hooks/status config/status; do
+    check "Loopback API /$route returns HTTP 200" api_check "$route"
+done
+
+if [ "$failures" -eq 0 ]; then
+    printf '\nDevice acceptance checks passed. Hook runtime injection is NOT proven by these checks.\n'
+    exit 0
+fi
+printf '\nDevice acceptance checks failed: %s\n' "$failures"
+exit 1
+"
+check "Manager IPA is installed" manager_installed
 check "LaunchDaemon plist parses" plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.core.plist
 check "LaunchDaemon is loaded" launchctl print system/com.idevelab.core
 
