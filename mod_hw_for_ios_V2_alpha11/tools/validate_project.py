@@ -78,6 +78,10 @@ check('import UIKit' in manager and 'UIPasteboard.general.string = command' in m
 check('http://127.0.0.1:18081/system' in manager and 'fetchSystemSummary()' in manager and
       'DeviceSummary' in manager and 'diskFreeBytes' in manager,
       "Manager reads the Core system summary and displays device and storage information")
+check('http://127.0.0.1:18081/tools' in manager and 'fetchMaintenanceTools()' in manager and
+      'MaintenanceTool' in manager and '已安装' in manager and '缺失' in manager,
+      "Manager displays the live installed state of jailbreak maintenance tools")
+
 check('NSAllowsLocalNetworking' in ipa and 'grep -q true' in ipa,
       "TrollStore IPA permits local-network ATS exception for loopback Core status")
 check("RawPlistDocument" in manager and "regularFileWithContents: data" in manager,
@@ -91,6 +95,11 @@ if core_source.is_file():
           "Alpha11 Core exposes read-only HTTP methods only")
     check("INADDR_LOOPBACK" in core and "kPort = 18081" in core,
           "Alpha11 Core binds only to loopback port 18081")
+    check('@"tools"' in core and 'InstalledMaintenanceTools' in core and
+          'access(path.fileSystemRepresentation, X_OK)' in core and
+          '[path isEqualToString:@"/tools"]' in core,
+          "Alpha11 Core reports only the fixed allowlisted maintenance tool inventory")
+
     check('@"version": @"0.2.0-alpha11"' in core,
           "Alpha11 Core status reports its own version")
 if core_control.is_file():
