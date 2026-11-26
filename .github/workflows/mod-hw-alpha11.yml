@@ -40,6 +40,7 @@ jobs:
           bash -n scripts/diagnose-config.sh
           bash -n scripts/backup-config.sh
           bash -n scripts/restore-config.sh
+          bash -n scripts/backup-app-container.sh
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
 
@@ -53,7 +54,7 @@ jobs:
           unzip -l release/mod_hw_manager_trollstore.ipa | grep -E 'Payload/ModHWManager.app/Info.plist$'
           unzip -l release/mod_hw_manager_trollstore.ipa | grep -E 'Payload/ModHWManager.app/[^/]+$'
 
-      - name: Build read-only rootless diagnostics DEB
+      - name: Build rootless config and app-backup tools DEB
         run: bash scripts/build-diagnostics-deb.sh
 
       - name: Verify DEB package structure
