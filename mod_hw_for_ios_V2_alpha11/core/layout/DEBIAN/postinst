@@ -9,14 +9,17 @@ if [ "$1" = "configure" ]; then
 
   # Rootless jailbreaks do not expose launchctl at one consistent path.
   LAUNCHCTL=""
-  for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/basebin/launchctl /var/jb/usr/bin/launchctl; do
+  for candidate in /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /usr/libexec/launchctl /var/jb/bin/launchctl /var/jb/sbin/launchctl /var/jb/usr/sbin/launchctl /var/jb/usr/bin/launchctl /var/jb/usr/libexec/launchctl /var/jb/basebin/launchctl; do
     if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
   done
   if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
     LAUNCHCTL="$(command -v launchctl)"
   fi
+  if [ -z "$LAUNCHCTL" ] && [ -d /var/jb ]; then
+    LAUNCHCTL="$(find /var/jb -name launchctl -perm -111 -print -quit 2>/dev/null || true)"
+  fi
   if [ -z "$LAUNCHCTL" ]; then
-    echo "Alpha11 Core installed; launchctl not found in this jailbreak environment. Start it after restoring the launchctl path." >&2
+    echo "Alpha11 Core installed but not started: launchctl was not found in standard, Dopamine, or discovered rootless paths. Check jailbreak bootstrap tools, then reinstall or bootstrap $PLIST." >&2
     exit 0
   fi
 
@@ -28,7 +31,7 @@ if [ "$1" = "configure" ]; then
   fi
   "$LAUNCHCTL" kickstart -k "$LABEL" >/dev/null 2>&1 || true
   if ! "$LAUNCHCTL" print "$LABEL" >/dev/null 2>&1; then
-    echo "Alpha11 Core is installed but launchd has not confirmed it running." >&2
+    echo "Alpha11 Core bootstrap was requested but launchd did not confirm the service. launchctl=$LAUNCHCTL label=$LABEL" >&2
   fi
 fi
 exit 0
