@@ -1,38 +1,38 @@
-# mod_hw_for_ios V2 — Rootless build
+# mod_hw_for_ios V2 — Rootless source and companion
 
-The project keeps the upstream Objective-C/Objective-C++ implementation and provides a Rootless Theos build layout. The target test environment is iOS 16.2 with a Dopamine-style Rootless bootstrap.
+This directory retains the upstream Alpha11 Objective-C/Objective-C++ source. The current standard release workflow builds the iDeviceLab manager IPA and the read-only diagnostics DEB; it does **not** build or ship the Alpha11 runtime tweak.
 
-## Build
+## Source build recipe
 
-Install Theos and an iOS SDK on macOS, then run:
+The Theos Makefile describes a Rootless arm64 tweak build:
 
 ```sh
 export THEOS="$HOME/theos"
 make clean package
 ```
 
-The Debian package is emitted under `packages/`.
+This recipe is source/build metadata, not a claim that the package has been validated on a device. The current manual Alpha11 workflow runs static checks only and does not upload a runtime tweak package.
 
-## Configuration
+## Configuration path
 
-The tweak reads its active configuration from:
+The retained upstream loader references:
 
 ```
 /var/mobile/Library/Preferences/com.modhw.ios.devices.plist
 ```
 
-This is a real mobile-user preference location and must **not** be prefixed with `/var/jb`. The package therefore places only a blank example template at:
+It keeps `/tmp/devices.plist` as a legacy fallback. The manager companion currently imports a plist, validates its structure, displays limited diagnostics, and exports the original bytes. It is not an identity-profile editor, and successful file import/export does not prove runtime consumption by a tweak.
 
-```
-/var/jb/usr/share/mod_hw_for_ios/com.modhw.ios.devices.plist.example
-```
+## Runtime audit
 
-Use the manager to export a plist, then transfer it to the active preference path above with a file manager that has the required permissions. Alternatively, copy the example template to that active path and edit it there. The tweak retains `/tmp/devices.plist` as a legacy fallback only when the primary file does not exist.
-
-## Manager
-
-The SwiftUI manager is in `manager/ModHWManager.xcodeproj`. It imports, edits, validates, and exports property lists. Transfer the exported file using an authorized file manager or SSH workflow.
+See [ALPHA11_RUNTIME_AUDIT.md](ALPHA11_RUNTIME_AUDIT.md) for the source-to-build trace, inactive hook registrations, Filter scope, package boundaries, and verification requirements.
 
 ## Validation
 
-Run `python3 tools/validate_project.py` for static project and plist checks. These checks do not replace a Theos build or a real-device compatibility test.
+Run:
+
+```sh
+python3 tools/validate_project.py
+```
+
+Static checks validate repository structure and plist syntax. They do not prove a Theos runtime build, injection, API compatibility, or behavior on iPhone 12 / iOS 16.2.
