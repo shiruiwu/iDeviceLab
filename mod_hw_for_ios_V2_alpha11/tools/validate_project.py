@@ -122,6 +122,10 @@ if app_backup.is_file():
           "App-container backup selects one bundle ID, archives data, and records SHA-256")
     check("Keychain" in src and "App Groups" in src,
           "App-container backup documents excluded system-managed stores")
+    check('[ ! -L "$BACKUP_ROOT" ]' in src and 'BACKUP_OWNER="$(stat -f' in src and 'chmod 0700 "$BACKUP_ROOT"' in src,
+          "App-container backup rejects symlink roots and requires root-owned private storage")
+    check('MANIFEST_TMP="$MANIFEST.tmp.$"' in src and 'mv "$MANIFEST_TMP" "$MANIFEST"' in src and 'COMMITTED=1' in src,
+          "App-container backup commits manifest last and removes incomplete archive pairs")
 if selftest.is_file():
     src = selftest.read_text()
     check("127.0.0.1:18081/status" in src and "mod-hw-app-backup-verify" in src and "mod-hw-app-clean" in src and "rm -rf" not in src,
