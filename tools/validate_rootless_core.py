@@ -64,6 +64,7 @@ check("AppDataContainerIndex" in MAIN and "MCMMetadataIdentifier" in MAIN, "App 
 check("ClearDirectDirectoryContents" in MAIN and "lstat(" in MAIN, "App cleanup validates container paths and rejects symlink roots")
 check('stringByDeletingLastPathComponent isEqualToString:root' in MAIN and 'relativePath isEqualToString:@"Library/Caches"' in MAIN and 'target.stringByResolvingSymlinksInPath' in MAIN, "App cleanup is restricted to direct app-container children and rejects intermediate symlink escapes")
 check('initWithUUIDString:child' in MAIN and 'initWithUUIDString:canonicalContainer.lastPathComponent' in MAIN, "App cleanup inventory and deletion require UUID-named app containers")
+check('BOOL dryRun' in MAIN and 'cache cleanup preflight failed' in MAIN and 'NULL, YES' in MAIN, "App cleanup preflights both cache locations before deleting either")
 check('"runtimeInjectionVerified":@NO' in MAIN, "Hook status never falsely claims runtime injection is verified")
 check("AppMaintenanceResponse" in MAINTENANCE and "clearSelectedAppCaches()" in MAINTENANCE, "Manager previews and executes selected app cache maintenance")
 check("orphanedContainerCount" in MAINTENANCE and "疑似卸载残留容器" in MAINTENANCE, "Manager reports possible orphaned app containers")

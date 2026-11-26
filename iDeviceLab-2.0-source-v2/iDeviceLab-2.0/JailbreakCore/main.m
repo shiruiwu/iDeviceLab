@@ -130,11 +130,12 @@ static unsigned long long SafeDirectoryBytes(NSString *path) {
     return total;
 }
 
-static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath, unsigned long long *removedBytes, NSError **error) {
+static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relativePath, unsigned long long *removedBytes, BOOL dryRun, NSError **error) {
     NSString *root = @"/var/mobile/Containers/Data/Application";
     NSString *canonicalContainer = container.stringByStandardizingPath;
     // Only a direct UUID child of the known app-data root is eligible.
     if (![canonicalContainer.stringByDeletingLastPathComponent isEqualToString:root]) return NO;
+    if ([[NSUUID alloc] initWithUUIDString:canonicalContainer.lastPathComponent] == nil) return NO;
     if ([[NSUUID alloc] initWithUUIDString:canonicalContainer.lastPathComponent] == nil) return NO;
     if (![canonicalContainer.stringByResolvingSymlinksInPath isEqualToString:canonicalContainer]) return NO;
     // Keep the deletion surface to the two explicitly supported cache locations.
@@ -157,7 +158,7 @@ static BOOL ClearDirectDirectoryContents(NSString *container, NSString *relative
         struct stat childInfo = {0};
         if (lstat(candidate.fileSystemRepresentation, &childInfo) != 0) return NO;
         // removeItemAtPath removes a symlink itself; it does not resolve its destination.
-        if (![NSFileManager.defaultManager removeItemAtPath:candidate error:error]) return NO;
+        if (!dryRun && ![NSFileManager.defaultManager removeItemAtPath:candidate error:error]) return NO;
     }
     if (removedBytes) *removedBytes += before;
     return YES;
@@ -223,9 +224,13 @@ static NSDictionary *ClearAppCaches(NSData *body) {
     if (!container) return @{@"ok":@NO, @"error":@"app data container is not accessible"};
     unsigned long long removed = 0;
     NSError *error = nil;
-    if (!ClearDirectDirectoryContents(container, @"Library/Caches", &removed, &error) ||
-        !ClearDirectDirectoryContents(container, @"tmp", &removed, &error))
-        return @{@"ok":@NO, @"error":error.localizedDescription ?: @"cache cleanup failed; inspect permissions and container state"};
+    // Preflight both locations before deleting anything, reducing partial-cleanup failures.
+    if (!ClearDirectDirectoryContents(container, @"Library/Caches", NULL, YES, &error) ||
+        !ClearDirectDirectoryContents(container, @"tmp", NULL, YES, &error))
+        return @{@"ok":@NO, @"error":error.localizedDescription ?: @"cache cleanup preflight failed; no files were intentionally removed"};
+    if (!ClearDirectDirectoryContents(container, @"Library/Caches", &removed, NO, &error) ||
+        !ClearDirectDirectoryContents(container, @"tmp", &removed, NO, &error))
+        return @{@"ok":@NO, @"error":error.localizedDescription ?: @"cache cleanup failed after preflight; inspect the selected app container"};
     return @{@"ok":@YES, @"bundleIdentifier":bundleID, @"removedBytes":@(removed),
              @"clearedAreas":@[@"Library/Caches", @"tmp"],
              @"excludedAreas":@[@"Documents", @"Library/Preferences", @"Library/Application Support", @"Keychain", @"cloud state"]};
