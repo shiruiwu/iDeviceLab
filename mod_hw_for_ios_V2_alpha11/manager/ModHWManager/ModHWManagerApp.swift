@@ -375,7 +375,7 @@ struct ContentView: View {
 
     private func safeShellArgument(_ raw: String) -> String {
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return "<请填写>" }
+        guard !value.isEmpty else { return "'<请填写>'" }
         return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
