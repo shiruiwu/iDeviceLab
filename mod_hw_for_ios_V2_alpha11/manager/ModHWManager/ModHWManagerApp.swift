@@ -66,6 +66,8 @@ struct ContentView: View {
     @State private var appInventoryStatus = "尚未读取 App 清单"
     @State private var installedApps: [CoreApp] = []
     @State private var selectedProfileBundleID = ""
+    @State private var maintenanceBundleID = ""
+    @State private var maintenanceArchiveName = ""
     @State private var exportAsPerAppProfile = false
 
     var body: some View {
@@ -255,17 +257,36 @@ struct ContentView: View {
         List {
             Section {
                 Label("App 数据维护", systemImage: "externaldrive.fill").font(.title2.bold())
-                Text("这些脚本目前由越狱端命令行工具执行；管理器尚未接入远程执行 API。先完成备份和校验，再考虑清理或还原。")
+                Text("先从 Core 已发现的 App 中选择目标，或手动填写 Bundle ID。当前管理器生成可复制命令，不会伪装成已在手机上执行。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
+            Section("目标 App") {
+                if !installedApps.isEmpty {
+                    Picker("已安装 App", selection: $maintenanceBundleID) {
+                        Text("选择 App").tag("")
+                        ForEach(installedApps) { app in
+                            Text(app.name).tag(app.bundleIdentifier)
+                        }
+                    }
+                }
+                TextField("Bundle ID（例如 com.example.app）", text: $maintenanceBundleID)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.footnote.monospaced())
+                Button("刷新 App 清单") { fetchInstalledApps() }
+            }
             Section("备份") {
-                commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-app-backup <BundleID>")
-                commandRow("验证备份完整性", command: "/var/jb/usr/bin/mod-hw-app-backup-verify <备份文件>")
+                commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-app-backup \\(safeShellArgument(maintenanceBundleID))")
+                TextField("备份文件名（用于校验或还原）", text: $maintenanceArchiveName)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.footnote.monospaced())
+                commandRow("验证备份完整性", command: "/var/jb/usr/bin/mod-hw-app-backup-verify \\(safeShellArgument(maintenanceArchiveName))")
             }
             Section("还原与清理") {
-                commandRow("还原指定 App", command: "/var/jb/usr/bin/mod-hw-app-restore <BundleID> <备份文件> --confirm")
-                commandRow("清理指定 App", command: "/var/jb/usr/bin/mod-hw-app-clean <BundleID> --confirm")
-                Text("还原和清理会改变目标 App 数据。未确认备份可用前不要执行。")
+                commandRow("还原指定 App", command: "/var/jb/usr/bin/mod-hw-app-restore \\(safeShellArgument(maintenanceBundleID)) \\(safeShellArgument(maintenanceArchiveName)) --confirm")
+                commandRow("清理指定 App", command: "/var/jb/usr/bin/mod-hw-app-clean \\(safeShellArgument(maintenanceBundleID)) --confirm")
+                Text("还原和清理会改变目标 App 数据。必须先完成备份和完整性校验，再在越狱终端确认执行。")
                     .font(.footnote).foregroundStyle(.orange)
             }
             Section("配置备份") {
@@ -350,6 +371,12 @@ struct ContentView: View {
         }
         .padding(.vertical, 5)
         .contentShape(Rectangle())
+    }
+
+    private func safeShellArgument(_ raw: String) -> String {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return "<请填写>" }
+        return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     private func commandRow(_ title: String, command: String) -> some View {
