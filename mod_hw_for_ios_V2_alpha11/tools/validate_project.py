@@ -38,7 +38,6 @@ for path, label in [
     (restore, "Validated config restore with rollback snapshot"),
 ]:
     check(path.is_file(), label + " script exists")
-    if path.is_file():
 
 if diagnostic.is_file():
     diag = diagnostic.read_text()
