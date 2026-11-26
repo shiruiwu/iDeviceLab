@@ -143,9 +143,13 @@ struct ContentView: View {
                 defaultFilename: backupName
             ) { result in
                 switch result {
-                case .success(let url): status = "原始备份已导出：\(url.lastPathComponent)"
-                case .failure(let error): status = "备份导出失败：\(error.localizedDescription)"
+                case .success(let url):
+                    status = exportAsPerAppProfile
+                        ? "分 App 配置文件已导出：\(url.lastPathComponent)"
+                        : "原始备份已导出：\(url.lastPathComponent)"
+                case .failure(let error): status = "文件导出失败：\(error.localizedDescription)"
                 }
+                exportAsPerAppProfile = false
             }
         }
     }
@@ -204,6 +208,9 @@ struct ContentView: View {
                           let bundle = row["bundleIdentifier"] as? String else { return nil }
                     return CoreApp(name: name, bundleIdentifier: bundle, version: row["version"] as? String ?? "")
                 }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                if !installedApps.contains(where: { $0.bundleIdentifier == selectedProfileBundleID }) {
+                    selectedProfileBundleID = installedApps.first?.bundleIdentifier ?? ""
+                }
                 appInventoryStatus = "已读取 \(installedApps.count) 个 App（只读清单）"
             } catch {
                 installedApps = []
