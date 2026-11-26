@@ -48,12 +48,12 @@ MANIFEST_VALUES="$(awk -F= -v name="$NAME" '
   }
   $1 == "bundle_id" {
     bundle_count++
-    if (NF != 2 || $2 == "" || $2 ~ /[^A-Za-z0-9._-]/ || $2 ~ /^\\./ || $2 ~ /\\.\\./ || $2 ~ /\\.$/) bad=1
+    if (NF != 2 || $2 == "" || $2 ~ /[^A-Za-z0-9._-]/ || substr($2,1,1) == "." || index($2,"..") > 0 || substr($2,length($2),1) == ".") bad=1
     bundle=$2
   }
   $1 == "container_id" {
     container_count++
-    if (NF != 2 || $2 == "" || $2 ~ /[^A-Za-z0-9._-]/ || $2 ~ /^\\./ || $2 ~ /\\.\\./ || $2 ~ /\\.$/) bad=1
+    if (NF != 2 || $2 == "" || $2 ~ /[^A-Za-z0-9._-]/ || substr($2,1,1) == "." || index($2,"..") > 0 || substr($2,length($2),1) == ".") bad=1
     container=$2
   }
   $1 == "scope" {
