@@ -55,8 +55,22 @@ if restore.is_file():
     check("plutil -lint" in src and "rollback-snapshots" in src and "mv -f" in src,
           "Restore validates backup, preserves pre-restore snapshot, and replaces atomically")
 
+if app_backup.is_file():
+    src = app_backup.read_text()
+    check("MCMMetadataIdentifier" in src and "tar -czpf" in src and "sha256sum" in src,
+          "App-container backup selects one bundle ID, archives data, and records SHA-256")
+    check("Keychain" in src and "App Groups" in src,
+          "App-container backup documents excluded system-managed stores")
+if app_verify.is_file():
+    src = app_verify.read_text()
+    check("sha256sum" in src and "tar -tzf" in src and "BACKUP_ROOT" in src,
+          "App-container verifier checks checksum and archive readability in backup directory")
+
 check('mod-hw-config-backup' in package_builder and 'mod-hw-config-restore' in package_builder,
-      "Rootless utility DEB packages backup and restore commands")
+      "Rootless utility DEB packages config backup and restore commands")
+check('mod-hw-app-backup' in package_builder and 'mod-hw-app-backup-verify' in package_builder,
+      "Rootless utility DEB packages app-container backup and verification commands")
+check("Depends: coreutils" in package_builder, "Backup tooling declares its SHA-256 utility dependency")
 
 for rel in [
     "src/mobile_gestalt/mobile_gestalt.m",
