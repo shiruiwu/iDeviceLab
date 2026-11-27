@@ -126,7 +126,7 @@ struct IPAEditorView: View {
 
         if replacementImage != nil, !replacementIconFiles.isEmpty {
             modifications.icon = IPAIconReplacement(
-                imageName: replacementIconName.isEmpty ? "Image" : replacementIconName,
+                imageName: replacementIconName.isEmpty ? "图片" : replacementIconName,
                 previewData: Data(),
                 files: replacementIconFiles
             )
@@ -230,14 +230,14 @@ struct IPAEditorView: View {
         }
 
         if !bundleIDChanged {
-            return "Bundle ID unchanged — app may replace the original install."
+            return "Bundle ID 未更改，安装时可能会覆盖原应用。"
         }
 
         if extensionRemovalChanged {
-            return "Removing extensions may disable some app functionality."
+            return "移除扩展组件可能导致部分应用功能不可用。"
         }
 
-        return "Ready to export."
+        return "已准备好导出。"
     }
 
     var body: some View {
@@ -376,7 +376,7 @@ struct IPAEditorView: View {
                         activeSheet = nil
 
                         if let image {
-                            applyIcon(image, name: "Photo")
+                            applyIcon(image, name: "照片")
                         }
                     }
 
@@ -464,7 +464,7 @@ struct IPAEditorView: View {
             Spacer()
 
             if !currentBundleID.isEmpty {
-                Button("Unload") {
+                Button("卸载") {
                     unloadIPA()
                 }
                 .font(.footnote.weight(.semibold))
@@ -481,7 +481,7 @@ struct IPAEditorView: View {
     private var currentAppVersion: String {
         Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
-        ) as? String ?? "Unknown"
+        ) as? String ?? "未知"
     }
 
     private var currentAppBuild: String {
@@ -564,10 +564,10 @@ struct IPAEditorView: View {
                 .foregroundColor(.blue)
 
             VStack(spacing: 5) {
-                Text("Choose an IPA")
+                Text("选择 IPA 文件")
                     .font(.title3.weight(.bold))
 
-                Text("Load an IPA to inspect and modify its bundle configuration.")
+                Text("载入 IPA 后即可查看和修改应用配置。")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -576,7 +576,7 @@ struct IPAEditorView: View {
             Button {
                 activeSheet = .picker
             } label: {
-                Label("Select IPA", systemImage: "folder")
+                Label("选择 IPA", systemImage: "folder")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
@@ -616,7 +616,7 @@ struct IPAEditorView: View {
 
     private var appOverviewCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            IPACardHeader(icon: "app.badge", title: "App Information")
+            IPACardHeader(icon: "app.badge", title: "应用信息")
 
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(originalAppName)
@@ -647,7 +647,7 @@ struct IPAEditorView: View {
 
     private var originalAppName: String {
         guard let info, !info.displayName.isEmpty else {
-            return "Unnamed App"
+            return "未命名应用"
         }
 
         return info.displayName
@@ -725,7 +725,7 @@ struct IPAEditorView: View {
                 }
 
                 if bundleIDChanged {
-                    Text("Original \(currentBundleID)")
+                    Text("原始 Bundle ID：\(currentBundleID)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -759,10 +759,10 @@ struct IPAEditorView: View {
                         )
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Clone App")
+                            Text("克隆应用")
                                 .font(.subheadline.weight(.semibold))
 
-                            Text("Use a different Bundle ID")
+                            Text("使用不同的 Bundle ID")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -793,7 +793,7 @@ struct IPAEditorView: View {
             if !foundExtensions.isEmpty {
                 IPAExpandableCard(
                     icon: "puzzlepiece.extension",
-                    title: "Extensions",
+                    title: "扩展组件",
                     subtitle: extensionsSubtitle,
                     isExpanded: extensionsBinding
                 ) {
@@ -810,10 +810,10 @@ struct IPAEditorView: View {
         )
 
         if kept == foundExtensions.count {
-            return "All \(foundExtensions.count) enabled"
+            return "全部启用（\(foundExtensions.count) 项）"
         }
 
-        return "\(kept) of \(foundExtensions.count) enabled"
+        return "已启用 \(kept) / \(foundExtensions.count) 项"
     }
 
     private var extensionsBinding: Binding<Bool> {
@@ -837,14 +837,14 @@ struct IPAEditorView: View {
     private var displayNameCard: some View {
         IPAExpandableCard(
             icon: "textformat",
-            title: "Display Name",
+            title: "显示名称",
             trailingText: cleanDisplayName.isEmpty ? MetadataValidation.cannotBeEmpty : nil,
             trailingColor: .red,
             isExpanded: $displayNameExpanded
         ) {
             IPAFieldBox {
                 HStack(spacing: 8) {
-                    TextField("App name", text: $displayName)
+                    TextField("应用名称", text: $displayName)
                         .lineLimit(1)
 
                     if !displayName.isEmpty {
@@ -872,19 +872,19 @@ struct IPAEditorView: View {
     private var iconCard: some View {
         IPAExpandableCard(
             icon: "photo",
-            title: "App Icon",
+            title: "应用图标",
             isExpanded: $iconExpanded
         ) {
             VStack(spacing: 16) {
                 HStack(alignment: .top, spacing: 22) {
-                    IPAIconThumbnail(image: originalIconImage, caption: "Original", size: 72)
+                    IPAIconThumbnail(image: originalIconImage, caption: "原始图标", size: 72)
 
                     Image(systemName: "arrow.right")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.secondary)
                         .frame(height: 72)
 
-                    IPAIconThumbnail(image: replacementImage, caption: "Replacement", size: 72)
+                    IPAIconThumbnail(image: replacementImage, caption: "替换图标", size: 72)
                 }
                 .frame(maxWidth: .infinity)
 
@@ -892,7 +892,7 @@ struct IPAEditorView: View {
                     Button {
                         activeSheet = .iconPhotos
                     } label: {
-                        Label("Photos", systemImage: "photo")
+                        Label("照片", systemImage: "photo")
                             .font(.subheadline.weight(.semibold))
                             .foregroundColor(.blue)
                             .frame(maxWidth: .infinity)
@@ -903,7 +903,7 @@ struct IPAEditorView: View {
                     Button {
                         activeSheet = .iconFiles
                     } label: {
-                        Label("Files", systemImage: "folder")
+                        Label("文件", systemImage: "folder")
                             .font(.subheadline.weight(.semibold))
                             .foregroundColor(.blue)
                             .frame(maxWidth: .infinity)
@@ -913,7 +913,7 @@ struct IPAEditorView: View {
                 }
 
                 if replacementImage != nil {
-                    Button("Reset to Original", action: resetIcon)
+                    Button("恢复原始设置", action: resetIcon)
                         .font(.footnote.weight(.semibold))
                         .foregroundColor(.secondary)
                         .buttonStyle(.plain)
@@ -952,20 +952,20 @@ struct IPAEditorView: View {
         VStack(alignment: .leading, spacing: 0) {
             if toolsExpanded {
                 IPASectionHeader(
-                    title: "Tools",
+                    title: "工具",
                     isExpanded: true,
                     action: toggleTools,
                     topPadding: 0
                 )
                 .padding(.bottom, 4)
 
-                IPAToolRow(title: "IPA Info", icon: "info.circle") {
+                IPAToolRow(title: "IPA 信息", icon: "info.circle") {
                     activeSheet = .inspector
                 }
 
                 IPASubtleDivider()
 
-                IPAToolRow(title: "Version", icon: "number") {
+                IPAToolRow(title: "版本", icon: "number") {
                     activeSheet = .version
                 }
 
@@ -977,26 +977,26 @@ struct IPAEditorView: View {
 
                 IPASubtleDivider()
 
-                IPAToolRow(title: "Browse Files", icon: "folder") {
+                IPAToolRow(title: "浏览文件", icon: "folder") {
                     activeSheet = .browser
                 }
 
                 IPASubtleDivider()
 
-                IPAToolRow(title: "Compare IPAs", icon: "arrow.left.arrow.right") {
+                IPAToolRow(title: "比较 IPA", icon: "arrow.left.arrow.right") {
                     activeSheet = .comparison
                 }
 
                 IPASubtleDivider()
 
-                IPAToolRow(title: "Advanced Info.plist", icon: "list.bullet.rectangle") {
+                IPAToolRow(title: "高级 Info.plist 编辑", icon: "list.bullet.rectangle") {
                     activeSheet = .plistEditor
                 }
             } else {
                 Button(action: toggleTools) {
                     IPACardHeader(
                         icon: "wrench.and.screwdriver",
-                        title: "Tools",
+                        title: "工具",
                         isExpanded: false
                     )
                 }
@@ -1028,7 +1028,7 @@ struct IPAEditorView: View {
             if isExporting {
                 VStack(alignment: .leading, spacing: 9) {
                     HStack {
-                        Text("Exporting IPA")
+                        Text("正在导出 IPA")
                             .font(.subheadline.weight(.semibold))
 
                         Spacer()
@@ -1081,14 +1081,14 @@ struct IPAEditorView: View {
 
     private var exportButtonTitle: String {
         if isExporting {
-            return "Exporting…"
+            return "正在导出…"
         }
 
         guard hasPendingChanges else {
-            return exportURL == nil ? "No Changes to Export" : "Already Exported"
+            return exportURL == nil ? "没有需要导出的更改" : "已导出"
         }
 
-        return "Export Updated IPA"
+        return "导出修改后的 IPA"
     }
 
     private var outputSection: some View {
@@ -1103,7 +1103,7 @@ struct IPAEditorView: View {
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.blue)
 
-                    Text("Exported")
+                    Text("导出完成")
                         .font(.headline.weight(.bold))
 
                     Text(fileSizeSummary)
@@ -1121,7 +1121,7 @@ struct IPAEditorView: View {
 
                     GeometryReader { proxy in
                         ScrollView(.horizontal, showsIndicators: false) {
-                            TextField("Exported filename", text: $exportFileName)
+                            TextField("导出文件名", text: $exportFileName)
                                 .autocapitalization(.none)
                                 .disableAutocorrection(true)
                                 .lineLimit(1)
@@ -1157,7 +1157,7 @@ struct IPAEditorView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "trash")
 
-                            Text("Discard")
+                            Text("丢弃")
                         }
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
@@ -1169,7 +1169,7 @@ struct IPAEditorView: View {
                     Button {
                         activeSheet = .share
                     } label: {
-                        Label("Save / Share", systemImage: "square.and.arrow.up")
+                        Label("保存 / 分享", systemImage: "square.and.arrow.up")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: 22)
@@ -1192,7 +1192,7 @@ struct IPAEditorView: View {
     private func exportedReviewCard(_ summary: IPAModificationSummary) -> some View {
         IPAExpandableCard(
             icon: "checklist",
-            title: "Review Changes",
+            title: "检查更改",
             isExpanded: $exportReviewExpanded
         ) {
             ModificationReviewContent(
@@ -1204,7 +1204,7 @@ struct IPAEditorView: View {
     }
 
     private var fileSizeSummary: String {
-        "Before \(IPAFormatting.fileSize(inputFileSize)) · After \(IPAFormatting.fileSize(outputFileSize))"
+        "修改前：\(IPAFormatting.fileSize(inputFileSize)) · 修改后：\(IPAFormatting.fileSize(outputFileSize))"
     }
 
     private func measuredFileNameWidth(fitting available: CGFloat) -> CGFloat {
@@ -1483,7 +1483,7 @@ struct IPAEditorView: View {
 
         guard let newSession = try? IPASession() else {
             isImporting = false
-            errorMessage = "Import failed: Could not create a temporary workspace."
+            errorMessage = "导入失败：无法创建临时工作目录。"
             return
         }
 
@@ -1577,7 +1577,7 @@ struct IPAEditorView: View {
                         .notificationOccurred(.error)
 
                     isImporting = false
-                    errorMessage = "Import failed: \(error.localizedDescription)"
+                    errorMessage = "导入失败：\(error.localizedDescription)"
                 }
             }
         }
@@ -1589,7 +1589,7 @@ struct IPAEditorView: View {
         }
 
         guard !plan.slots.isEmpty else {
-            iconErrorMessage = "This IPA has no replaceable icon files."
+            iconErrorMessage = "此 IPA 中没有可替换的图标文件。"
             return
         }
 
@@ -1599,7 +1599,7 @@ struct IPAEditorView: View {
 
             DispatchQueue.main.async {
                 guard !result.files.isEmpty else {
-                    iconErrorMessage = result.problems.first ?? "Could not prepare the icon."
+                    iconErrorMessage = result.problems.first ?? "无法准备图标。"
                     return
                 }
 
@@ -1622,7 +1622,7 @@ struct IPAEditorView: View {
         }
 
         guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else {
-            iconErrorMessage = "The selected image could not be read."
+            iconErrorMessage = "无法读取所选图片。"
             return
         }
 
@@ -1696,7 +1696,7 @@ struct IPAEditorView: View {
         do {
             output = try session.outputURL(for: exportBaseName)
         } catch {
-            errorMessage = "Could not prepare the export folder."
+            errorMessage = "无法准备导出目录。"
             activeSheet = nil
             return
         }
@@ -1710,7 +1710,7 @@ struct IPAEditorView: View {
 
         isExporting = true
         exportProgress = 0
-        exportProgressText = "Preparing archive…"
+        exportProgressText = "正在准备归档…"
         exportURL = nil
         exportSummary = ""
         errorMessage = nil
@@ -1757,7 +1757,7 @@ struct IPAEditorView: View {
                     expandedExtensionInfo = nil
 
                     exportProgress = 1
-                    exportProgressText = "Export complete."
+                    exportProgressText = "导出完成。"
                     isExporting = false
 
                     UINotificationFeedbackGenerator()
@@ -1769,7 +1769,7 @@ struct IPAEditorView: View {
                     exportProgress = 0
                     exportProgressText = ""
                     exportSummary = ""
-                    errorMessage = "Export failed: \(error.localizedDescription)"
+                    errorMessage = "导出失败：\(error.localizedDescription)"
 
                     UINotificationFeedbackGenerator()
                         .notificationOccurred(.error)
@@ -1816,7 +1816,7 @@ struct IPAEditorView: View {
             outputFileSize = IPAFormatting.fileSize(of: destination)
             errorMessage = nil
         } catch {
-            errorMessage = "Could not rename the exported IPA: \(error.localizedDescription)"
+            errorMessage = "无法重命名导出的 IPA：\(error.localizedDescription)"
         }
     }
 
