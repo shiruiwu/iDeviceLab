@@ -226,19 +226,19 @@ struct ProfileManagerView: View {
             }
             HStack {
                 Picker("语言", selection: binding(\.language, profile: profile)) {
-                    ForEach(DeviceProfile.languages, id: \.self) { Text($0).tag($0) }
+                    ForEach(DeviceProfile.languages, id: \.self) { Text(DeviceProfile.languageDisplay($0)).tag($0) }
                 }
                 randomButton("language")
             }
             HStack {
                 Picker("地区", selection: binding(\.region, profile: profile)) {
-                    ForEach(DeviceProfile.regions, id: \.self) { Text($0).tag($0) }
+                    ForEach(DeviceProfile.regions, id: \.self) { Text(DeviceProfile.regionDisplay($0)).tag($0) }
                 }
                 randomButton("region")
             }
             HStack {
                 Picker("时区", selection: binding(\.timeZone, profile: profile)) {
-                    ForEach(DeviceProfile.timeZones, id: \.self) { Text($0).tag($0) }
+                    ForEach(DeviceProfile.timeZones, id: \.self) { Text(DeviceProfile.timeZoneDisplay($0)).tag($0) }
                 }
                 randomButton("timeZone")
             }
