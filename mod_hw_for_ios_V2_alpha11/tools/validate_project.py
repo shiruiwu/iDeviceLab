@@ -60,9 +60,10 @@ check(helper_source.is_file() and pair_source.is_file(),
 if helper_source.is_file():
     helper_text = helper_source.read_text()
     check("LOCAL_PEERPID" in helper_text and "getpeereid" in helper_text and
+          "PeerIsTrustedCore" in helper_text and '"/var/jb/usr/libexec/idevelab-core"' in helper_text and
           "CS_OPS_CDHASH" in helper_text and "CS_VALID" in helper_text and
-          "com.idevelab.manager-cdhash" in helper_text and "posix_spawn" in helper_text and
-          "300.0" in helper_text and "kOutputLimit = 65536" in helper_text,
+          "com.idevelab.manager-cdhash" in helper_text and "ReadPinnedHash(persistedHash)" in helper_text and
+          "posix_spawn" in helper_text and "300.0" in helper_text and "kOutputLimit = 65536" in helper_text,
           "Root Helper checks peer UID/PID and pinned code signature, runs bounded fixed tools, and caps execution/output")
     check(all(token in helper_text for token in (
           '@"backup"', '@"verify"', '@"restore"', '@"clean"', '@"apply-profile"',
@@ -181,8 +182,8 @@ check("canExportPerAppProfile" in manager and '"UniqueDeviceID"' in manager and
       "Manager validates the Hook-required UDID and enabled MAC address fields before per-app export")
 check("PropertyListSerialization.propertyList" in manager, "Manager parses plist structure")
 check("字段值未展示" in manager, "Manager does not display plist values")
-check('http://127.0.0.1:18081/status' in manager and 'http://127.0.0.1:18081/apps' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "read-only"' in manager,
-      "Manager validates the read-only Alpha11 Core status response")
+check('http://127.0.0.1:18081/status' in manager and 'http://127.0.0.1:18081/apps' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "authenticated-manager-bridge"' in manager,
+      "Manager validates the authenticated Alpha11 Core bridge status response")
 check("POST to Core is rejected with HTTP 405" in (ROOT / "scripts/selftest-device.sh").read_text() and
       "for endpoint in system apps tools profiles backups" in (ROOT / "scripts/selftest-device.sh").read_text(),
       "On-device self-test verifies all read-only endpoints and rejects POST without changing device data")
@@ -233,6 +234,7 @@ if helper_source.is_file():
 if pair_source.is_file():
     src = pair_source.read_text()
     check("KERN_PROCARGS2" in src and "com.modhw.manager" in src and
+          "com.modhw.manager.sandboxed" in src and
           "CS_OPS_CDHASH" in src and 'strcmp(confirmation, "PAIR\\n")' in src,
           "Pairing utility requires root confirmation and pins the exact Manager app code hash")
 check((ROOT / "core/layout/DEBIAN/postrm").is_file() and
@@ -249,6 +251,9 @@ check(core_package_builder_path.is_file() and
       "Depends: firmware (>= 15.0), com.modhw.ios.diagnostics" in core_package_builder and
       'xcrun --sdk iphoneos clang' in core_package_builder and
       'var/jb/usr/libexec/idevelab-core' in core_package_builder and
+      'var/jb/usr/bin/mod-hw-maintenance-helper' in core_package_builder and
+      'var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist' in core_package_builder and
+      'ldid -S "$binary"' in core_package_builder and
       'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist' in core_package_builder and
       'core/layout/DEBIAN/postinst' in core_package_builder and
       'core/layout/DEBIAN/prerm' in core_package_builder and
@@ -271,6 +276,8 @@ if core_source.is_file():
     check('@"GET"' in core and 'ForwardMaintenanceRequest' in core and
           'com.idevelab.maintenance.sock' in core and '[path isEqualToString:@"/maintenance"]' in core and
           'ManagerBridgeTokenMatches' in core and 'MCMMetadataIdentifier' in core and
+          'ManagerBundleIdentifierForPID' in core and 'authenticatedBundleIdentifier' in core and
+          '通信凭据与当前 Manager 进程不匹配' in core and
           'X-iDeviceLab-Manager-Token' in core,
           "Alpha11 Core verifies the Manager sandbox-private token before proxying to Root Helper")
     check("INADDR_LOOPBACK" in core and "kPort = 18081" in core,
@@ -287,7 +294,7 @@ if core_source.is_file():
           "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
 
 
-    check('@"version": @"0.3.5-alpha11"' in core,
+    check('@"version": @"0.3.6-alpha11"' in core and 'version 0.3.6-alpha11 pid=' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
           'HasSecureBackupMetadata' in core and
