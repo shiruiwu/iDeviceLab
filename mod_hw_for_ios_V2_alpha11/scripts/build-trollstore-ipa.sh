@@ -22,6 +22,27 @@ if [[ ! -d "$APP" ]]; then echo "找不到构建产物：$APP" >&2; exit 3; fi
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
+BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
+ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
+if ! command -v ldid >/dev/null 2>&1; then
+  if command -v brew >/dev/null 2>&1; then
+    brew install ldid
+  else
+    echo "错误：构建 TrollStore IPA 需要 ldid，以嵌入并签署受限的 no-sandbox entitlement。" >&2
+    exit 10
+  fi
+fi
+[[ -f "$ENTITLEMENTS" ]] || { echo "缺少 TrollStore entitlements 文件。" >&2; exit 11; }
+ldid -S"$ENTITLEMENTS" "$BINARY"
+ldid -e "$BINARY" > "$BUILD_DIR/embedded-entitlements.plist"
+python3 - "$BUILD_DIR/embedded-entitlements.plist" <<'PY'
+import plistlib, sys
+with open(sys.argv[1], "rb") as stream:
+    entitlements = plistlib.load(stream)
+assert entitlements.get("com.apple.private.security.no-sandbox") is True, entitlements
+assert not entitlements.get("platform-application", False), entitlements
+print("Manager entitlement verified: no-sandbox enabled; platform-application not granted")
+PY
 # Allow the manager to reach the jailbreak helper over loopback HTTP only.
 # NSAllowsLocalNetworking is narrower than allowing arbitrary cleartext traffic.
 /usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' "$INFO" 2>/dev/null || true

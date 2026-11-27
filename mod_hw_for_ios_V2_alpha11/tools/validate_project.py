@@ -16,6 +16,17 @@ manager = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
 gestalt_source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
 project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
+trollstore_entitlements_path = ROOT / "manager/TrollStore.entitlements"
+if trollstore_entitlements_path.is_file():
+    trollstore_entitlements = plistlib.loads(trollstore_entitlements_path.read_bytes())
+    check(trollstore_entitlements.get("com.apple.private.security.no-sandbox") is True and
+          not trollstore_entitlements.get("platform-application", False),
+          "TrollStore Manager receives only the no-sandbox entitlement needed for authenticated local Unix-socket IPC")
+else:
+    check(False, "TrollStore Manager entitlement file exists")
+check('ldid -S"$ENTITLEMENTS" "$BINARY"' in ipa and
+      'ldid -e "$BINARY"' in ipa and 'embedded-entitlements.plist' in ipa,
+      "TrollStore IPA build embeds and verifies Manager entitlements before packaging")
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
 theos_workflow_path = ROOT.parent / ".github/workflows/build-theos-tweak.yml"
 theos_workflow = theos_workflow_path.read_text() if theos_workflow_path.is_file() else ""
