@@ -300,6 +300,8 @@ struct ContentView: View {
                 appTargetPicker
                 Button(maintenanceRunning ? "正在备份…" : "开始备份") { performMaintenance("backup") }
                     .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
+                Button("备份全局与分 App Hook 配置") { performMaintenance("config-backup") }
+                    .disabled(!helperPaired || maintenanceRunning)
             }
             Section("备份记录") {
                 if backups.isEmpty {
@@ -337,7 +339,16 @@ struct ContentView: View {
                 }
                 .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty || maintenanceArchiveName.isEmpty)
             }
-            Section("可用备份") {
+            Section("全局与分 App 配置") {
+                Button("还原最近一次 Hook 配置备份") {
+                    pendingMaintenanceAction = "config-restore"
+                    showMaintenanceConfirmation = true
+                }
+                .disabled(!helperPaired || maintenanceRunning)
+                Text("会校验归档 SHA-256 与内部路径，并保留还原前的全局和分 App 配置快照。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("可用 App 数据备份") {
                 ForEach(backups.filter { maintenanceBundleID.isEmpty || $0.bundleIdentifier == maintenanceBundleID }) { backup in
                     Button {
                         maintenanceBundleID = backup.bundleIdentifier
@@ -355,11 +366,17 @@ struct ContentView: View {
             }
             if !maintenanceResult.isEmpty { Section("执行结果") { Text(maintenanceResult).font(.footnote.monospaced()).textSelection(.enabled) } }
         }
-        .confirmationDialog("确认还原指定 App", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
-            Button("确认还原", role: .destructive) { performMaintenance("restore") }
+        .confirmationDialog("确认执行配置还原", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
+            if pendingMaintenanceAction == "restore" {
+                Button("确认还原 App 数据", role: .destructive) { performMaintenance("restore") }
+            } else if pendingMaintenanceAction == "config-restore" {
+                Button("确认还原全局与分 App 配置", role: .destructive) { performMaintenance("config-restore") }
+            }
             Button("取消", role: .cancel) { pendingMaintenanceAction = nil }
         } message: {
-            Text("还原前会再次验证备份，并创建当前容器回滚快照。")
+            Text(pendingMaintenanceAction == "config-restore"
+                 ? "将恢复最近一次全局与分 App Hook 配置备份，并保留还原前快照。"
+                 : "还原前会再次验证备份，并创建当前 App 容器回滚快照。")
         }
         .navigationTitle("还原中心")
     }
