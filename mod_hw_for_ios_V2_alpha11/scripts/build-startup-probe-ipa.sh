@@ -25,7 +25,7 @@ PAYLOAD="$BUILD_DIR/Payload"
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/StartupProbe.app"
 INFO="$PAYLOAD/StartupProbe.app/Info.plist"
-/usr/libexec/PlistBuddy -c 'Add :CFBundleVersion string 12' "$INFO" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 12' "$INFO"
+/usr/libexec/PlistBuddy -c 'Add :CFBundleVersion string 13' "$INFO" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 13' "$INFO"
 BINARY="$PAYLOAD/StartupProbe.app/StartupProbe"
 file "$BINARY" | grep -q 'Mach-O'
 lipo "$BINARY" -verify_arch arm64
