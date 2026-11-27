@@ -142,6 +142,8 @@ if helper_daemon.is_file():
           helper_plist.get("ProgramArguments") == ["/var/jb/usr/bin/mod-hw-maintenance-helper"] and
           helper_plist.get("UserName") == "root" and helper_plist.get("GroupName") == "wheel",
           "Root maintenance helper has a dedicated root-owned launchd service")
+check('setenv("PATH", "/var/jb/usr/bin:/var/jb/bin:/usr/bin:/bin:/usr/sbin:/sbin", 1)' in (ROOT / "core/maintenance_helper.m").read_text(),
+      "Root helper gives fixed maintenance tools a deterministic rootless PATH")
 check((ROOT / "core/CodeSignCompat.h").is_file() and
       "CS_OPS_CDHASH 5" in (ROOT / "core/CodeSignCompat.h").read_text() and
       "CS_KILLED 0x01000000" in (ROOT / "core/CodeSignCompat.h").read_text(),

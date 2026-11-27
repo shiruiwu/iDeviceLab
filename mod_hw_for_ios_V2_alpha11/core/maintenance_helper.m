@@ -340,6 +340,8 @@ int main(void) {
     @autoreleasepool {
         if (geteuid() != 0) return 1;
         signal(SIGPIPE, SIG_IGN);
+        setenv("PATH", "/var/jb/usr/bin:/var/jb/bin:/usr/bin:/bin:/usr/sbin:/sbin", 1);
+        setenv("HOME", "/var/root", 1);
         struct passwd *mobile = getpwnam("mobile");
         if (!mobile) return 2;
 

@@ -861,6 +861,8 @@ private enum MaintenanceClient {
         let descriptor = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { throw NSError(domain: "MaintenanceHelper", code: 1, userInfo: [NSLocalizedDescriptionKey: "无法创建本地套接字。"]) }
         defer { Darwin.close(descriptor) }
+        var noSignal: Int32 = 1
+        setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout<Int32>.size))
 
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
