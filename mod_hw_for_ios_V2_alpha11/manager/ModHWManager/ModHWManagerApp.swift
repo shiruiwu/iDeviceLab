@@ -402,15 +402,12 @@ struct ContentView: View {
                 Button("确认还原", role: .destructive) { performMaintenance("restore") }
             } else if pendingMaintenanceAction == "clean" {
                 Button("确认清理", role: .destructive) { performMaintenance("clean") }
-            }
             } else if pendingMaintenanceAction == "config-restore" {
-                Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
- else if pendingMaintenanceAction == "config-restore" {
                 Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
             }
             Button("取消", role: .cancel) { pendingMaintenanceAction = nil }
         } message: {
-            Text("此操作会改变所选 App 的本地数据。请确认目标 Bundle ID 与备份文件名无误。")
+            Text("此操作会改变所选 App 或配置数据。请确认目标和备份状态无误。")
         }
         .navigationTitle("备份与维护")
     }
