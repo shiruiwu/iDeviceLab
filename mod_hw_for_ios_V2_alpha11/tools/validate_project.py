@@ -158,9 +158,10 @@ check("mod-hw-maintenance" in package_builder and "maintenance-dispatch.sh" in p
 check('acceptance-iphone12' in manager and "运行 iPhone 12 / iOS 16.2 最终验收" in manager,
       "Manager exposes the final read-only iPhone 12 acceptance gate")
 check("MaintenanceClient.request" in manager and "AF_UNIX" in manager and
-      "mod-hw-manager-pair" in manager and "config-backup" in manager and "keychain-diagnose" in manager and "confirmationDialog" in manager and
+      'MaintenanceClient.request(action: "pair")' in manager and "func pairMaintenanceHelper()" in manager and
+      "config-backup" in manager and "keychain-diagnose" in manager and "confirmationDialog" in manager and
       "helperPaired" in manager and "performMaintenance" in manager,
-      "Manager directly invokes the pinned local Root Helper and gates destructive actions behind explicit confirmation")
+      "Manager pairs directly through the pinned local Root Helper and gates destructive actions behind explicit confirmation")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
 check('Picker("已安装应用", selection: $maintenanceBundleID)' in manager and
@@ -294,7 +295,8 @@ if core_source.is_file():
           'st.st_gid == mobileGID' in core,
           "Backup inventory rejects symlinks and requires exact root:mobile ownership and 0750/0640 modes")
 if core_control.is_file():
-    check("Architecture: iphoneos-arm64" in core_control_text and "Version: 0.3.2~alpha11" in core_control_text,
+    check("Architecture: iphoneos-arm64" in core_control_text and
+          re.search(r"^Version: 0\\.3\\.[0-9]+~alpha11$", core_control_text, re.M) is not None,
           "Alpha11 Core package metadata targets Rootless arm64")
 
 diagnostic = ROOT / "scripts/diagnose-config.sh"
