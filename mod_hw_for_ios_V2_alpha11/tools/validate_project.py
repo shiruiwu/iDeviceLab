@@ -106,12 +106,13 @@ check('if (cf_device == nil || [cf_device count] == 0)' in gestalt_source and
 check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source and "index / 2" in gestalt_source,
       "Generic hex decoder rejects null, odd-length, invalid, and oversized input")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
-check("CURRENT_PROJECT_VERSION = 8;" in project, "Manager build number is 8")
+check("CURRENT_PROJECT_VERSION = 9;" in project, "Manager build number is 9")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
 check("TabView" in manager and "homePage" in manager and "recordsPage" in manager and
       "settingsPage" in manager and "aboutPage" in manager and
-      "备份与维护" in manager and "设备诊断" in manager,
-      "Manager exposes the restored dashboard, operation history, settings, about, maintenance, and diagnostics navigation")
+      "备份中心" in manager and "还原中心" in manager and "清理中心" in manager and
+      "改机管理" in manager and "分 App 改机" in manager and "系统诊断" in manager and "IPA 多开" in manager,
+      "Manager restores the blue dashboard, original feature modules, operation history, settings, and about navigation")
 profile_view = (ROOT / "manager/ProfileManagerView.swift").read_text()
 profile_store = (ROOT / "manager/ProfileStore.swift").read_text()
 profile_models = (ROOT / "manager/DeviceProfileModels.swift").read_text()
