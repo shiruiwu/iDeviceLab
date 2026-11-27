@@ -303,6 +303,16 @@ app_cleanup = ROOT / "scripts/cleanup-app-container.sh"
 app_verify = ROOT / "scripts/verify-app-container-backup.sh"
 keychain_diag = ROOT / "scripts/diagnose-keychain-access.sh"
 selftest = ROOT / "scripts/selftest-device.sh"
+config_backup_text = backup.read_text() if backup.is_file() else ""
+config_restore_text = restore.read_text() if restore.is_file() else ""
+check("com.modhw.ios.profiles" in config_backup_text and "tar -czpf" in config_backup_text and
+      "sha256sum" in config_backup_text and "plutil -lint" in config_backup_text,
+      "Configuration backup includes global and per-App Hook profiles with plist and SHA-256 verification")
+check("tar -tzf" in config_restore_text and "tar -tvzf" in config_restore_text and
+      "sha256sum -c" in config_restore_text and "profiles-before" in config_restore_text and
+      "rollback-snapshots" in config_restore_text and "legacy" in config_restore_text,
+      "Configuration restore validates archive paths and file types, then rolls back global and per-App profiles")
+
 for path, label in [
     (diagnostic, "Read-only config diagnostic"),
     (backup, "Timestamped config backup"),
