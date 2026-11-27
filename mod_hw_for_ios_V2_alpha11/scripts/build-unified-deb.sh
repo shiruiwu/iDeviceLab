@@ -71,7 +71,6 @@ Description: Unified Rootless package containing the original mod_hw Hook, confi
 Maintainer: iDeviceLab contributors
 Author: Original mod_hw authors and iDeviceLab contributors
 Depends: firmware (>= 15.0), mobilesubstrate, coreutils
-Provides: com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11
 Replaces: com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11
 Conflicts: com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11
 Section: Utilities

@@ -235,6 +235,12 @@ check((ROOT / "core/layout/DEBIAN/postrm").is_file() and
       "com.idevelab.maintenance.alpha11.plist" in (ROOT / "core/layout/DEBIAN/postrm").read_text() and
       "com.idevelab.maintenance.sock" in (ROOT / "core/layout/DEBIAN/postrm").read_text(),
       "Core package has a helper shutdown and IPC cleanup post-removal hook")
+unified_builder_path = ROOT / "scripts/build-unified-deb.sh"
+unified_builder = unified_builder_path.read_text() if unified_builder_path.is_file() else ""
+check(unified_builder_path.is_file() and "dpkg-deb --build --root-owner-group" in unified_builder and "com.idevelab.fullsuite.alpha11" in unified_builder and "mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb" in unified_builder,
+      "A self-contained unified Rootless DEB combines original tweak, diagnostics, Core, and Helper payloads")
+check("bash scripts/build-unified-deb.sh" in theos_workflow and "FULL_PACKAGE" in theos_workflow,
+      "Theos workflow builds and verifies the unified full-suite DEB")
 check(core_package_builder_path.is_file() and
       "Depends: firmware (>= 15.0), com.modhw.ios.diagnostics" in core_package_builder and
       'xcrun --sdk iphoneos clang' in core_package_builder and

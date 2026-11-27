@@ -57,6 +57,7 @@ jobs:
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
           bash -n scripts/build-core-deb.sh
+          bash -n scripts/build-unified-deb.sh
           sh -n scripts/maintenance-dispatch.sh
           sh -n core/layout/DEBIAN/postinst
           sh -n core/layout/DEBIAN/prerm

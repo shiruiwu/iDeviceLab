@@ -70,6 +70,17 @@ jobs:
           test -x "$RUNNER_TEMP/alpha11-core-control/postinst"
           test -x "$RUNNER_TEMP/alpha11-core-control/prerm"
           test -x "$RUNNER_TEMP/alpha11-core-control/postrm"
+          bash scripts/build-unified-deb.sh
+          FULL_PACKAGE="release/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb"
+          test -s "$FULL_PACKAGE"
+          dpkg-deb --info "$FULL_PACKAGE"
+          dpkg-deb --contents "$FULL_PACKAGE" | grep -F 'var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.dylib'
+          dpkg-deb --contents "$FULL_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance-helper'
+          dpkg-deb --contents "$FULL_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-acceptance-iphone12'
+          dpkg-deb -f "$FULL_PACKAGE" Package Version Architecture
+
+      - name: Validate unified package builder syntax
+        run: bash -n scripts/build-unified-deb.sh
 
       - name: Upload Rootless Debian packages
         uses: actions/upload-artifact@v4
