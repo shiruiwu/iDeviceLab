@@ -26,6 +26,11 @@ INFO="$PAYLOAD/StartupProbe.app/Info.plist"
 BINARY="$PAYLOAD/StartupProbe.app/StartupProbe"
 file "$BINARY" | grep -q 'Mach-O'
 lipo "$BINARY" -verify_arch arm64
+LINKS="$(otool -L "$BINARY")"
+if grep -E 'SwiftUI\.framework|PhotosUI\.framework|Combine\.framework|libswiftPhotosUI|libswiftUniformTypeIdentifiers' <<< "$LINKS"; then
+    echo "纯 UIKit 探针意外链接了高层 UI/媒体运行库。" >&2
+    exit 6
+fi
 ldid -S"$ENTITLEMENTS" "$BINARY"
 ldid -e "$BINARY" > "$BUILD_DIR/embedded-entitlements.plist"
 python3 - "$BUILD_DIR/embedded-entitlements.plist" <<'PY'
