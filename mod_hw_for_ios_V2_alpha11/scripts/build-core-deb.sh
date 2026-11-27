@@ -29,7 +29,7 @@ Depends: firmware (>= 15.0), com.modhw.ios.diagnostics
 Section: Utilities
 EOF
 printf '2.0\n' > "$WORK/debian-binary"
-(cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 .)
+(cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 ./var)
 (cd "$PKG/DEBIAN" && tar --format=ustar -czf "$WORK/control.tar.gz" --owner=0 --group=0 .)
 python3 - "$WORK/package.deb" "$WORK" <<'PY'
 import os, sys

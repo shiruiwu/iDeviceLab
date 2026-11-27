@@ -38,6 +38,9 @@ check("bash scripts/build-diagnostics-deb.sh" in theos_workflow and
       "Theos workflow builds and uploads the same complete diagnostics and Root Helper Core DEBs as the TrollStore workflow")
 core_package_builder_path = ROOT / "scripts/build-core-deb.sh"
 core_package_builder = core_package_builder_path.read_text() if core_package_builder_path.is_file() else ""
+check('(cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 ./var)' in package_builder and
+      '(cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 ./var)' in core_package_builder,
+      "Diagnostics and Core data archives exclude DEBIAN control metadata")
 core_source = ROOT / "core/main.m"
 core_makefile = ROOT / "core/Makefile"
 core_control = ROOT / "core/control"

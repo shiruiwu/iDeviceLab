@@ -43,6 +43,12 @@ mkdir -p "$PKG/DEBIAN" "$WORK/tweak" "$WORK/diagnostics" "$WORK/core"
 dpkg-deb -x "$TWEAK_PACKAGE" "$WORK/tweak"
 dpkg-deb -x "$DIAGNOSTICS_PACKAGE" "$WORK/diagnostics"
 dpkg-deb -x "$CORE_PACKAGE" "$WORK/core"
+for component in tweak diagnostics core; do
+  [ ! -e "$WORK/$component/DEBIAN" ] || {
+    echo "$component 数据载荷错误地包含 DEBIAN 控制目录；拒绝合并。" >&2
+    exit 4
+  }
+done
 dpkg-deb -e "$TWEAK_PACKAGE" "$WORK/control-tweak"
 dpkg-deb -e "$DIAGNOSTICS_PACKAGE" "$WORK/control-diagnostics"
 dpkg-deb -e "$CORE_PACKAGE" "$WORK/control-core"

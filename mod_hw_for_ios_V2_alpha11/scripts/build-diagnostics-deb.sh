@@ -28,7 +28,7 @@ install -m 0755 "$ROOT/scripts/acceptance-iphone12.sh" "$PKG/var/jb/usr/bin/mod-
 install -m 0755 "$ROOT/scripts/diagnose-keychain-access.sh" "$PKG/var/jb/usr/bin/mod-hw-keychain-diagnose"
 install -m 0755 "$ROOT/scripts/maintenance-dispatch.sh" "$PKG/var/jb/usr/bin/mod-hw-maintenance"
 printf '2.0\n' > "$WORK/debian-binary"
-(cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 .)
+(cd "$PKG" && tar --format=ustar -czf "$WORK/data.tar.gz" --owner=0 --group=0 ./var)
 (cd "$PKG/DEBIAN" && tar --format=ustar -czf "$WORK/control.tar.gz" --owner=0 --group=0 .)
 python3 - "$WORK/package.deb" "$WORK" <<'PY'
 import os, sys
