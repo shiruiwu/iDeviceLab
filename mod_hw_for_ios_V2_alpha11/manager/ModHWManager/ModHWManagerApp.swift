@@ -267,7 +267,7 @@ struct ContentView: View {
                                 statusPill(coreStatus.contains("已连接") ? "Core 已连接" : "Core 待检测", ok: coreStatus.contains("已连接"))
                             }
                             HStack {
-                                Text("已读取 App")
+                                Text("已读取应用")
                                     .foregroundStyle(.secondary)
                                 Spacer()
                                 Text(installedApps.isEmpty ? "尚未读取" : "\(installedApps.count) 个")
@@ -283,9 +283,9 @@ struct ContentView: View {
                         Text("快捷入口").font(.caption).foregroundStyle(.white.opacity(0.72))
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        dashboardTile("备份中心", detail: "App 数据与配置备份", icon: "externaldrive.fill", color: .blue) { backupCenterPage }
+                        dashboardTile("备份中心", detail: "应用数据与配置备份", icon: "externaldrive.fill", color: .blue) { backupCenterPage }
                         dashboardTile("还原中心", detail: "校验备份并安全还原", icon: "arrow.counterclockwise.circle.fill", color: .green) { restoreCenterPage }
-                        dashboardTile("清理中心", detail: "指定 App 本地数据清理", icon: "sparkles", color: .purple) { cleanupPage }
+                        dashboardTile("清理中心", detail: "指定应用本地数据清理", icon: "sparkles", color: .purple) { cleanupPage }
                         dashboardTile("改机管理", detail: "全局设备参数配置", icon: "slider.horizontal.3", color: .orange) {
                             ProfileManagerView(
                                 availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) },
@@ -386,12 +386,12 @@ struct ContentView: View {
             managerBackground.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 16) {
-                    maintenanceHero(title: "一键备份", subtitle: "App 本地数据与 Hook 配置备份", symbol: "externaldrive.fill", accent: .blue)
+                    maintenanceHero(title: "一键备份", subtitle: "应用本地数据与 Hook 配置备份", symbol: "externaldrive.fill", accent: .blue)
                     managerCard {
                         VStack(alignment: .leading, spacing: 13) {
                             Text("备份内容").font(.headline)
                             Label("指定 App 本地数据容器", systemImage: "checkmark.circle.fill").foregroundStyle(.blue)
-                            Label("全局与分 App Hook 配置", systemImage: "checkmark.circle.fill").foregroundStyle(.blue)
+                            Label("全局与分应用 Hook 配置", systemImage: "checkmark.circle.fill").foregroundStyle(.blue)
                             Text("备份包含 SHA-256 清单。Keychain、App Groups、共享容器和服务端数据不在本备份范围内。")
                                 .font(.footnote).foregroundStyle(.secondary)
                             Divider()
@@ -400,7 +400,7 @@ struct ContentView: View {
                                 .buttonStyle(.borderedProminent)
                                 .frame(maxWidth: .infinity)
                                 .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
-                            Button("备份全局与分 App Hook 配置") { performMaintenance("config-backup") }
+                            Button("备份全局与分应用 Hook 配置") { performMaintenance("config-backup") }
                                 .buttonStyle(.bordered)
                                 .frame(maxWidth: .infinity)
                                 .disabled(!helperPaired || maintenanceRunning)
@@ -482,7 +482,7 @@ struct ContentView: View {
                     }
                     managerCard {
                         VStack(alignment: .leading, spacing: 11) {
-                            Text("全局与分 App 配置").font(.headline)
+                            Text("全局与分应用配置").font(.headline)
                             Text("校验配置归档 SHA-256 与内部路径，并保留还原前快照。")
                                 .font(.footnote).foregroundStyle(.secondary)
                             Button("还原最近一次 Hook 配置备份") {
@@ -496,7 +496,7 @@ struct ContentView: View {
                     }
                     managerCard {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("可用 App 数据备份").font(.headline)
+                            Text("可用应用数据备份").font(.headline)
                             if backups.isEmpty {
                                 Text(backupsStatus).font(.footnote).foregroundStyle(.secondary)
                             } else {
@@ -538,7 +538,7 @@ struct ContentView: View {
         }
         .confirmationDialog("确认执行配置还原", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
             if pendingMaintenanceAction == "restore" {
-                Button("确认还原 App 数据", role: .destructive) { performMaintenance("restore") }
+                Button("确认还原应用数据", role: .destructive) { performMaintenance("restore") }
             } else if pendingMaintenanceAction == "config-restore" {
                 Button("确认还原全局与分 App 配置", role: .destructive) { performMaintenance("config-restore") }
             }
@@ -605,7 +605,7 @@ struct ContentView: View {
         private var appTargetPicker: some View {
         Group {
             if !installedApps.isEmpty {
-                Picker("选择目标 App", selection: $maintenanceBundleID) {
+                Picker("选择目标应用", selection: $maintenanceBundleID) {
                     Text("请选择").tag("")
                     ForEach(installedApps) { app in
                         Text(app.name).tag(app.bundleIdentifier)
@@ -721,7 +721,7 @@ struct ContentView: View {
                 LabeledContent("当前导入文件", value: fileName)
                 LabeledContent("配置解析", value: importedData == nil ? "未导入" : (isValid ? "有效" : "无效"))
                 NavigationLink("打开设备配置管理") { profilesPage }
-                NavigationLink("打开分 App 环境管理") {
+                NavigationLink("打开分应用环境管理") {
                     ProfileManagerView(
                         availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) },
                         onOperation: { action, success, detail in
@@ -763,7 +763,7 @@ struct ContentView: View {
     private var profilesPage: some View {
         Form {
             Section {
-                Label("分 App 配置管理", systemImage: "slider.horizontal.3").font(.title2.bold())
+                Label("分应用配置管理", systemImage: "slider.horizontal.3").font(.title2.bold())
                 Text("读取原作者 Hook 所需的配置字段，保留原始 plist 字节，并可按 Bundle ID 导出独立配置。")
                     .font(.footnote).foregroundStyle(.secondary)
                 HStack {
@@ -789,9 +789,9 @@ struct ContentView: View {
                     }
                 }
             }
-            Section("目标 App") {
+            Section("目标应用") {
                 HStack {
-                    Text("已读取 App")
+                    Text("已读取应用")
                     Spacer()
                     Text("\(installedApps.count)").foregroundStyle(.secondary)
                 }
@@ -851,7 +851,7 @@ struct ContentView: View {
     private var maintenancePage: some View {
         List {
             Section {
-                Label("App 数据维护", systemImage: "externaldrive.fill").font(.title2.bold())
+                Label("应用数据维护", systemImage: "externaldrive.fill").font(.title2.bold())
                 Text("管理器通过独立 Root Helper 执行固定白名单操作；Core 继续保持只读。首次安装或管理器更新后，需要 root 配对一次。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
@@ -862,9 +862,9 @@ struct ContentView: View {
                 Text("复制配对命令后，在越狱终端以 root 执行并输入 PAIR 确认。配对绑定当前管理器签名，不接受其他 mobile 进程。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
-            Section("目标 App") {
+            Section("目标应用") {
                 if !installedApps.isEmpty {
-                    Picker("已安装 App", selection: $maintenanceBundleID) {
+                    Picker("已安装应用", selection: $maintenanceBundleID) {
                         Text("选择 App").tag("")
                         ForEach(installedApps) { app in
                             Text(app.name).tag(app.bundleIdentifier)
@@ -907,18 +907,18 @@ struct ContentView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(.footnote.monospaced())
-                Button(maintenanceRunning ? "正在执行…" : "直接备份所选 App") { performMaintenance("backup") }
+                Button(maintenanceRunning ? "正在执行…" : "直接备份所选应用") { performMaintenance("backup") }
                     .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Button(maintenanceRunning ? "正在执行…" : "直接验证备份完整性") { performMaintenance("verify") }
                     .disabled(!helperPaired || maintenanceRunning || maintenanceArchiveName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             Section("还原与清理") {
-                Button("还原指定 App") {
+                Button("还原指定应用") {
                     pendingMaintenanceAction = "restore"
                     showMaintenanceConfirmation = true
                 }
                 .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty || maintenanceArchiveName.isEmpty)
-                Button("清理指定 App") {
+                Button("清理指定应用") {
                     pendingMaintenanceAction = "clean"
                     showMaintenanceConfirmation = true
                 }
@@ -956,7 +956,7 @@ struct ContentView: View {
         .confirmationDialog("确认执行破坏性操作", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
             Button("确认还原 App", role: .destructive) { performMaintenance("restore") }
                 .disabled(pendingMaintenanceAction != "restore")
-            Button("确认清理 App", role: .destructive) { performMaintenance("clean") }
+            Button("确认清理应用", role: .destructive) { performMaintenance("clean") }
                 .disabled(pendingMaintenanceAction != "clean")
             Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
                 .disabled(pendingMaintenanceAction != "config-restore")
@@ -975,10 +975,10 @@ struct ContentView: View {
                 Button(coreChecking ? "检测中…" : "检测 Core 连接") { checkCore() }
                     .disabled(coreChecking)
             }
-            Section("App 清单") {
+            Section("应用清单") {
                 LabeledContent("读取状态", value: appInventoryStatus)
                 LabeledContent("已读取数量", value: "\(installedApps.count)")
-                Button(appsLoading ? "读取中…" : "重新读取 App 清单") { fetchInstalledApps() }
+                Button(appsLoading ? "读取中…" : "重新读取应用清单") { fetchInstalledApps() }
                     .disabled(appsLoading)
                 ForEach(installedApps) { app in
                     VStack(alignment: .leading, spacing: 3) {
@@ -1078,8 +1078,8 @@ struct ContentView: View {
 
     private func recordOperation(_ action: String, target: String, success: Bool, detail: String) {
         let labels = [
-            "backup": "App 数据备份", "verify": "备份完整性校验",
-            "restore": "App 数据还原", "clean": "App 深度清理",
+            "backup": "应用数据备份", "verify": "备份完整性校验",
+            "restore": "应用数据还原", "clean": "应用深度清理",
             "config-backup": "全局配置备份", "config-restore": "全局配置还原",
             "keychain-diagnose": "Keychain 权限诊断", "diagnose-config": "配置诊断",
             "selftest": "设备只读自检", "acceptance-iphone12": "iPhone 12 最终验收"
@@ -1208,7 +1208,7 @@ struct ContentView: View {
 
     private func fetchInstalledApps() {
         appsLoading = true
-        appInventoryStatus = "正在读取本机 App 清单…"
+        appInventoryStatus = "正在读取本机应用清单…"
         Task {
             defer { appsLoading = false }
             do {
@@ -1221,7 +1221,7 @@ struct ContentView: View {
                       let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                       payload["ok"] as? Bool == true,
                       let rows = payload["apps"] as? [[String: Any]] else {
-                    appInventoryStatus = "Core 返回的 App 清单格式无效"
+                    appInventoryStatus = "Core 返回的应用清单格式无效"
                     installedApps = []
                     return
                 }
@@ -1233,7 +1233,7 @@ struct ContentView: View {
                 if !installedApps.contains(where: { $0.bundleIdentifier == selectedProfileBundleID }) {
                     selectedProfileBundleID = installedApps.first?.bundleIdentifier ?? ""
                 }
-                appInventoryStatus = "已读取 \(installedApps.count) 个 App（只读清单）"
+                appInventoryStatus = "已读取 \(installedApps.count) 个应用（只读清单）"
             } catch {
                 installedApps = []
                 appInventoryStatus = "读取失败：\(error.localizedDescription)"
