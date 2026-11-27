@@ -408,11 +408,20 @@ int main(void) {
             }
             struct timeval timeout = {.tv_sec = 2, .tv_usec = 0};
             setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-            char buffer[8192] = {0};
-            ssize_t count = recv(client, buffer, sizeof(buffer) - 1, 0);
-            if (count > 0) {
+            char buffer[16385] = {0};
+            size_t used = 0;
+            BOOL headerComplete = NO;
+            while (used < sizeof(buffer) - 1 && !headerComplete) {
+                ssize_t count = recv(client, buffer + used, sizeof(buffer) - 1 - used, 0);
+                if (count < 0 && errno == EINTR) continue;
+                if (count <= 0) break;
+                used += (size_t)count;
+                buffer[used] = '\0';
+                headerComplete = strstr(buffer, "\r\n\r\n") != NULL;
+            }
+            if (headerComplete && used > 0) {
                 @autoreleasepool {
-                    NSString *request = [[NSString alloc] initWithBytes:buffer length:(NSUInteger)count encoding:NSUTF8StringEncoding];
+                    NSString *request = [[NSString alloc] initWithBytes:buffer length:used encoding:NSUTF8StringEncoding];
                     NSArray *lines = [request componentsSeparatedByString:@"\r\n"];
                     NSArray *first = lines.firstObject ? [lines.firstObject componentsSeparatedByString:@" "] : @[];
                     if (first.count >= 2) {
