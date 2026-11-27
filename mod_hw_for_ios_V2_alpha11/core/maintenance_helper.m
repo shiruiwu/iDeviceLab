@@ -316,7 +316,7 @@ static BOOL ValidateHookProfile(NSDictionary *profile, NSString **errorMessage) 
             } else if ([rawKey isEqualToString:@"ProductId"]) {
                 valid = MatchesCharacterSet(text, 12, 12, @"0123456789ABCDEFabcdef");
             } else if ([rawKey isEqualToString:@"UniqueChipId"]) {
-                valid = MatchesCharacterSet(text, 8, 32, @"0123456789ABCDEFabcdef") && (text.length % 2 == 0);
+                valid = MatchesCharacterSet(text, 12, 12, @"0123456789ABCDEFabcdef");
             } else if ([rawKey isEqualToString:@"ProductType"]) {
                 valid = MatchesCharacterSet(text, 1, 32, @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.");
             } else if ([rawKey isEqualToString:@"HWModelStr"]) {
