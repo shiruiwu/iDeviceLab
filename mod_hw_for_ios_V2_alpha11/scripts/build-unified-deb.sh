@@ -35,7 +35,7 @@ assert_package_field "$DIAGNOSTICS_PACKAGE" Package com.modhw.ios.diagnostics
 assert_package_field "$DIAGNOSTICS_PACKAGE" Version '2.0.0~final6'
 assert_package_field "$DIAGNOSTICS_PACKAGE" Architecture iphoneos-arm64
 assert_package_field "$CORE_PACKAGE" Package com.idevelab.core.alpha11
-assert_package_field "$CORE_PACKAGE" Version '0.3.0~alpha11'
+assert_package_field "$CORE_PACKAGE" Version '0.3.1~alpha11'
 assert_package_field "$CORE_PACKAGE" Architecture iphoneos-arm64
 
 rm -rf "$WORK"
