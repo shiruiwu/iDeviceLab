@@ -3,6 +3,7 @@ import UIKit
 import Foundation
 import UniformTypeIdentifiers
 import CoreFoundation
+import Darwin
 
 @main
 struct ModHWManagerApp: App {
@@ -83,6 +84,12 @@ struct ContentView: View {
     @State private var selectedProfileBundleID = ""
     @State private var maintenanceBundleID = ""
     @State private var maintenanceArchiveName = ""
+    @State private var helperPaired = false
+    @State private var helperStatus = "尚未检测权限助手"
+    @State private var maintenanceRunning = false
+    @State private var maintenanceResult = ""
+    @State private var pendingMaintenanceAction: String?
+    @State private var showMaintenanceConfirmation = false
     @State private var exportAsPerAppProfile = false
 
     var body: some View {
@@ -184,6 +191,7 @@ struct ContentView: View {
             fetchMaintenanceTools()
             fetchAppProfiles()
             fetchBackups()
+            checkMaintenanceHelper()
         }
     }
 
@@ -279,7 +287,14 @@ struct ContentView: View {
         List {
             Section {
                 Label("App 数据维护", systemImage: "externaldrive.fill").font(.title2.bold())
-                Text("先从 Core 已发现的 App 中选择目标，或手动填写 Bundle ID。当前管理器生成可复制命令，不会伪装成已在手机上执行。")
+                Text("管理器通过独立 Root Helper 执行固定白名单操作；Core 继续保持只读。首次安装或管理器更新后，需要 root 配对一次。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("Root 权限助手") {
+                LabeledContent("连接状态", value: helperStatus)
+                Button("重新检测权限助手") { checkMaintenanceHelper() }
+                commandRow("首次配对 / 更新后重新配对", command: "/var/jb/usr/bin/mod-hw-manager-pair \(getpid())")
+                Text("复制配对命令后，在越狱终端以 root 执行并输入 PAIR 确认。配对绑定当前管理器签名，不接受其他 mobile 进程。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("目标 App") {
@@ -297,7 +312,7 @@ struct ContentView: View {
                     .font(.footnote.monospaced())
                 Button("刷新 App 清单") { fetchInstalledApps() }
             }
-            Section("备份") {
+            Section("备份与校验") {
                 HStack {
                     Text(backupsStatus).font(.footnote).foregroundStyle(.secondary)
                     Spacer()
@@ -323,23 +338,50 @@ struct ContentView: View {
                         }
                     }
                 }
-                commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance backup \(safeShellArgument(maintenanceBundleID))")
                 TextField("备份文件名（用于校验或还原）", text: $maintenanceArchiveName)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(.footnote.monospaced())
-                commandRow("验证备份完整性", command: "/var/jb/usr/bin/mod-hw-maintenance verify \(safeShellArgument(maintenanceArchiveName))")
+                Button(maintenanceRunning ? "正在执行…" : "直接备份所选 App") { performMaintenance("backup") }
+                    .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button(maintenanceRunning ? "正在执行…" : "直接验证备份完整性") { performMaintenance("verify") }
+                    .disabled(!helperPaired || maintenanceRunning || maintenanceArchiveName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             Section("还原与清理") {
-                commandRow("还原指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance restore \(safeShellArgument(maintenanceBundleID)) \(safeShellArgument(maintenanceArchiveName)) --confirm")
-                commandRow("清理指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance clean \(safeShellArgument(maintenanceBundleID)) --confirm")
-                Text("还原和清理会改变目标 App 数据。必须先完成备份和完整性校验，再在越狱终端确认执行。")
+                Button("还原指定 App") {
+                    pendingMaintenanceAction = "restore"
+                    showMaintenanceConfirmation = true
+                }
+                .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty || maintenanceArchiveName.isEmpty)
+                Button("清理指定 App") {
+                    pendingMaintenanceAction = "clean"
+                    showMaintenanceConfirmation = true
+                }
+                .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
+                Text("还原前会先校验所选备份；还原脚本保留回滚快照。清理脚本会先自动备份并校验，再清理目标容器。")
                     .font(.footnote).foregroundStyle(.orange)
+            }
+            if maintenanceRunning || !maintenanceResult.isEmpty {
+                Section("最近一次操作结果") {
+                    if maintenanceRunning { ProgressView("正在等待 Root Helper 返回结果…") }
+                    Text(maintenanceResult.isEmpty ? "操作执行中" : maintenanceResult)
+                        .font(.footnote.monospaced()).textSelection(.enabled)
+                }
             }
             Section("配置备份") {
                 commandRow("备份配置", command: "/var/jb/usr/bin/mod-hw-config-backup")
                 commandRow("还原配置", command: "/var/jb/usr/bin/mod-hw-config-restore <备份文件>")
             }
+        }
+        .confirmationDialog("确认执行破坏性操作", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
+            if pendingMaintenanceAction == "restore" {
+                Button("确认还原", role: .destructive) { performMaintenance("restore") }
+            } else if pendingMaintenanceAction == "clean" {
+                Button("确认清理", role: .destructive) { performMaintenance("clean") }
+            }
+            Button("取消", role: .cancel) { pendingMaintenanceAction = nil }
+        } message: {
+            Text("此操作会改变所选 App 的本地数据。请确认目标 Bundle ID 与备份文件名无误。")
         }
         .navigationTitle("备份与维护")
     }
@@ -438,6 +480,63 @@ struct ContentView: View {
             .font(.caption)
         }
         .padding(.vertical, 4)
+    }
+
+    private func checkMaintenanceHelper() {
+        helperStatus = "正在检测 Root Helper…"
+        Task {
+            do {
+                let result = try await MaintenanceClient.request(action: "status")
+                helperPaired = result.paired == true
+                helperStatus = helperPaired ? "已配对，可直接执行" : "助手在线，管理器尚未配对"
+            } catch {
+                helperPaired = false
+                helperStatus = "未连接：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func performMaintenance(_ action: String) {
+        let bundleID = maintenanceBundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let archive = maintenanceArchiveName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if ["backup", "restore", "clean"].contains(action) && bundleID.isEmpty {
+            maintenanceResult = "请先选择或填写目标 App 的 Bundle ID。"
+            return
+        }
+        if ["verify", "restore"].contains(action) && archive.isEmpty {
+            maintenanceResult = "请先选择备份文件。"
+            return
+        }
+        maintenanceRunning = true
+        maintenanceResult = "正在执行 \(action)…"
+        Task {
+            defer { maintenanceRunning = false }
+            do {
+                if action == "restore" {
+                    let verification = try await MaintenanceClient.request(action: "verify", archive: archive)
+                    guard verification.ok else {
+                        maintenanceResult = "还原已阻止：备份校验失败。\n\(verification.output ?? verification.error ?? "无详细输出")"
+                        return
+                    }
+                }
+                let result = try await MaintenanceClient.request(
+                    action: action,
+                    bundleID: bundleID.isEmpty ? nil : bundleID,
+                    archive: archive.isEmpty ? nil : archive,
+                    confirm: action == "restore" || action == "clean"
+                )
+                maintenanceResult = result.ok
+                    ? (result.output ?? "操作完成。")
+                    : (result.error ?? result.output ?? "操作失败，退出码：\(result.exitCode ?? -1)")
+                if result.ok && ["backup", "restore", "clean"].contains(action) {
+                    fetchBackups()
+                }
+                checkMaintenanceHelper()
+            } catch {
+                maintenanceResult = "操作失败：\(error.localizedDescription)"
+                checkMaintenanceHelper()
+            }
+        }
     }
 
     private func checkCore() {
@@ -717,6 +816,99 @@ struct ContentView: View {
         if value is [String: Any] { return "Dictionary" }
         if value is [Any] { return "Array" }
         return String(describing: type(of: value))
+    }
+}
+
+private struct MaintenanceOperationResult: Decodable {
+    let ok: Bool
+    let paired: Bool?
+    let helper: String?
+    let action: String?
+    let exitCode: Int?
+    let output: String?
+    let error: String?
+    let outputTruncated: Bool?
+}
+
+private enum MaintenanceClient {
+    private static let socketPath = "/var/run/com.idevelab.maintenance.sock"
+
+    static func request(action: String, bundleID: String? = nil, archive: String? = nil, confirm: Bool = false) async throws -> MaintenanceOperationResult {
+        try await Task.detached(priority: .userInitiated) {
+            try perform(action: action, bundleID: bundleID, archive: archive, confirm: confirm)
+        }.value
+    }
+
+    private static func perform(action: String, bundleID: String?, archive: String?, confirm: Bool) throws -> MaintenanceOperationResult {
+        let descriptor = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        guard descriptor >= 0 else { throw NSError(domain: "MaintenanceHelper", code: 1, userInfo: [NSLocalizedDescriptionKey: "无法创建本地套接字。"]) }
+        defer { Darwin.close(descriptor) }
+
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let pathBytes = Array(socketPath.utf8) + [0]
+        guard pathBytes.count <= MemoryLayout.size(ofValue: address.sun_path) else {
+            throw NSError(domain: "MaintenanceHelper", code: 2, userInfo: [NSLocalizedDescriptionKey: "Root Helper 套接字路径过长。"])
+        }
+        withUnsafeMutableBytes(of: &address.sun_path) { rawBuffer in
+            rawBuffer.copyBytes(from: pathBytes)
+        }
+        let connectResult = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard connectResult == 0 else {
+            throw NSError(domain: "MaintenanceHelper", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: "无法连接 Root Helper（\(String(cString: strerror(errno)))）。"])
+        }
+
+        var timeout = timeval()
+        timeout.tv_sec = 300
+        timeout.tv_usec = 0
+        setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+
+        var payload: [String: Any] = ["action": action]
+        if let bundleID { payload["bundleID"] = bundleID }
+        if let archive { payload["archive"] = archive }
+        if confirm { payload["confirm"] = true }
+        var requestData = try JSONSerialization.data(withJSONObject: payload, options: [])
+        requestData.append(0x0A)
+
+        try requestData.withUnsafeBytes { rawBuffer in
+            guard let base = rawBuffer.baseAddress else { return }
+            var offset = 0
+            while offset < rawBuffer.count {
+                let count = Darwin.write(descriptor, base.advanced(by: offset), rawBuffer.count - offset)
+                if count < 0 && errno == EINTR { continue }
+                guard count > 0 else {
+                    throw NSError(domain: "MaintenanceHelper", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: "发送维护请求失败。"])
+                }
+                offset += count
+            }
+        }
+
+        var responseData = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        var receivedLine = false
+        while responseData.count < 131072 && !receivedLine {
+            let count = buffer.withUnsafeMutableBytes { rawBuffer in
+                Darwin.read(descriptor, rawBuffer.baseAddress, rawBuffer.count)
+            }
+            if count < 0 && errno == EINTR { continue }
+            guard count > 0 else {
+                throw NSError(domain: "MaintenanceHelper", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: "Root Helper 未返回有效结果。"])
+            }
+            if let newline = buffer[..<count].firstIndex(of: 0x0A) {
+                responseData.append(contentsOf: buffer[..<newline])
+                receivedLine = true
+            } else {
+                responseData.append(contentsOf: buffer.prefix(count))
+            }
+        }
+        guard receivedLine else {
+            throw NSError(domain: "MaintenanceHelper", code: 3, userInfo: [NSLocalizedDescriptionKey: "Root Helper 响应超过长度限制。"])
+        }
+        return try JSONDecoder().decode(MaintenanceOperationResult.self, from: responseData)
     }
 }
 
