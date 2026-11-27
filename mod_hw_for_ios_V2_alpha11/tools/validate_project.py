@@ -64,6 +64,8 @@ profile_view = (ROOT / "manager/ProfileManagerView.swift").read_text()
 profile_store = (ROOT / "manager/ProfileStore.swift").read_text()
 profile_models = (ROOT / "manager/DeviceProfileModels.swift").read_text()
 app_entry = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
+check("ZIPFoundation" in project and "weichsel/ZIPFoundation.git" in project and "0.9.20" in project,
+      "IPA editor ZIP archive dependency is pinned to the iOS 12+ compatible ZIPFoundation 0.9.20 package")
 check("IPAEditorView()" in manager and "IPAEditorView.swift" in project and
       "IPAExporter.swift" in project and "IPABundleInfo.swift" in project and
       "FileBrowserView.swift" in project,

@@ -16,6 +16,7 @@ fi
 mkdir -p "$BUILD_DIR" "$OUT"
 rm -rf "$DERIVED" "$PAYLOAD"
 rm -f "$IPA"
+xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme "$SCHEME" -configuration Release
 xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ENABLE_BITCODE=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO build
 if [[ ! -d "$APP" ]]; then echo "找不到构建产物：$APP" >&2; exit 3; fi
 mkdir -p "$PAYLOAD"
