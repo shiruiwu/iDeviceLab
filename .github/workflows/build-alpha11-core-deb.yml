@@ -52,7 +52,7 @@ jobs:
           test -s "$DEB"
           ar t "$DEB"
           dpkg-deb -f "$DEB" Package | grep -Fx 'com.idevelab.core.alpha11'
-          dpkg-deb -f "$DEB" Version | grep -Fx '0.3.3~alpha11'
+          dpkg-deb -f "$DEB" Version | grep -Fx '0.3.4~alpha11'
           dpkg-deb -f "$DEB" Architecture | grep -Fx 'iphoneos-arm64'
           dpkg-deb -c "$DEB" | grep -F 'var/jb/usr/libexec/idevelab-core'
           echo "Core signing tool: $(ldid -h 2>&1 | head -n 1)"
@@ -65,7 +65,7 @@ jobs:
       - name: Upload Core DEB
         uses: actions/upload-artifact@v4
         with:
-          name: idevelab-core-alpha11-build16-roothelper-pairing
+          name: idevelab-core-alpha11-build17-sandbox-bridge
           path: mod_hw_for_ios_V2_alpha11/release/idevelab-core-alpha11.deb
           if-no-files-found: error
           retention-days: 14
