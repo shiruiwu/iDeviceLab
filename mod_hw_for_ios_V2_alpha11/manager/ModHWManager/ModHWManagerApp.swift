@@ -1526,6 +1526,13 @@ enum MaintenanceClient {
 
     // The token lives only in this app's sandbox container. The unsandboxed
     // mobile Core reads it from the container metadata; other apps cannot.
+    private static func managerContainerPath() throws -> String {
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw NSError(domain: "MaintenanceHelper", code: 7, userInfo: [NSLocalizedDescriptionKey: "无法定位 Manager 私有数据目录。"])
+        }
+        return support.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL.path
+    }
+
     private static func bridgeToken() throws -> String {
         let fileManager = FileManager.default
         guard let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
@@ -1557,7 +1564,7 @@ enum MaintenanceClient {
     }
 
     static func request(action: String, bundleID: String? = nil, archive: String? = nil, profile: [String: Any]? = nil, confirm: Bool = false) async throws -> MaintenanceOperationResult {
-        var payload: [String: Any] = ["action": action, "managerPID": Int(getpid())]
+        var payload: [String: Any] = ["action": action, "managerPID": Int(getpid()), "managerContainer": try managerContainerPath()]
         if let bundleID { payload["bundleID"] = bundleID }
         if let archive { payload["archive"] = archive }
         if let profile { payload["profile"] = profile }
