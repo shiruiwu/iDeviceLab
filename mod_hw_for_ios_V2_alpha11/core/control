@@ -1,8 +1,8 @@
 Package: com.idevelab.core.alpha11
 Name: iDeviceLab Alpha11 Read-only Core
-Version: 0.3.3~alpha11
+Version: 0.3.4~alpha11
 Architecture: iphoneos-arm64
-Description: Rootless loopback-only read-only diagnostics Core for the Alpha11 manager.
+Description: Rootless loopback-only diagnostics and Root Helper bridge Core for the Alpha11 manager.
 Maintainer: iDeviceLab
 Author: iDeviceLab contributors
 Section: Utilities
