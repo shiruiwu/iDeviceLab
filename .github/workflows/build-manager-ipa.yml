@@ -50,7 +50,7 @@ jobs:
           xcrun simctl install "$DEVICE_ID" build/simulator/Build/Products/Debug-iphonesimulator/ModHWManager.app
           xcrun simctl launch "$DEVICE_ID" com.modhw.manager
           sleep 8
-          xcrun simctl spawn "$DEVICE_ID" launchctl list | grep -F 'com.modhw.manager'
+          # terminate succeeds only if the process is still alive after the observation window.
           xcrun simctl terminate "$DEVICE_ID" com.modhw.manager
 
       - name: Build TrollStore IPA
