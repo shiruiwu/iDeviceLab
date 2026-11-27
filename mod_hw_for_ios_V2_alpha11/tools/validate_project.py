@@ -66,7 +66,7 @@ if helper_source.is_file():
     check(all(token in helper_text for token in (
           '@"backup"', '@"verify"', '@"restore"', '@"clean"', '@"apply-profile"',
           '@"config-backup"', '@"config-restore"', '@"keychain-diagnose"',
-          '@"diagnose-config"', '@"selftest"', '@"acceptance-iphone12"')),
+          '@"diagnose-config"', '@"selftest"', '@"acceptance-iphone12"', '@"apply-global-profile"')),
           "Root Helper exposes only the declared maintenance allowlist")
 if pair_source.is_file():
     pair_text = pair_source.read_text()
@@ -129,7 +129,7 @@ check("hookConfiguration" in profile_models and "UniqueDeviceID" in profile_mode
 helper_source = (ROOT / "core/maintenance_helper.m").read_text()
 check("apply-profile" in profile_view and "apply-global-profile" in profile_view and
       "BOOL isGlobalProfile = [action isEqualToString:@" in helper_source and
-      "ApplyHookProfile(isGlobalProfile ? nil : bundleID, request[@"profile"], isGlobalProfile" in helper_source and
+      'ApplyHookProfile(isGlobalProfile ? nil : bundleID, request[@"profile"], isGlobalProfile' in helper_source and
       "com.modhw.ios.devices.plist" in helper_source and
       'isEqualToString:@"apply-profile", @"apply-global-profile"' not in helper_source and
       "MaintenanceClient.request" in profile_view and
