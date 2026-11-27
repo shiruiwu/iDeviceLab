@@ -84,7 +84,7 @@ if core_daemon.is_file():
     check(daemon.get("ProgramArguments") == ["/var/jb/usr/libexec/idevelab-core"], "Alpha11 launchd starts the packaged Rootless Core binary")
     check(daemon.get("UserName") == "mobile" and daemon.get("GroupName") == "mobile", "Alpha11 Core runs as the unprivileged mobile user")
 
-check("Version: 2.0.0~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
+check("Version: 2.0.2~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
 check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
 check("src/captain_hook/hook.mm" in makefile, "Original hook source remains in target")
 hook_filter_path = ROOT / "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist"
@@ -258,11 +258,11 @@ prerm = ROOT / "core/layout/DEBIAN/prerm"
 if postinst.is_file() and prerm.is_file():
     post = postinst.read_text()
     pre = prerm.read_text()
-    check("/var/jb/usr/libexec/launchctl" in post and "/var/jb/basebin/launchctl" in post and
+    check("/var/jb/usr/bin/launchctl" in post and "/var/jb/basebin/launchctl" in post and
           'find /var/jb -name launchctl -perm -111' in post and
-          'bootstrap system "$PLIST"' in post,
+          'bootstrap system "$service_plist"' in post and 'ERROR: launchctl bootstrap failed' in post,
           "Core installer searches common rootless launchctl locations and reports startup failure without aborting package installation")
-    check("/var/jb/usr/libexec/launchctl" in pre and 'find /var/jb -name launchctl -perm -111' in pre,
+    check("/var/jb/usr/bin/launchctl" in pre and 'find /var/jb -name launchctl -perm -111' in pre,
           "Core removal script can locate launchctl in extended rootless paths")
 
 if core_source.is_file():
@@ -283,7 +283,7 @@ if core_source.is_file():
           "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
 
 
-    check('@"version": @"0.3.0-alpha11"' in core,
+    check('@"version": @"0.3.2-alpha11"' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
           'HasSecureBackupMetadata' in core and
@@ -294,7 +294,7 @@ if core_source.is_file():
           'st.st_gid == mobileGID' in core,
           "Backup inventory rejects symlinks and requires exact root:mobile ownership and 0750/0640 modes")
 if core_control.is_file():
-    check("Architecture: iphoneos-arm64" in core_control_text and "Version: 0.3.0~alpha11" in core_control_text,
+    check("Architecture: iphoneos-arm64" in core_control_text and "Version: 0.3.2~alpha11" in core_control_text,
           "Alpha11 Core package metadata targets Rootless arm64")
 
 diagnostic = ROOT / "scripts/diagnose-config.sh"
@@ -336,7 +336,7 @@ check("com.idevelab.maintenance.alpha11" in selftest.read_text() and
 
 acceptance_script = ROOT / "scripts/acceptance-iphone12.sh"
 check(acceptance_script.is_file() and "com.idevelab.fullsuite.alpha11" in acceptance_script.read_text() and
-      "2.0.0~alpha11|iphoneos-arm64" in acceptance_script.read_text() and
+      "2.0.2~alpha11|iphoneos-arm64" in acceptance_script.read_text() and
       "APP_COUNT" in acceptance_script.read_text() and "CFBundleVersion" in acceptance_script.read_text() and
       "NSAllowsLocalNetworking" in acceptance_script.read_text() and "MinimumOSVersion" in acceptance_script.read_text() and
       "test ! -L" in acceptance_script.read_text() and "CFBundleExecutable" in acceptance_script.read_text() and
