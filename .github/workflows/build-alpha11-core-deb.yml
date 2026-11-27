@@ -31,7 +31,7 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
 
       - name: Install Debian package verifier
-        run: brew install dpkg
+        run: brew install dpkg ldid
 
       - name: Validate package scripts and plist
         run: |
@@ -55,6 +55,7 @@ jobs:
           dpkg-deb -f "$DEB" Version | grep -Fx '0.3.2~alpha11'
           dpkg-deb -f "$DEB" Architecture | grep -Fx 'iphoneos-arm64'
           dpkg-deb -c "$DEB" | grep -F 'var/jb/usr/libexec/idevelab-core'
+          echo "Core signing tool: $(ldid -h 2>&1 | head -n 1)"
           dpkg-deb -c "$DEB" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist'
           dpkg-deb -e "$DEB" build/core-control
           sh -n build/core-control/postinst
