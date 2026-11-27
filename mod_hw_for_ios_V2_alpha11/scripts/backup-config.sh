@@ -1,29 +1,77 @@
 #!/bin/sh
-# Create a timestamped, byte-preserving backup of the tweak configuration.
+# Back up the global Hook plist and all per-App Hook profiles as one verified archive.
 set -eu
-CONFIG='/var/mobile/Library/Preferences/com.modhw.ios.devices.plist'
-BACKUP_DIR='/var/mobile/Library/Preferences/mod_hw_for_ios_backups'
-if [ "$(id -u)" -ne 0 ]; then
-  echo '请以 root 权限运行。' >&2
-  exit 1
-fi
-if [ ! -f "$CONFIG" ] || [ ! -r "$CONFIG" ]; then
-  echo '配置文件不存在或不可读。' >&2
-  exit 2
-fi
-if ! plutil -lint "$CONFIG" >/dev/null 2>&1; then
-  echo '配置文件 plist 格式无效，未创建备份。' >&2
-  exit 3
-fi
+PREFERENCES='/var/mobile/Library/Preferences'
+CONFIG="$PREFERENCES/com.modhw.ios.devices.plist"
+PROFILE_DIR="$PREFERENCES/com.modhw.ios.profiles"
+BACKUP_DIR="$PREFERENCES/mod_hw_for_ios_backups"
+fail() { echo "配置备份中止：$*" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || fail '请以 root 权限运行。'
+[ -d "$PREFERENCES" ] && [ ! -L "$PREFERENCES" ] || fail 'Preferences 目录不存在或不安全。'
 mkdir -p "$BACKUP_DIR"
+[ -d "$BACKUP_DIR" ] && [ ! -L "$BACKUP_DIR" ] || fail '配置备份目录不安全。'
+chown root:wheel "$BACKUP_DIR"
 chmod 0700 "$BACKUP_DIR"
+
 STAMP="$(date '+%Y%m%d-%H%M%S')"
-DEST="$BACKUP_DIR/com.modhw.ios.devices.$STAMP.plist"
-if [ -e "$DEST" ]; then
-  echo "备份目标已存在：$DEST" >&2
-  exit 4
+ARCHIVE_NAME="config-$STAMP-$$.tar.gz"
+ARCHIVE="$BACKUP_DIR/$ARCHIVE_NAME"
+MANIFEST="$ARCHIVE.sha256"
+STAGE="$(mktemp -d "$BACKUP_DIR/.config-stage.XXXXXX")" || fail '无法创建暂存目录。'
+TMP_ARCHIVE="$BACKUP_DIR/.$ARCHIVE_NAME.tmp"
+TMP_MANIFEST="$BACKUP_DIR/.$ARCHIVE_NAME.sha256.tmp"
+COMMITTED=0
+cleanup() {
+  STATUS=$?
+  trap - EXIT HUP INT TERM
+  rm -rf "$STAGE"
+  if [ "$COMMITTED" -ne 1 ]; then
+    rm -f "$TMP_ARCHIVE" "$TMP_MANIFEST" "$ARCHIVE" "$MANIFEST"
+  fi
+  exit "$STATUS"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+FOUND=0
+if [ -f "$CONFIG" ]; then
+  [ ! -L "$CONFIG" ] || fail '全局配置是符号链接。'
+  plutil -lint "$CONFIG" >/dev/null 2>&1 || fail '全局配置 plist 格式无效。'
+  plutil -convert xml1 -o - "$CONFIG" 2>/dev/null | grep -q '<dict>' || fail '全局配置根对象不是 Dictionary。'
+  cp -p "$CONFIG" "$STAGE/com.modhw.ios.devices.plist"
+  FOUND=1
 fi
-cp -p "$CONFIG" "$DEST"
-chmod 0600 "$DEST"
-cmp -s "$CONFIG" "$DEST"
-echo "配置备份完成：$DEST"
+
+if [ -e "$PROFILE_DIR" ]; then
+  [ -d "$PROFILE_DIR" ] && [ ! -L "$PROFILE_DIR" ] || fail 'per-App 配置路径不是安全目录。'
+  mkdir -m 0700 "$STAGE/com.modhw.ios.profiles"
+  for PROFILE in "$PROFILE_DIR"/*.plist; do
+    [ -f "$PROFILE" ] || continue
+    [ ! -L "$PROFILE" ] || fail "配置文件是符号链接：$(basename "$PROFILE")"
+    plutil -lint "$PROFILE" >/dev/null 2>&1 || fail "配置文件 plist 无效：$(basename "$PROFILE")"
+    NAME="$(basename "$PROFILE")"
+    BUNDLE_ID="$(printf '%s' "$NAME" | sed 's/\.plist$//')"
+    case "$BUNDLE_ID" in ''|*[!A-Za-z0-9._-]*|.*|*..*|*.) fail "配置文件名不是有效 Bundle ID：$NAME" ;; esac
+    cp -p "$PROFILE" "$STAGE/com.modhw.ios.profiles/$NAME"
+    FOUND=1
+  done
+fi
+[ "$FOUND" -eq 1 ] || fail '没有可备份的全局或 per-App Hook 配置。'
+
+tar -czpf "$TMP_ARCHIVE" -C "$STAGE" . || fail '配置归档创建失败。'
+tar -tzf "$TMP_ARCHIVE" >/dev/null 2>&1 || fail '配置归档无法读取。'
+HASH="$(sha256sum "$TMP_ARCHIVE" | awk '{print $1}')"
+HASH_LEN="$(printf '%s' "$HASH" | wc -c | tr -d ' ')"
+[ "$HASH_LEN" -eq 64 ] || fail '无法计算配置归档 SHA-256。'
+printf '%s  %s\n' "$HASH" "$ARCHIVE_NAME" > "$TMP_MANIFEST"
+chown root:wheel "$TMP_ARCHIVE" "$TMP_MANIFEST"
+chmod 0600 "$TMP_ARCHIVE" "$TMP_MANIFEST"
+mv "$TMP_ARCHIVE" "$ARCHIVE"
+mv "$TMP_MANIFEST" "$MANIFEST"
+(cd "$BACKUP_DIR" && sha256sum -c "$(basename "$MANIFEST")" >/dev/null) || fail '配置归档提交后的完整性校验失败。'
+COMMITTED=1
+echo "配置与分 App Hook 配置备份完成：$ARCHIVE_NAME"
+echo "SHA-256：$HASH"
