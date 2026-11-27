@@ -348,6 +348,10 @@ if restore.is_file():
     src = restore.read_text()
     check("plutil -lint" in src and "rollback-snapshots" in src and "mv -f" in src,
           "Restore validates backup, preserves pre-restore snapshot, and replaces atomically")
+    check('PROFILE_NAME="${ENTRY#./com.modhw.ios.profiles/}"' in src and
+          "'*/*'" in src and "'*..*'" in src and "uniq -d" in src and
+          "tar -xzf \"$LATEST\" -C \"$STAGE\"" in src,
+          "Config restore rejects traversal, malformed profile names, and duplicate archive paths before extraction")
 
 if app_backup.is_file():
     src = app_backup.read_text()
