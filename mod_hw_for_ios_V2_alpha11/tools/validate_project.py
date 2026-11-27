@@ -65,8 +65,8 @@ check("mod-hw-maintenance" in manager and "maintenance-dispatch.sh" in (ROOT / "
       "backup|verify|restore|clean" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       "未知操作" in (ROOT / "scripts/maintenance-dispatch.sh").read_text(),
       "Root-only maintenance dispatcher exposes only fixed backup, verify, restore, and clean actions")
-check("mod-hw-app-backup" in manager and "mod-hw-app-backup-verify" in manager and
-      "mod-hw-app-restore" in manager and "mod-hw-app-clean" in manager,
+check("mod-hw-maintenance backup" in manager and "mod-hw-maintenance verify" in manager and
+      "mod-hw-maintenance restore" in manager and "mod-hw-maintenance clean" in manager,
       "Manager generates a target-specific maintenance command set without claiming in-app execution")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
