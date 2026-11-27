@@ -142,6 +142,7 @@ jobs:
                   assert archive.extractfile(control_files[hook]).read().startswith(b'#!/bin/sh')
           assert 'Package: com.idevelab.core.alpha11' in metadata
           assert 'Architecture: iphoneos-arm64' in metadata
+              assert 'Depends: firmware (>= 15.0), com.modhw.ios.diagnostics' in metadata
           with tarfile.open(fileobj=io.BytesIO(members['data.tar.gz']), mode='r:gz') as archive:
               files = {m.name.lstrip('./'): m for m in archive.getmembers()}
               binary_path = 'var/jb/usr/libexec/idevelab-core'

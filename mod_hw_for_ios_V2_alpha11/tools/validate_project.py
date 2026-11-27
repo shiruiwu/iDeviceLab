@@ -155,6 +155,7 @@ if pair_source.is_file():
           "CS_OPS_CDHASH" in src and 'strcmp(confirmation, "PAIR\\n")' in src,
           "Pairing utility requires root confirmation and pins the exact Manager app code hash")
 check(core_package_builder_path.is_file() and
+      "Depends: firmware (>= 15.0), com.modhw.ios.diagnostics" in core_package_builder and
       'xcrun --sdk iphoneos clang' in core_package_builder and
       'var/jb/usr/libexec/idevelab-core' in core_package_builder and
       'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist' in core_package_builder and

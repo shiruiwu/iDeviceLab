@@ -6,4 +6,4 @@ Description: Rootless loopback-only read-only diagnostics Core for the Alpha11 m
 Maintainer: iDeviceLab
 Author: iDeviceLab contributors
 Section: Utilities
-Depends: firmware (>= 15.0)
+Depends: firmware (>= 15.0), com.modhw.ios.diagnostics

@@ -24,7 +24,7 @@ Version: 0.3.0~alpha11
 Architecture: iphoneos-arm64
 Description: Rootless loopback-only read-only diagnostics Core for the Alpha11 manager.
 Maintainer: iDeviceLab contributors
-Depends: firmware (>= 15.0)
+Depends: firmware (>= 15.0), com.modhw.ios.diagnostics
 Section: Utilities
 EOF
 printf '2.0\n' > "$WORK/debian-binary"
