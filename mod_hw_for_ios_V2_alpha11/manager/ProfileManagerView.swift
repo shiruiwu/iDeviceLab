@@ -79,7 +79,7 @@ struct ProfileManagerView: View {
     private func appBindingSection(profile: DeviceProfile) -> some View {
         Section {
             if !availableApps.isEmpty {
-                Picker("从 Core App 清单选择", selection: $newAppBundleID) {
+                Picker("从 Core 应用清单选择", selection: $newAppBundleID) {
                     Text("手动填写").tag("")
                     ForEach(availableApps) { app in
                         Text(app.name).tag(app.bundleIdentifier)
@@ -114,7 +114,7 @@ struct ProfileManagerView: View {
         } header: {
             Text("应用选择与配置绑定")
         } footer: {
-            Text("配置按 Bundle ID 保存为 per-App Hook profile。写入后需强制关闭并重新打开目标 App，Hook 才会重新读取。")
+            Text("配置按 Bundle ID 保存为分应用 Hook 配置。写入后需强制关闭并重新打开目标应用，Hook 才会重新读取。")
         }
     }
 
@@ -292,7 +292,7 @@ struct ProfileManagerView: View {
 
     private func hookConfigurationSection(profile: DeviceProfile) -> some View {
         Section {
-            TextField("序列号（Serial Number）", text: optionalBinding(\.serialNumber, profile: profile))
+            TextField("序列号", text: optionalBinding(\.serialNumber, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
             TextField("IMEI（15 位）", text: optionalBinding(\.imei, profile: profile))
                 .keyboardType(.numberPad)
