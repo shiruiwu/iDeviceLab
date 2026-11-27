@@ -381,33 +381,7 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
-        private func dashboardTile<Destination: View>(_ title: String, detail: String, icon: String, color: Color, @ViewBuilder destination: () -> Destination) -> some View {
-        NavigationLink(destination: destination()) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundStyle(color)
-                    .frame(width: 42, height: 42)
-                    .background(color.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 13))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                    Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-            .background(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 17))
-            .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.blue.opacity(0.06), lineWidth: 1))
-            .shadow(color: .black.opacity(0.035), radius: 7, y: 3)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var backupCenterPage: some View {
+        private var backupCenterPage: some View {
         ZStack {
             managerBackground.ignoresSafeArea()
             ScrollView {
