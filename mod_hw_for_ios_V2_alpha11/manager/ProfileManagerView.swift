@@ -292,29 +292,29 @@ struct ProfileManagerView: View {
 
     private func hookConfigurationSection(profile: DeviceProfile) -> some View {
         Section {
-            TextField("SerialNumber", text: optionalBinding(\.serialNumber, profile: profile))
+            TextField("序列号（Serial Number）", text: optionalBinding(\.serialNumber, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
             TextField("IMEI（15 位）", text: optionalBinding(\.imei, profile: profile))
                 .keyboardType(.numberPad)
             TextField("MEID（14 位十六进制）", text: optionalBinding(\.meid, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
-            TextField("WifiAddress（MAC）", text: optionalBinding(\.wifiAddress, profile: profile))
+            TextField("Wi-Fi 地址（MAC）", text: optionalBinding(\.wifiAddress, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
-            TextField("BluetoothAddress（MAC）", text: optionalBinding(\.bluetoothAddress, profile: profile))
+            TextField("蓝牙地址（MAC）", text: optionalBinding(\.bluetoothAddress, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
-            TextField("UniqueDeviceID（40 位十六进制）", text: optionalBinding(\.uniqueDeviceID, profile: profile))
+            TextField("设备唯一标识（40 位十六进制）", text: optionalBinding(\.uniqueDeviceID, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
-            TextField("ProductId（12 位十六进制）", text: optionalBinding(\.productId, profile: profile))
+            TextField("产品标识（12 位十六进制）", text: optionalBinding(\.productId, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
-            TextField("UniqueChipId（12 位十六进制）", text: optionalBinding(\.uniqueChipId, profile: profile))
+            TextField("芯片唯一标识（12 位十六进制）", text: optionalBinding(\.uniqueChipId, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
-            TextField("ProductType（例如 iPhone13,2）", text: optionalBinding(\.productType, profile: profile))
+            TextField("产品型号代码（例如 iPhone13,2）", text: optionalBinding(\.productType, profile: profile))
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
-            TextField("HWModelStr（例如 D53gAP）", text: optionalBinding(\.hwModelStr, profile: profile))
+            TextField("硬件型号代码（例如 D53gAP）", text: optionalBinding(\.hwModelStr, profile: profile))
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
-            TextField("IDFA（UUID）", text: optionalBinding(\.idfa, profile: profile))
+            TextField("广告标识符 IDFA（UUID）", text: optionalBinding(\.idfa, profile: profile))
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
-            TextField("IDFV（UUID）", text: optionalBinding(\.idfv, profile: profile))
+            TextField("供应商标识符 IDFV（UUID）", text: optionalBinding(\.idfv, profile: profile))
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
             Toggle("UDID 返回 NSData", isOn: boolBinding(\.uniqueDeviceIDData, profile: profile))
             Toggle("Wi-Fi MAC 返回 NSData", isOn: boolBinding(\.wifiAddressData, profile: profile))
@@ -378,7 +378,7 @@ private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("iDevice Lab").font(.largeTitle.bold()).foregroundColor(.white)
-                Text("DEVICE PROFILE MANAGER").font(.caption2).tracking(2).foregroundColor(.white.opacity(0.82))
+                Text("设备配置管理").font(.caption2).tracking(2).foregroundColor(.white.opacity(0.82))
             }
             Spacer()
             Button { store.addProfile() } label: {

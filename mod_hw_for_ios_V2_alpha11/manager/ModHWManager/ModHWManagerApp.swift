@@ -207,7 +207,7 @@ struct ContentView: View {
                             .background(.white.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 18))
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Device Manager Pro")
+                            Text("设备管理中心")
                                 .font(.system(size: 23, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
                             Text("iOS 设备管理中心")
