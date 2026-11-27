@@ -42,6 +42,8 @@ if [ -f "$CONFIG" ]; then
   plutil -lint "$CONFIG" >/dev/null 2>&1 || fail '全局配置 plist 格式无效。'
   plutil -convert xml1 -o - "$CONFIG" 2>/dev/null | grep -q '<dict>' || fail '全局配置根对象不是 Dictionary。'
   cp -p "$CONFIG" "$STAGE/com.modhw.ios.devices.plist"
+  cmp -s "$CONFIG" "$STAGE/com.modhw.ios.devices.plist" || fail '全局配置备份与原文件字节不一致。'
+  plutil -lint "$STAGE/com.modhw.ios.devices.plist" >/dev/null 2>&1 || fail '暂存的全局配置 plist 校验失败。'
   FOUND=1
 fi
 
@@ -56,6 +58,8 @@ if [ -e "$PROFILE_DIR" ]; then
     BUNDLE_ID="$(printf '%s' "$NAME" | sed 's/\.plist$//')"
     case "$BUNDLE_ID" in ''|*[!A-Za-z0-9._-]*|.*|*..*|*.) fail "配置文件名不是有效 Bundle ID：$NAME" ;; esac
     cp -p "$PROFILE" "$STAGE/com.modhw.ios.profiles/$NAME"
+    cmp -s "$PROFILE" "$STAGE/com.modhw.ios.profiles/$NAME" || fail "分 App 配置备份与原文件字节不一致：$NAME"
+    plutil -lint "$STAGE/com.modhw.ios.profiles/$NAME" >/dev/null 2>&1 || fail "暂存的分 App plist 校验失败：$NAME"
     FOUND=1
   done
 fi
