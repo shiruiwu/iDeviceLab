@@ -4,14 +4,39 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/build/unified-deb"
 PKG="$WORK/pkg"
 OUT="$ROOT/release"
-TWEAK_PACKAGE="$(find "$ROOT/packages" -maxdepth 1 -type f -name '*.deb' -print -quit)"
+shopt -s nullglob
+TWEAK_PACKAGES=("$ROOT"/packages/*.deb)
 DIAGNOSTICS_PACKAGE="$OUT/mod_hw_for_ios_V2_diagnostics_FINAL.deb"
 CORE_PACKAGE="$OUT/idevelab-core-alpha11.deb"
 
-[ -n "$TWEAK_PACKAGE" ] && [ -s "$TWEAK_PACKAGE" ] || { echo "缺少 Theos tweak 包。" >&2; exit 2; }
+[ "${#TWEAK_PACKAGES[@]}" -eq 1 ] || {
+  echo "Theos packages/ 必须且只能有一个当前构建的 .deb，实际为 ${#TWEAK_PACKAGES[@]} 个。" >&2
+  exit 2
+}
+TWEAK_PACKAGE="${TWEAK_PACKAGES[0]}"
+[ -s "$TWEAK_PACKAGE" ] || { echo "Theos tweak 包为空。" >&2; exit 2; }
 [ -s "$DIAGNOSTICS_PACKAGE" ] || { echo "缺少 diagnostics DEB。" >&2; exit 2; }
 [ -s "$CORE_PACKAGE" ] || { echo "缺少 Core DEB。" >&2; exit 2; }
 command -v dpkg-deb >/dev/null 2>&1 || { echo "缺少 dpkg-deb。" >&2; exit 3; }
+
+assert_package_field() {
+  package="$1"; field="$2"; expected="$3"
+  actual="$(dpkg-deb -f "$package" "$field")" || {
+    echo "无法读取包字段 $field：$package" >&2; exit 3;
+  }
+  [ "$actual" = "$expected" ] || {
+    echo "包身份校验失败：$package 的 $field=$actual，预期 $expected" >&2; exit 3;
+  }
+}
+assert_package_field "$TWEAK_PACKAGE" Package com.modhw.ios
+assert_package_field "$TWEAK_PACKAGE" Version '2.0.0~alpha11'
+assert_package_field "$TWEAK_PACKAGE" Architecture iphoneos-arm64
+assert_package_field "$DIAGNOSTICS_PACKAGE" Package com.modhw.ios.diagnostics
+assert_package_field "$DIAGNOSTICS_PACKAGE" Version '2.0.0~final6'
+assert_package_field "$DIAGNOSTICS_PACKAGE" Architecture iphoneos-arm64
+assert_package_field "$CORE_PACKAGE" Package com.idevelab.core.alpha11
+assert_package_field "$CORE_PACKAGE" Version '0.3.0~alpha11'
+assert_package_field "$CORE_PACKAGE" Architecture iphoneos-arm64
 
 rm -rf "$WORK"
 mkdir -p "$PKG/DEBIAN" "$WORK/tweak" "$WORK/diagnostics" "$WORK/core"
@@ -24,13 +49,22 @@ dpkg-deb -e "$CORE_PACKAGE" "$WORK/control-core"
 
 # The unified package owns the complete payload. Avoid silently dropping
 # maintainer scripts if an upstream component later adds its own lifecycle hook.
-for component in tweak diagnostics; do
+for component in tweak diagnostics core; do
   for hook in preinst postinst prerm postrm; do
     if [ -e "$WORK/control-$component/$hook" ]; then
+      if [ "$component" = core ] && [ "$hook" != preinst ]; then
+        continue
+      fi
       echo "发现 $component 的 $hook；必须先显式合并生命周期脚本，拒绝打包。" >&2
       exit 4
     fi
   done
+done
+for hook in postinst prerm postrm; do
+  [ -s "$WORK/control-core/$hook" ] || {
+    echo "Core lifecycle hook missing or empty: $hook" >&2
+    exit 5
+  }
 done
 
 python3 - "$WORK" "$PKG" <<'PY'
