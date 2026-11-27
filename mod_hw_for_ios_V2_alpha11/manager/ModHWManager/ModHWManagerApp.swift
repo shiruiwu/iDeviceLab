@@ -905,7 +905,7 @@ struct ContentView: View {
         List {
             Section {
                 Label("应用数据维护", systemImage: "externaldrive.fill").font(.title2.bold())
-                Text("管理器通过独立 Root Helper 执行固定白名单操作；Core 继续保持只读。首次安装或管理器更新后，需要 root 配对一次。")
+                Text("管理器通过独立 Root Helper 执行固定白名单操作；Core 继续保持只读。首次安装或管理器更新后，在此页面点击配对即可。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Root 权限助手") {
