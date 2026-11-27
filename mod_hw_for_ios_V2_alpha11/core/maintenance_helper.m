@@ -13,6 +13,9 @@
 #include <poll.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <limits.h>
+#include <sys/time.h>
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
@@ -257,7 +260,7 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
         return Failure(@"只允许 status、backup、verify、restore、clean。");
     }
 
-    if (access(path.fileSystemRepresentation, X_OK) != 0) return Failure(@"维护脚本未安装或不可执行。");
+    if (access(path, X_OK) != 0) return Failure(@"维护脚本未安装或不可执行。");
     NSString *output = @"";
     BOOL timedOut = NO, truncated = NO;
     int exitCode = RunFixedTool(path.fileSystemRepresentation, arguments, &output, &timedOut, &truncated);

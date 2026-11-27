@@ -4,6 +4,8 @@
 #include <sys/sysctl.h>
 #include <sys/codesign.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <limits.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
