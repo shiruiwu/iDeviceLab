@@ -15,9 +15,9 @@ xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -isysroot "$SDK" -fobjc-a
 chmod 0755 "$PKG/var/jb/usr/bin/mod-hw-maintenance-helper" "$PKG/var/jb/usr/bin/mod-hw-manager-pair"
 # Rootless launchd jobs are native iOS executables and must carry an ad-hoc
 # code signature. Unsigned Mach-O files can be present in a DEB yet fail exec.
-for binary in \\
-  "$PKG/var/jb/usr/libexec/idevelab-core" \\
-  "$PKG/var/jb/usr/bin/mod-hw-maintenance-helper" \\
+for binary in \
+  "$PKG/var/jb/usr/libexec/idevelab-core" \
+  "$PKG/var/jb/usr/bin/mod-hw-maintenance-helper" \
   "$PKG/var/jb/usr/bin/mod-hw-manager-pair"; do
   ldid -S "$binary"
   ldid -e "$binary" >/dev/null
