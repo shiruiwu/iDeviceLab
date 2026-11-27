@@ -86,7 +86,7 @@ struct IPASheet<Content: View>: View {
                 Spacer()
 
                 if let onClose {
-                    Button("Done", action: onClose)
+                    Button("完成", action: onClose)
                         .font(.body.weight(.semibold))
                 }
             }
