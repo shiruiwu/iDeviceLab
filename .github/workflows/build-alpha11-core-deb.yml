@@ -8,6 +8,7 @@ on:
     paths:
       - 'mod_hw_for_ios_V2_alpha11/core/**'
       - 'mod_hw_for_ios_V2_alpha11/scripts/build-core-deb.sh'
+      - 'mod_hw_for_ios_V2_alpha11/tools/validate_project.py'
       - '.github/workflows/build-alpha11-core-deb.yml'
 
 permissions:
