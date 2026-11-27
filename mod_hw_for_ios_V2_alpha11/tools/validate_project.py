@@ -114,7 +114,7 @@ check("fileImporter" in manager and "fileExporter" in manager, "Manager imports 
 check("TabView" in manager and "homePage" in manager and "recordsPage" in manager and
       "settingsPage" in manager and "aboutPage" in manager and
       "备份中心" in manager and "还原中心" in manager and "清理中心" in manager and
-      "改机管理" in manager and "分 App 改机" in manager and "系统诊断" in manager and "IPA 多开" in manager,
+      "改机管理" in manager and "分应用改机" in manager and "系统诊断" in manager and "IPA 多开" in manager,
       "Manager restores the blue dashboard, original feature modules, operation history, settings, and about navigation")
 profile_view = (ROOT / "manager/ProfileManagerView.swift").read_text()
 profile_store = (ROOT / "manager/ProfileStore.swift").read_text()
@@ -163,7 +163,7 @@ check("MaintenanceClient.request" in manager and "AF_UNIX" in manager and
       "Manager directly invokes the pinned local Root Helper and gates destructive actions behind explicit confirmation")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
-check('Picker("已安装 App", selection: $maintenanceBundleID)' in manager and
+check('Picker("已安装应用", selection: $maintenanceBundleID)' in manager and
       'TextField("Bundle ID' in manager and 'bundleID: bundleID.isEmpty ? nil : bundleID' in manager and
       'archive: archive.isEmpty ? nil : archive' in manager,
       "Manager sends the selected Bundle ID and backup filename to the Root Helper")
@@ -172,7 +172,7 @@ check("safeShellArgument" in manager and "replacingOccurrences" in manager and "
 check("\\\\(" not in manager,
       "Manager maintenance command and backup-result strings use live Swift interpolation")
 
-check("selectedProfileBundleID" in manager and "导出为所选 App 的独立配置" in manager and
+check("selectedProfileBundleID" in manager and "导出为所选应用的独立配置" in manager and
       "com.modhw.ios.profiles" in manager and "exportAsPerAppProfile" in manager,
       "Manager can export the imported plist under a selected installed App's Bundle ID")
 check("canExportPerAppProfile" in manager and '"UniqueDeviceID"' in manager and
