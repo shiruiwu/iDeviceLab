@@ -14,7 +14,56 @@ struct DeviceProfile: Identifiable, Codable, Equatable {
     var batteryPercent: Int = 85
     var memoryGB: Int = 4
     var testIdentifier: String = UUID().uuidString
+    var serialNumber: String? = nil
+    var imei: String? = nil
+    var meid: String? = nil
+    var wifiAddress: String? = nil
+    var bluetoothAddress: String? = nil
+    var uniqueDeviceID: String? = nil
+    var productId: String? = nil
+    var uniqueChipId: String? = nil
+    var productType: String? = nil
+    var hwModelStr: String? = nil
+    var idfa: String? = nil
+    var idfv: String? = nil
+    var uniqueDeviceIDData: Bool? = nil
+    var wifiAddressData: Bool? = nil
+    var bluetoothAddressData: Bool? = nil
     var updatedAt: Date = Date()
+
+    var hookConfiguration: [String: Any] {
+        var values: [String: Any] = [:]
+        let fields: [(String, String?)] = [
+            ("SerialNumber", serialNumber),
+            ("InternationalMobileEquipmentIdentity", imei),
+            ("MobileEquipmentIdentifier", meid),
+            ("WifiAddress", wifiAddress),
+            ("BluetoothAddress", bluetoothAddress),
+            ("UniqueDeviceID", uniqueDeviceID),
+            ("ProductId", productId),
+            ("UniqueChipId", uniqueChipId),
+            ("ProductType", productType),
+            ("HWModelStr", hwModelStr),
+            ("IDFA", idfa),
+            ("IDFV", idfv)
+        ]
+        for (key, value) in fields {
+            if let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                values[key] = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        if let uniqueDeviceIDData { values["UniqueDeviceIDData"] = uniqueDeviceIDData }
+        if let wifiAddressData { values["WifiAddressData"] = wifiAddressData }
+        if let bluetoothAddressData { values["BluetoothAddressData"] = bluetoothAddressData }
+        return values
+    }
+
+    var isHookConfigurationReady: Bool {
+        guard let value = uniqueDeviceID?.trimmingCharacters(in: .whitespacesAndNewlines),
+              value.count == 40,
+              value.range(of: "^[0-9A-Fa-f]{40}$", options: .regularExpression) != nil else { return false }
+        return true
+    }
 
     static let deviceModels = ["iPhone 12", "iPhone 12 Pro", "iPhone 13", "iPhone 13 Pro", "iPhone 14", "iPhone 14 Pro", "iPhone 15", "iPhone 15 Pro"]
     static let iosVersions = ["16.2", "16.6", "17.0", "17.4", "17.5", "18.0"]

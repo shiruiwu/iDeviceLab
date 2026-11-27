@@ -117,6 +117,51 @@ final class ProfileStore: ObservableObject {
         update(p)
     }
 
+    func randomizeHookIdentifiers() {
+        guard var profile = selectedProfile else { return }
+        let hexadecimal = "0123456789ABCDEF"
+        let alphaNumeric = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        func random(_ count: Int, from alphabet: String) -> String {
+            String((0..<count).compactMap { _ in alphabet.randomElement() })
+        }
+        func randomMAC() -> String {
+            let raw = random(12, from: hexadecimal)
+            return stride(from: 0, to: 12, by: 2).map { index in
+                let start = raw.index(raw.startIndex, offsetBy: index)
+                let end = raw.index(start, offsetBy: 2)
+                return String(raw[start..<end])
+            }.joined(separator: ":")
+        }
+        let body = "35" + random(12, from: "0123456789")
+        var checksum = 0
+        for (index, character) in body.reversed().enumerated() {
+            let digit = Int(String(character)) ?? 0
+            if index.isMultiple(of: 2) {
+                let doubled = digit * 2
+                checksum += (doubled / 10) + (doubled % 10)
+            } else {
+                checksum += digit
+            }
+        }
+        let checkDigit = (10 - (checksum % 10)) % 10
+        profile.serialNumber = random(12, from: alphaNumeric)
+        profile.imei = body + String(checkDigit)
+        profile.meid = random(14, from: hexadecimal)
+        profile.wifiAddress = randomMAC()
+        profile.bluetoothAddress = randomMAC()
+        profile.uniqueDeviceID = random(40, from: hexadecimal)
+        profile.productId = random(12, from: hexadecimal)
+        profile.uniqueChipId = random(12, from: hexadecimal)
+        profile.productType = "iPhone13,2"
+        profile.hwModelStr = "D53gAP"
+        profile.idfa = UUID().uuidString
+        profile.idfv = UUID().uuidString
+        profile.uniqueDeviceIDData = true
+        profile.wifiAddressData = true
+        profile.bluetoothAddressData = true
+        update(profile)
+    }
+
     func randomize(_ field: String) {
         guard var p = selectedProfile else { return }
         switch field {
