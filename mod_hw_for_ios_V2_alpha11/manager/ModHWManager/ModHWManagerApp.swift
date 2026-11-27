@@ -1549,7 +1549,7 @@ enum MaintenanceClient {
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tokenURL.path)
         }
         guard tokenData.count == 64,
-              String(data: tokenData, encoding: .ascii)?.allSatisfy({ $0.isHexDigit }) == true else {
+              String(data: tokenData, encoding: .ascii)?.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0) }) == true else {
             throw NSError(domain: "MaintenanceHelper", code: 9, userInfo: [NSLocalizedDescriptionKey: "Manager 通信凭据文件无效，请重新启动管理器。"])
         }
         return String(decoding: tokenData, as: UTF8.self)
