@@ -110,7 +110,7 @@ jobs:
               'var/jb/usr/bin/mod-hw-maintenance',
           }
           assert expected.issubset(installed), sorted(installed)
-          print('DEB ar members, architecture, dependency, and all ten installed tools verified')
+          print('DEB ar members, architecture, dependency, and all eleven installed tools verified')
           PY
 
       - name: Build Alpha11 Core rootless DEB
