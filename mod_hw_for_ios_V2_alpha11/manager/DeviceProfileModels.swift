@@ -74,9 +74,10 @@ struct DeviceProfile: Identifiable, Codable, Equatable {
 }
 
 struct ProfileArchive: Codable {
-    var formatVersion: Int = 1
+    var formatVersion: Int = 2
     var exportedAt: Date = Date()
     var profiles: [DeviceProfile]
+    var managedApps: [ManagedApp]?
 }
 
 

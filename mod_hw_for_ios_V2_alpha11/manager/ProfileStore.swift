@@ -181,22 +181,44 @@ final class ProfileStore: ObservableObject {
 
     func exportData() -> Data? {
         guard !profiles.isEmpty else { return nil }
-        return try? JSONEncoder.pretty.encode(ProfileArchive(profiles: profiles))
+        let archive = ProfileArchive(
+            profiles: profiles,
+            managedApps: managedApps
+        )
+        return try? JSONEncoder.pretty.encode(archive)
     }
 
     func importData(_ data: Data) throws {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let imported: [DeviceProfile]
+        let importedProfiles: [DeviceProfile]
+        var importedApps: [ManagedApp] = []
         if let archive = try? decoder.decode(ProfileArchive.self, from: data) {
-            guard archive.formatVersion == 1 else { throw ProfileError.unsupportedVersion }
-            imported = archive.profiles
+            guard archive.formatVersion == 1 || archive.formatVersion == 2 else {
+                throw ProfileError.unsupportedVersion
+            }
+            importedProfiles = archive.profiles
+            importedApps = archive.managedApps ?? []
         } else {
-            imported = try decoder.decode([DeviceProfile].self, from: data)
+            // Backward compatibility with the original bare [DeviceProfile] JSON format.
+            importedProfiles = try decoder.decode([DeviceProfile].self, from: data)
         }
-        guard !imported.isEmpty else { throw ProfileError.emptyArchive }
-        guard imported.count <= 100 else { throw ProfileError.tooManyProfiles }
-        profiles = Self.normalized(imported)
+        guard !importedProfiles.isEmpty else { throw ProfileError.emptyArchive }
+        guard importedProfiles.count <= 100 else { throw ProfileError.tooManyProfiles }
+
+        let normalizedProfiles = Self.normalized(importedProfiles)
+        let validProfileIDs = Set(normalizedProfiles.map(\\.id))
+        var seenBundleIDs = Set<String>()
+        let normalizedApps = importedApps.filter { app in
+            let bundle = app.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !bundle.isEmpty,
+                  validProfileIDs.contains(app.profileID),
+                  seenBundleIDs.insert(bundle.lowercased()).inserted else { return false }
+            return true
+        }
+
+        profiles = normalizedProfiles
+        managedApps = normalizedApps
         selectedID = profiles.first?.id
     }
 
