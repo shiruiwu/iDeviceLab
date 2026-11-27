@@ -157,10 +157,11 @@ check('acceptance-iphone12' in manager and "运行 iPhone 12 / iOS 16.2 最终�
       "Manager exposes the final read-only iPhone 12 acceptance gate")
 check("MaintenanceClient.request" in manager and "managerPID" in manager and
       "127.0.0.1:18081/maintenance" in manager and
-      'MaintenanceClient.request(action: "pair")' in manager and "func pairMaintenanceHelper()" in manager and
+      "X-iDeviceLab-Manager-Token" in manager and "bridgeTokenName" in manager and
+      "SecRandomCopyBytes" in manager and 'MaintenanceClient.request(action: "pair")' in manager and "func pairMaintenanceHelper()" in manager and
       "config-backup" in manager and "keychain-diagnose" in manager and "confirmationDialog" in manager and
       "helperPaired" in manager and "performMaintenance" in manager,
-      "Manager pairs directly through the pinned local Root Helper and gates destructive actions behind explicit confirmation")
+      "Manager authenticates to the Core bridge with a sandbox-private token and gates destructive actions behind explicit confirmation")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
 check('Picker("已安装应用", selection: $maintenanceBundleID)' in manager and
@@ -268,8 +269,10 @@ if postinst.is_file() and prerm.is_file():
 if core_source.is_file():
     core = core_source.read_text()
     check('@"GET"' in core and 'ForwardMaintenanceRequest' in core and
-          'com.idevelab.maintenance.sock' in core and '[path isEqualToString:@"/maintenance"]' in core,
-          "Alpha11 Core proxies authenticated Manager requests to the local Root Helper")
+          'com.idevelab.maintenance.sock' in core and '[path isEqualToString:@"/maintenance"]' in core and
+          'ManagerBridgeTokenMatches' in core and 'MCMMetadataIdentifier' in core and
+          'X-iDeviceLab-Manager-Token' in core,
+          "Alpha11 Core verifies the Manager sandbox-private token before proxying to Root Helper")
     check("INADDR_LOOPBACK" in core and "kPort = 18081" in core,
           "Alpha11 Core binds only to loopback port 18081")
     check('@"tools"' in core and 'InstalledMaintenanceTools' in core and
