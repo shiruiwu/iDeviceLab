@@ -115,9 +115,15 @@ check("hookConfiguration" in profile_models and "UniqueDeviceID" in profile_mode
       "BluetoothAddress" in profile_models and "IDFA" in profile_models and "IDFV" in profile_models and
       "randomizeHookIdentifiers" in profile_store,
       "Persistent profiles include the original Hook hardware fields and valid-format test identifier generation")
-check("apply-profile" in profile_view and "apply-global-profile" in profile_view and "apply-global-profile" in (ROOT / "core/maintenance_helper.m").read_text() and "com.modhw.ios.devices.plist" in (ROOT / "core/maintenance_helper.m").read_text() and "MaintenanceClient.request" in profile_view and
+helper_source = (ROOT / "core/maintenance_helper.m").read_text()
+check("apply-profile" in profile_view and "apply-global-profile" in profile_view and
+      "BOOL isGlobalProfile = [action isEqualToString:@" in helper_source and
+      "ApplyHookProfile(isGlobalProfile ? nil : bundleID, request[@"profile"], isGlobalProfile" in helper_source and
+      "com.modhw.ios.devices.plist" in helper_source and
+      'isEqualToString:@"apply-profile", @"apply-global-profile"' not in helper_source and
+      "MaintenanceClient.request" in profile_view and
       "确认写入并备份旧配置" in profile_view and "强制关闭并重新打开目标 App" in profile_view,
-      "Profile manager applies a validated per-App Hook plist through Root Helper after explicit confirmation")
+      "Profile manager dispatches validated per-App and global Hook profiles through Root Helper after explicit confirmation")
 check("ProfileManagerView(availableApps:" in manager and "ProfileAppOption" in profile_models and "availableApps" in profile_view and "ProfileStore()" in app_entry and
       ".environmentObject(profileStore)" in app_entry and
       "应用选择与配置绑定" in profile_view and "全部参数一键随机" in profile_view and
