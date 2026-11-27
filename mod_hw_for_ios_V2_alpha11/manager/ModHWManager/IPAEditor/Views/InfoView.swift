@@ -140,8 +140,8 @@ struct InfoView: View {
 
     private var appVersionText: String {
         currentBuild.isEmpty
-            ? "Version \(currentVersion)"
-            : "Version \(currentVersion) (build \(currentBuild))"
+            ? "版本 \(currentVersion)"
+            : "版本 \(currentVersion)（构建号 \(currentBuild)）"
     }
 
     private var skipReviewRow: some View {
