@@ -60,6 +60,18 @@ check("fileImporter" in manager and "fileExporter" in manager, "Manager imports 
 check("TabView" in manager and "设备总览" in manager and "配置管理" in manager and
       "备份与维护" in manager and "设备诊断" in manager,
       "Manager exposes the integrated dashboard, profiles, maintenance, and diagnostics navigation")
+profile_view = (ROOT / "manager/ProfileManagerView.swift").read_text()
+profile_store = (ROOT / "manager/ProfileStore.swift").read_text()
+profile_models = (ROOT / "manager/DeviceProfileModels.swift").read_text()
+app_entry = (ROOT / "manager/ModHWManagerApp.swift").read_text()
+check("ProfileManagerView()" in manager and "ProfileStore()" in app_entry and
+      ".environmentObject(profileStore)" in app_entry and
+      "应用选择与配置绑定" in profile_view and "全部参数一键随机" in profile_view and
+      "配置备份" in profile_view and "struct DeviceProfile" in profile_models and
+      "func importData" in profile_store,
+      "Original profile manager, persistent profile store, app bindings, and JSON import/export are integrated")
+check("\\\\(" not in profile_view,
+      "Original profile manager interpolates profile names and app launch results correctly")
 check("mod-hw-maintenance" in manager and 'case "$ACTION" in' in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       "必须在越狱终端以 root 身份运行" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       all(action in (ROOT / "scripts/maintenance-dispatch.sh").read_text() for action in ("backup)", "verify)", "restore)", "clean)")) and

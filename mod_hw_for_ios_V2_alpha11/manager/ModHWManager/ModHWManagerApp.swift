@@ -6,7 +6,10 @@ import CoreFoundation
 
 @main
 struct ModHWManagerApp: App {
-    var body: some Scene { WindowGroup { ContentView() } }
+    @StateObject private var profileStore = ProfileStore()
+    var body: some Scene {
+        WindowGroup { ContentView().environmentObject(profileStore) }
+    }
 }
 
 private struct CoreApp: Identifiable {
@@ -143,6 +146,9 @@ struct ContentView: View {
 
             NavigationStack { profilesPage }
                 .tabItem { Label("配置", systemImage: "slider.horizontal.3") }
+
+            ProfileManagerView()
+                .tabItem { Label("环境管理", systemImage: "slider.horizontal.3") }
 
             NavigationStack { maintenancePage }
                 .tabItem { Label("维护", systemImage: "externaldrive") }
