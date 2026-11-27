@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: manager-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
 
