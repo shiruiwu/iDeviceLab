@@ -22,6 +22,8 @@ if [[ ! -d "$APP" ]]; then echo "找不到构建产物：$APP" >&2; exit 3; fi
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
+# Distinguish the diagnostic build from the previously installed build 9.
+/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 10' "$INFO"
 BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
 if ! command -v ldid >/dev/null 2>&1; then
