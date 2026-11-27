@@ -70,6 +70,14 @@ check("IPAEditorView()" in manager and "IPAEditorView.swift" in project and
       "IPAExporter.swift" in project and "IPABundleInfo.swift" in project and
       "FileBrowserView.swift" in project,
       "Original IPA multi-open editor and its bundled core, views, and support files are linked into the manager target")
+check("hookConfiguration" in profile_models and "UniqueDeviceID" in profile_models and
+      "InternationalMobileEquipmentIdentity" in profile_models and "WifiAddress" in profile_models and
+      "BluetoothAddress" in profile_models and "IDFA" in profile_models and "IDFV" in profile_models and
+      "randomizeHookIdentifiers" in profile_store,
+      "Persistent profiles include the original Hook hardware fields and valid-format test identifier generation")
+check("apply-profile" in profile_view and "MaintenanceClient.request" in profile_view and
+      "确认写入并备份旧配置" in profile_view and "强制关闭并重新打开目标 App" in profile_view,
+      "Profile manager applies a validated per-App Hook plist through Root Helper after explicit confirmation")
 check("ProfileManagerView()" in manager and "ProfileStore()" in app_entry and
       ".environmentObject(profileStore)" in app_entry and
       "应用选择与配置绑定" in profile_view and "全部参数一键随机" in profile_view and
@@ -154,8 +162,8 @@ if helper_source.is_file():
     src = helper_source.read_text()
     check("LOCAL_PEERPID" in src and "getpeereid" in src and "CS_OPS_CDHASH" in src and
           "CS_VALID" in src and "com.idevelab.manager-cdhash" in src and
-          "posix_spawn" in src and "300.0" in src and
-          all(action in src for action in ('@"backup"', '@"verify"', '@"restore"', '@"clean"', '@"config-backup"', '@"config-restore"', '@"keychain-diagnose"', '@"diagnose-config"', '@"selftest"')),
+          "posix_spawn" in src and "300.0" in src and "ApplyHookProfile" in src and "WriteSecureFile" in src and "UniqueDeviceID" in src and "UniqueDeviceIDData" in src and
+          all(action in src for action in ('@"backup"', '@"verify"', '@"restore"', '@"clean"', '@"config-backup"', '@"config-restore"', '@"keychain-diagnose"', '@"diagnose-config"', '@"selftest"', '@"apply-profile"')),
           "Root helper authenticates the paired process signature and executes only bounded fixed maintenance commands")
 if pair_source.is_file():
     src = pair_source.read_text()
