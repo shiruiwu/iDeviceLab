@@ -1,48 +1,86 @@
 #!/bin/sh
 set -eu
+
 PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
 LABEL="system/com.idevelab.core.alpha11"
-if [ "$1" = "configure" ]; then
-  [ -x /var/jb/usr/libexec/idevelab-core ] || { echo "Core executable missing" >&2; exit 1; }
-  mkdir -p /var/mobile/Library/Logs
-  chown mobile:mobile /var/mobile/Library/Logs 2>/dev/null || true
+HELPER_PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
+HELPER_LABEL="system/com.idevelab.maintenance.alpha11"
+LOG_DIR="/var/mobile/Library/Logs"
+LOG_FILE="$LOG_DIR/idevelab-core-install.log"
 
-  # Rootless jailbreaks do not expose launchctl at one consistent path.
-  LAUNCHCTL=""
-  for candidate in /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /usr/libexec/launchctl /var/jb/bin/launchctl /var/jb/sbin/launchctl /var/jb/usr/sbin/launchctl /var/jb/usr/bin/launchctl /var/jb/usr/libexec/launchctl /var/jb/basebin/launchctl; do
-    if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
-  done
-  if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
-    LAUNCHCTL="$(command -v launchctl)"
-  fi
-  if [ -z "$LAUNCHCTL" ] && [ -d /var/jb ]; then
-    LAUNCHCTL="$(find /var/jb -name launchctl -perm -111 -print -quit 2>/dev/null || true)"
-  fi
-  if [ -z "$LAUNCHCTL" ]; then
-    echo "Alpha11 Core installed but not started: launchctl was not found in standard, Dopamine, or discovered rootless paths. Check jailbreak bootstrap tools, then reinstall or bootstrap $PLIST." >&2
-    exit 0
-  fi
+mkdir -p "$LOG_DIR"
+chown mobile:mobile "$LOG_DIR" 2>/dev/null || true
+exec >>"$LOG_FILE" 2>&1
 
-  "$LAUNCHCTL" bootout system "$PLIST" >/dev/null 2>&1 || true
-  "$LAUNCHCTL" enable "$LABEL" >/dev/null 2>&1 || true
-  if ! "$LAUNCHCTL" bootstrap system "$PLIST"; then
-    echo "Alpha11 Core installed, but launchd bootstrap failed; inspect launchd logs." >&2
-    exit 0
-  fi
-  "$LAUNCHCTL" kickstart -k "$LABEL" >/dev/null 2>&1 || true
-  if ! "$LAUNCHCTL" print "$LABEL" >/dev/null 2>&1; then
-    echo "Alpha11 Core bootstrap was requested but launchd did not confirm the service. launchctl=$LAUNCHCTL label=$LABEL" >&2
-  fi
+echo "===== Alpha11 Core configure: $(date) ====="
+[ "$1" = "configure" ] || exit 0
+[ -x /var/jb/usr/libexec/idevelab-core ] || { echo "ERROR: Core executable missing"; exit 1; }
+[ -x /var/jb/usr/bin/mod-hw-maintenance-helper ] || { echo "ERROR: Maintenance Helper executable missing"; exit 1; }
 
-  HELPER_PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
-  HELPER_LABEL="system/com.idevelab.maintenance.alpha11"
-  [ -x /var/jb/usr/bin/mod-hw-maintenance-helper ] || { echo "Maintenance Helper executable missing" >&2; exit 1; }
-  "$LAUNCHCTL" bootout system "$HELPER_PLIST" >/dev/null 2>&1 || true
-  "$LAUNCHCTL" enable "$HELPER_LABEL" >/dev/null 2>&1 || true
-  if "$LAUNCHCTL" bootstrap system "$HELPER_PLIST"; then
-    "$LAUNCHCTL" kickstart -k "$HELPER_LABEL" >/dev/null 2>&1 || true
-  else
-    echo "Alpha11 Maintenance Helper installed but launchd bootstrap failed; direct Manager operations remain unavailable." >&2
-  fi
+# Prefer the jailbreak bootstrap's launchctl. The stock path can exist on
+# rootless devices while not being the launchctl instance used by the bootstrap.
+LAUNCHCTL=""
+for candidate in \
+  /var/jb/usr/bin/launchctl \
+  /var/jb/usr/sbin/launchctl \
+  /var/jb/basebin/launchctl \
+  /var/jb/bin/launchctl \
+  /var/jb/sbin/launchctl \
+  /bin/launchctl \
+  /sbin/launchctl \
+  /usr/bin/launchctl \
+  /usr/sbin/launchctl \
+  /usr/libexec/launchctl; do
+  if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
+done
+if [ -z "$LAUNCHCTL" ] && [ -d /var/jb ]; then
+  LAUNCHCTL="$(find /var/jb -name launchctl -perm -111 -print -quit 2>/dev/null || true)"
 fi
+if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
+  LAUNCHCTL="$(command -v launchctl)"
+fi
+[ -n "$LAUNCHCTL" ] || { echo "ERROR: no usable launchctl found"; exit 1; }
+echo "Using launchctl: $LAUNCHCTL"
+
+start_service() {
+  service_label="$1"
+  service_plist="$2"
+  echo "Starting $service_label from $service_plist"
+  [ -s "$service_plist" ] || { echo "ERROR: missing launch daemon plist: $service_plist"; return 1; }
+
+  "$LAUNCHCTL" bootout system "$service_plist" >/dev/null 2>&1 || true
+  "$LAUNCHCTL" enable "$service_label" || {
+    echo "ERROR: launchctl enable failed for $service_label"
+    return 1
+  }
+  "$LAUNCHCTL" bootstrap system "$service_plist" || {
+    echo "ERROR: launchctl bootstrap failed for $service_label"
+    return 1
+  }
+
+  attempt=0
+  while [ "$attempt" -lt 5 ]; do
+    "$LAUNCHCTL" kickstart -k "$service_label" || true
+    service_state="$("$LAUNCHCTL" print "$service_label" 2>&1)" || {
+      echo "$service_state"
+      attempt=$((attempt + 1))
+      sleep 1
+      continue
+    }
+    echo "$service_state"
+    if printf '%s\n' "$service_state" | grep -Eq 'pid = [1-9][0-9]*'; then
+      echo "RUNNING: $service_label"
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    sleep 1
+  done
+
+  echo "ERROR: $service_label was bootstrapped but no running PID was reported"
+  return 1
+}
+
+start_service "$LABEL" "$PLIST"
+start_service "$HELPER_LABEL" "$HELPER_PLIST"
+echo "Alpha11 Core and Maintenance Helper are running."
 exit 0
