@@ -1520,86 +1520,32 @@ struct MaintenanceOperationResult: Decodable {
 }
 
 enum MaintenanceClient {
-    private static let socketPath = "/var/run/com.idevelab.maintenance.sock"
+    private static let bridgeURL = URL(string: "http://127.0.0.1:18081/maintenance")!
 
     static func request(action: String, bundleID: String? = nil, archive: String? = nil, profile: [String: Any]? = nil, confirm: Bool = false) async throws -> MaintenanceOperationResult {
-        var payload: [String: Any] = ["action": action]
+        var payload: [String: Any] = ["action": action, "managerPID": Int(getpid())]
         if let bundleID { payload["bundleID"] = bundleID }
         if let archive { payload["archive"] = archive }
         if let profile { payload["profile"] = profile }
         if confirm { payload["confirm"] = true }
-        var requestData = try JSONSerialization.data(withJSONObject: payload, options: [])
-        requestData.append(0x0A)
-        return try await Task.detached(priority: .userInitiated) {
-            try perform(requestData: requestData)
-        }.value
-    }
-
-    private static func perform(requestData: Data) throws -> MaintenanceOperationResult {
-        let descriptor = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
-        guard descriptor >= 0 else { throw NSError(domain: "MaintenanceHelper", code: 1, userInfo: [NSLocalizedDescriptionKey: "无法创建本地套接字。"]) }
-        defer { Darwin.close(descriptor) }
-        var noSignal: Int32 = 1
-        setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout<Int32>.size))
-
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let pathBytes = Array(socketPath.utf8) + [0]
-        guard pathBytes.count <= MemoryLayout.size(ofValue: address.sun_path) else {
-            throw NSError(domain: "MaintenanceHelper", code: 2, userInfo: [NSLocalizedDescriptionKey: "Root Helper 套接字路径过长。"])
+        let requestData = try JSONSerialization.data(withJSONObject: payload, options: [])
+        guard let json = String(data: requestData, encoding: .utf8) else {
+            throw NSError(domain: "MaintenanceHelper", code: 4, userInfo: [NSLocalizedDescriptionKey: "无法编码维护请求。"])
         }
-        withUnsafeMutableBytes(of: &address.sun_path) { rawBuffer in
-            rawBuffer.copyBytes(from: pathBytes)
+        var components = URLComponents(url: bridgeURL, resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "request", value: json)]
+        guard let url = components.url else {
+            throw NSError(domain: "MaintenanceHelper", code: 5, userInfo: [NSLocalizedDescriptionKey: "无法生成 Core 通信地址。"])
         }
-        let connectResult = withUnsafePointer(to: &address) { pointer in
-            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
-            }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 300
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(domain: "MaintenanceHelper", code: 6, userInfo: [NSLocalizedDescriptionKey: "Core 通信桥返回异常响应。"])
         }
-        guard connectResult == 0 else {
-            throw NSError(domain: "MaintenanceHelper", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: "无法连接 Root Helper（\(String(cString: strerror(errno)))）。"])
-        }
-
-        var timeout = timeval()
-        timeout.tv_sec = 300
-        timeout.tv_usec = 0
-        setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
-
-        try requestData.withUnsafeBytes { rawBuffer in
-            guard let base = rawBuffer.baseAddress else { return }
-            var offset = 0
-            while offset < rawBuffer.count {
-                let count = Darwin.write(descriptor, base.advanced(by: offset), rawBuffer.count - offset)
-                if count < 0 && errno == EINTR { continue }
-                guard count > 0 else {
-                    throw NSError(domain: "MaintenanceHelper", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: "发送维护请求失败。"])
-                }
-                offset += count
-            }
-        }
-
-        var responseData = Data()
-        var buffer = [UInt8](repeating: 0, count: 4096)
-        var receivedLine = false
-        while responseData.count < 131072 && !receivedLine {
-            let count = buffer.withUnsafeMutableBytes { rawBuffer in
-                Darwin.read(descriptor, rawBuffer.baseAddress, rawBuffer.count)
-            }
-            if count < 0 && errno == EINTR { continue }
-            guard count > 0 else {
-                throw NSError(domain: "MaintenanceHelper", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: "Root Helper 未返回有效结果。"])
-            }
-            if let newline = buffer[..<count].firstIndex(of: 0x0A) {
-                responseData.append(contentsOf: buffer[..<newline])
-                receivedLine = true
-            } else {
-                responseData.append(contentsOf: buffer.prefix(count))
-            }
-        }
-        guard receivedLine else {
-            throw NSError(domain: "MaintenanceHelper", code: 3, userInfo: [NSLocalizedDescriptionKey: "Root Helper 响应超过长度限制。"])
-        }
-        return try JSONDecoder().decode(MaintenanceOperationResult.self, from: responseData)
+        return try JSONDecoder().decode(MaintenanceOperationResult.self, from: data)
     }
 }
 
