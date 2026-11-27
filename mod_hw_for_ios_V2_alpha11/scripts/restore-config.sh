@@ -110,6 +110,8 @@ if [ -n "$LATEST" ] && [ -r "$LATEST" ]; then
     chown root:mobile "$TEMP_GLOBAL"
     chmod 0640 "$TEMP_GLOBAL"
     mv -f "$TEMP_GLOBAL" "$CONFIG"
+  else
+    rm -f "$CONFIG"
   fi
   if [ -d "$STAGE/com.modhw.ios.profiles" ]; then
     rm -rf "$TEMP_PROFILES"
@@ -124,6 +126,8 @@ if [ -n "$LATEST" ] && [ -r "$LATEST" ]; then
     chmod 0750 "$TEMP_PROFILES"
     rm -rf "$PROFILE_DIR"
     mv "$TEMP_PROFILES" "$PROFILE_DIR"
+  else
+    rm -rf "$PROFILE_DIR"
   fi
   SUCCESS=1
   echo "全局与 per-App Hook 配置还原完成。来源：$(basename "$LATEST")"
