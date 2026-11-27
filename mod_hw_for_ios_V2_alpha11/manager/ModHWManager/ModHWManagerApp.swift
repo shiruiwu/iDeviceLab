@@ -211,13 +211,13 @@ struct ContentView: View {
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         dashboardTile("备份中心", detail: "App 数据与配置备份", icon: "externaldrive.fill", color: .blue) {
-                            NavigationStack { backupCenterPage }
+                            backupCenterPage
                         }
                         dashboardTile("还原中心", detail: "校验备份并安全还原", icon: "arrow.counterclockwise.circle.fill", color: .green) {
-                            NavigationStack { restoreCenterPage }
+                            restoreCenterPage
                         }
                         dashboardTile("清理中心", detail: "指定 App 深度清理", icon: "sparkles", color: .purple) {
-                            NavigationStack { cleanupPage }
+                            cleanupPage
                         }
                         dashboardTile("改机管理", detail: "全局设备参数配置", icon: "slider.horizontal.3", color: .orange) {
                             ProfileManagerView(availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) })
@@ -228,7 +228,7 @@ struct ContentView: View {
                                 .environmentObject(profileStore)
                         }
                         dashboardTile("模板管理", detail: "创建、导入与导出配置模板", icon: "shippingbox.fill", color: .indigo) {
-                            NavigationStack { profilesPage }
+                            profilesPage
                         }
                         dashboardTile("系统诊断", detail: "Core、插件与权限检查", icon: "stethoscope", color: .cyan) {
                             NavigationStack { diagnosticsPage }
@@ -402,7 +402,7 @@ struct ContentView: View {
                 }
             }
             if operationRecords.isEmpty {
-                ContentUnavailableView("暂无操作记录", systemImage: "clock.arrow.circlepath", description: Text("备份、校验、还原、清理和配置应用结果会显示在这里。"))
+                VStack(spacing: 8) { Image(systemName: "clock.arrow.circlepath").font(.largeTitle).foregroundStyle(.secondary); Text("暂无操作记录").font(.headline); Text("备份、校验、还原、清理和配置应用结果会显示在这里。").font(.caption).foregroundStyle(.secondary) }.frame(maxWidth: .infinity).padding(.vertical, 24)
             } else {
                 ForEach(operationRecords) { record in
                     VStack(alignment: .leading, spacing: 5) {
@@ -443,6 +443,9 @@ struct ContentView: View {
                 commandRow("复制首次配对命令", command: "su -c '/var/jb/usr/bin/mod-hw-manager-pair \(getpid())'")
                 Text("配对将当前管理器进程的代码签名 CDHash 固定到 Root Helper。管理器更新后若签名变化，需要重新配对。")
                     .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("维护与验收") {
+                NavigationLink("高级维护与 iPhone 12 最终验收") { maintenancePage }
             }
             Section("配置文件") {
                 LabeledContent("当前导入文件", value: fileName)
