@@ -44,17 +44,17 @@ struct VersionEditorView: View {
             .map(String.init) ?? first.path
 
         if references.count == 1 {
-            return "The old version also appears in \(name). Only Info.plist is changed."
+            return "旧版本也出现在 \(name) 中。此操作仅修改 Info.plist。"
         }
 
-        return "The old version also appears in \(references.count) bundled files, such as \(name). Only Info.plist is changed."
+        return "旧版本还出现在 \(references.count) 个内置文件中，例如 \(name)。此操作仅修改 Info.plist。"
     }
 
     var body: some View {
-        IPASheet(title: "Version", onClose: onClose) {
+        IPASheet(title: "版本", onClose: onClose) {
             VStack(alignment: .leading, spacing: 12) {
                 field(
-                    title: "Marketing Version",
+                    title: "市场版本号",
                     placeholder: "1.0",
                     text: $marketingVersion,
                     original: originalVersion,
@@ -62,7 +62,7 @@ struct VersionEditorView: View {
                 )
 
                 field(
-                    title: "Build Number",
+                    title: "构建号",
                     placeholder: "1",
                     text: $buildNumber,
                     original: originalBuild,
@@ -75,7 +75,7 @@ struct VersionEditorView: View {
                         .foregroundColor(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text("Only Info.plist is changed.")
+                    Text("此操作仅修改 Info.plist。")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -101,7 +101,7 @@ struct VersionEditorView: View {
                 Spacer()
 
                 if !original.isEmpty {
-                    Text("Original \(original)")
+                    Text("原始值：\(original)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -157,13 +157,13 @@ struct URLEditorView: View {
         IPASheet(title: "URL Scheme", onClose: onClose) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Scheme")
+                    Text("协议名称")
                         .font(.subheadline.weight(.semibold))
 
                     Spacer()
 
                     if !cleanOriginalScheme.isEmpty {
-                        Text("Original \(cleanOriginalScheme)")
+                        Text("原始值：\(cleanOriginalScheme)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -196,7 +196,7 @@ struct URLEditorView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Text("Lets links like myapp:// open this app. Links using the old scheme stop working.")
+                Text("允许通过 myapp:// 等链接打开此应用。旧协议的链接将不再生效。")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
