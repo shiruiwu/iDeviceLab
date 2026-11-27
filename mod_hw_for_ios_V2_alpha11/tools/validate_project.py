@@ -64,6 +64,10 @@ profile_view = (ROOT / "manager/ProfileManagerView.swift").read_text()
 profile_store = (ROOT / "manager/ProfileStore.swift").read_text()
 profile_models = (ROOT / "manager/DeviceProfileModels.swift").read_text()
 app_entry = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
+check("IPAEditorView()" in manager and "IPAEditorView.swift" in project and
+      "IPAExporter.swift" in project and "IPABundleInfo.swift" in project and
+      "FileBrowserView.swift" in project,
+      "Original IPA multi-open editor and its bundled core, views, and support files are linked into the manager target")
 check("ProfileManagerView()" in manager and "ProfileStore()" in app_entry and
       ".environmentObject(profileStore)" in app_entry and
       "应用选择与配置绑定" in profile_view and "全部参数一键随机" in profile_view and

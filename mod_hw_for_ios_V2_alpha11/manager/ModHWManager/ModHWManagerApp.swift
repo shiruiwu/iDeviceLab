@@ -150,6 +150,9 @@ struct ContentView: View {
             ProfileManagerView()
                 .tabItem { Label("环境管理", systemImage: "slider.horizontal.3") }
 
+            IPAEditorView()
+                .tabItem { Label("IPA 多开", systemImage: "square.stack.3d.up") }
+
             NavigationStack { maintenancePage }
                 .tabItem { Label("维护", systemImage: "externaldrive") }
 
