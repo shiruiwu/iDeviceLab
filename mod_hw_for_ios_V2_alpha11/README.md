@@ -9,10 +9,12 @@
 ## 当前 Alpha11 交付边界 | Alpha11 Delivery Scope
 
 - The Theos target includes the original hook source files and uses the Rootless package scheme. Source inclusion and successful cloud compilation do not establish that every hook works on a specific iOS release.
-- The TrollStore manager provides plist import, syntax/structure inspection, byte-preserving backup export, installed-App inventory, and export of the imported plist under a selected App Bundle ID. It does not directly write to jailbreak system paths.
-- The existing export function is a configuration-file backup. The Rootless tools package also provides explicit-bundle-ID app-container backup with a SHA-256 manifest; it now includes a guarded app-container restore with a pre-restore snapshot and rollback path; neither backup nor restore includes Keychain/App Groups, shared containers, system databases, or server-side state.
-- The older iDeviceLab Core/profile code is a separate legacy component. Its saved profiles are not automatically applied to the Alpha11 tweak configuration.
-- Device installation, injection, configuration application, process filtering, and runtime behavior must be verified on the target device. A successful IPA/DEB build is only a build/package result.
+- The TrollStore manager now has a blue-gradient dashboard with 首页、记录、设置、关于 navigation and dedicated backup, restore, cleanup, global/per-App Hook profile, template, diagnostics, and IPA-editor entry points. Operation results are retained locally in the Manager's operation history.
+- The Manager can apply global Hook configuration to `/var/mobile/Library/Preferences/com.modhw.ios.devices.plist` and per-App configuration to `/var/mobile/Library/Preferences/com.modhw.ios.profiles/<Bundle-ID>.plist`. Per-App profiles take precedence over the global profile.
+- Manager maintenance requests go through a dedicated root LaunchDaemon and a local Unix socket. The helper checks the connecting mobile UID/PID and a root-pinned Manager code-signature CDHash; pairing requires a deliberate root-terminal confirmation. The Core remains read-only and is not used as a privileged command endpoint.
+- The tools include app-container backup with SHA-256 manifests, verified restore with a pre-restore rollback snapshot, and backup-first cleanup of the selected App's entire local data container. Keychain, App Groups, shared containers, system databases, notifications, cloud records, and server-side state remain outside the cleanup scope. Keychain support is diagnostic only.
+- `scripts/build-unified-deb.sh` combines the original Theos tweak, diagnostics scripts, read-only Core, and Root Helper into `release/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb`. The Manager remains a separate TrollStore IPA.
+- Device installation, injection, pairing, Hook behavior, and maintenance execution must be verified on the target iPhone 12 / iOS 16.2. A successful IPA/DEB build is only a build/package result.
 
 See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the source inventory, current gaps, and integration test requirements.
 
@@ -50,11 +52,12 @@ See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the so
 ### English
 **Prerequisites**: macOS with Xcode/iOS SDK and Theos for the Rootless tweak package. The CI workflows build artifacts; installation and runtime verification are separate steps.
 
-1. Build the Rootless package with Theos using `make clean package FINALPACKAGE=1`.
-2. Build the TrollStore manager using `bash scripts/build-trollstore-ipa.sh`.
-3. Validate the configuration plist with `plutil -lint` before transferring it.
-4. Use the install helper only on a device you administer. It creates a previous-file backup and validates the copied plist; it does not restart processes.
-5. Verify package installation, tweak injection, configuration loading, and logs on the target iOS device.
+1. Build the original Rootless tweak with Theos using `make clean package FINALPACKAGE=1`.
+2. Build diagnostics and Core packages with `bash scripts/build-diagnostics-deb.sh` and `bash scripts/build-core-deb.sh`.
+3. Build the single installer package with `bash scripts/build-unified-deb.sh`; install `release/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb` through a package manager that can resolve its system dependencies.
+4. Build the separate TrollStore Manager IPA using `bash scripts/build-trollstore-ipa.sh`; install it with TrollStore.
+5. Open the Manager, copy the displayed pairing command, and confirm pairing from a root jailbreak terminal. Re-pair after Manager signature changes.
+6. Verify package installation, tweak injection, Core status, helper pairing, profile application, backup/restore/cleanup, and logs on the target iPhone 12 / iOS 16.2.
 
 ### 中文
 **依赖**：构建 Rootless 插件需要 macOS、iOS SDK 和 Theos；构建 TrollStore 管理器需要 Xcode。CI 产物构建成功与设备安装、运行验证是不同阶段。
@@ -67,10 +70,10 @@ See [Alpha11 delivery audit](release-notes/ALPHA11_DELIVERY_AUDIT.md) for the so
 
 ## 运行机制 | Runtime Behavior
 - The tweak loads its configured plist during initialization and contains hooks in the source tree. Actual hook coverage depends on target process, OS version, substrate environment, and runtime testing.
-- The manager is sandboxed and handles user-selected files. It can export the current plist using the selected installed App's Bundle ID as the filename. Before per-app export, it validates the original Hook's required 40-character hexadecimal `UniqueDeviceID` and any enabled 12-character MAC-address data fields. Import/export does not itself grant access to privileged jailbreak directories. Rootless backup commands are separate privileged tools and require an explicit bundle identifier.
+- The Manager IPA embeds only the TrollStore `com.apple.private.security.no-sandbox` entitlement required for local jailbreak IPC; it does not receive `platform-application`. Privileged work is still performed by the separately installed Root Helper after process-signature pairing. The Manager validates Hook fields before applying them; the helper repeats validation before writing.
 - The original Hook now resolves a per-app plist by the current process Bundle ID before falling back to the global plist. Create the profile directory manually as `/var/mobile/Library/Preferences/com.modhw.ios.profiles/` and place one validated plist per Bundle ID. This is source-level profile selection; target-process injection and runtime isolation still require device verification.
 - Alpha11 packages a separate read-only Rootless Core on `127.0.0.1:18081`; the manager reads `/status`, `/system`, `/apps`, `/tools`, and `/profiles`. The profile inventory reports Bundle IDs and plist structural validity only; it does not expose configuration values, write profiles, or prove that a target process loaded them.
-- The manager's per-App profile page displays files found in `/var/mobile/Library/Preferences/com.modhw.ios.profiles/`. Exported files still need to be transferred into that directory through the device's file manager. The original Hook selects the matching Bundle ID profile at process initialization; restart the target App after replacing a profile.
+- The Manager can apply per-App and global profiles through Root Helper. The original Hook selects the matching Bundle ID profile first, then the global plist, then the legacy fallback. Restart the target App after applying a profile; running processes do not hot-reload configuration.
 
 ## 调试与扩展 | Debugging & Extension
 - Use `scripts/diagnose-config.sh` to check candidate configuration paths and plist structure. Use `mod-hw-app-backup <bundle.identifier>` to back up one app data container and `mod-hw-app-backup-verify <archive-name.tar.gz>` to verify it. To clear the app's local data container, run `mod-hw-app-clean <bundle.identifier> --confirm`; it creates and verifies a backup plus a rollback snapshot before clearing the container (while retaining the MCM metadata marker). Restore only after the app is fully closed: `mod-hw-app-restore <bundle.identifier> <archive-name.tar.gz> --confirm`. Restore rejects archives with unsafe paths, symlinks, hardlinks, or special files, requires the original container ID to match, and preserves a rollback snapshot. Neither operation touches Keychain/App Groups/shared/system/server data, and the cleanup command is not equivalent to uninstall/reinstall or a factory reset.
@@ -83,4 +86,4 @@ Third-party code such as choose, mongoose, and the UIDevice extensions remains u
 
 ## On-device verification
 
-After installing the Alpha11 tweak, read-only Core DEB, and diagnostics tools DEB, run `mod-hw-selftest` as root. It checks the Rootless paths, launchd service, installed helper commands, and (when `curl` is available) the Core loopback status response. The manager's “检测连接” button provides the same status check if `curl` is unavailable. This is a smoke test, not a complete validation of every hook or a deep-clean guarantee.
+After installing the unified full-suite DEB and the separate Manager IPA, pair the Manager with Root Helper from a root jailbreak terminal. Run `mod-hw-selftest` as root for the non-destructive service, socket, package, and read-only Core smoke tests. Then open Manager → 设置 → 高级维护与 iPhone 12 最终验收 and run the read-only acceptance gate. It requires iPhone 12 (`iPhone13,2`) and iOS 16.2. Backup/restore/cleanup behavior and each Hook still require separate controlled target-App verification; build success is not runtime acceptance.
