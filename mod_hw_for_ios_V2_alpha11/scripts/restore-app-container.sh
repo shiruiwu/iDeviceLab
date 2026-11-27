@@ -59,7 +59,8 @@ cleanup_restore() {
     echo '还原未正常完成，正在自动回滚……' >&2
     if [ -d "$MATCH" ] && [ ! -L "$MATCH" ] &&
        find "$MATCH" -mindepth 1 -maxdepth 1 -exec rm -rf {} + &&
-       cp -Rp "$SNAPSHOT/." "$MATCH/"; then
+       cp -Rp "$SNAPSHOT/." "$MATCH/" &&
+       diff -qr "$SNAPSHOT" "$MATCH" >/dev/null; then
       ROLLBACK_ID="$(plutil -extract MCMMetadataIdentifier raw -o - "$MATCH/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null || true)"
       if [ "$ROLLBACK_ID" = "$BUNDLE_ID" ]; then echo "自动回滚成功；快照保留：$SNAPSHOT" >&2; else echo "回滚元数据校验失败；保留快照：$SNAPSHOT" >&2; STATUS=1; fi
     else
