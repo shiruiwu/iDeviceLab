@@ -53,6 +53,7 @@ jobs:
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
           bash -n scripts/build-core-deb.sh
+          sh -n scripts/maintenance-dispatch.sh
           sh -n core/layout/DEBIAN/postinst
           sh -n core/layout/DEBIAN/prerm
 
@@ -105,6 +106,7 @@ jobs:
               'var/jb/usr/bin/mod-hw-app-backup-verify',
               'var/jb/usr/bin/mod-hw-selftest',
               'var/jb/usr/bin/mod-hw-keychain-diagnose',
+              'var/jb/usr/bin/mod-hw-maintenance',
           }
           assert expected.issubset(installed), sorted(installed)
           print('DEB ar members, architecture, dependency, and all nine installed tools verified')

@@ -307,23 +307,23 @@ struct ContentView: View {
                                 Spacer()
                                 Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: backup.sizeBytes), countStyle: .file))
                             }.font(.caption).foregroundStyle(.secondary)
-                            Text("SHA-256：\\(backup.sha256)")
+                            Text("SHA-256：\(backup.sha256)")
                                 .font(.caption2.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                             Button("填入校验文件名") { maintenanceArchiveName = backup.archive }
                                 .font(.caption)
                         }
                     }
                 }
-                commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance backup \\(safeShellArgument(maintenanceBundleID))")
+                commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance backup \(safeShellArgument(maintenanceBundleID))")
                 TextField("备份文件名（用于校验或还原）", text: $maintenanceArchiveName)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(.footnote.monospaced())
-                commandRow("验证备份完整性", command: "/var/jb/usr/bin/mod-hw-maintenance verify \\(safeShellArgument(maintenanceArchiveName))")
+                commandRow("验证备份完整性", command: "/var/jb/usr/bin/mod-hw-maintenance verify \(safeShellArgument(maintenanceArchiveName))")
             }
             Section("还原与清理") {
-                commandRow("还原指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance restore \\(safeShellArgument(maintenanceBundleID)) \\(safeShellArgument(maintenanceArchiveName)) --confirm")
-                commandRow("清理指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance clean \\(safeShellArgument(maintenanceBundleID)) --confirm")
+                commandRow("还原指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance restore \(safeShellArgument(maintenanceBundleID)) \(safeShellArgument(maintenanceArchiveName)) --confirm")
+                commandRow("清理指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance clean \(safeShellArgument(maintenanceBundleID)) --confirm")
                 Text("还原和清理会改变目标 App 数据。必须先完成备份和完整性校验，再在越狱终端确认执行。")
                     .font(.footnote).foregroundStyle(.orange)
             }
@@ -564,10 +564,10 @@ struct ContentView: View {
                 }
                 let rows = payload["backups"] ?? []
                 backups = try JSONDecoder().decode([BackupRecord].self, from: JSONSerialization.data(withJSONObject: rows))
-                backupsStatus = "已读取 \\(backups.count) 个备份记录（只读）"
+                backupsStatus = "已读取 \(backups.count) 个备份记录（只读）"
             } catch {
                 backups = []
-                backupsStatus = "读取失败：\\(error.localizedDescription)"
+                backupsStatus = "读取失败：\(error.localizedDescription)"
             }
         }
     }

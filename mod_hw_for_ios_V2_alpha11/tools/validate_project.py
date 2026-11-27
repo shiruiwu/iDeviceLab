@@ -76,6 +76,8 @@ check('Picker("已安装 App", selection: $maintenanceBundleID)' in manager and
       "Manager maintenance commands are parameterized by a selected or manually entered App and quoted archive name")
 check("safeShellArgument" in manager and "replacingOccurrences" in manager and "请填写" in manager,
       "Manager safely quotes shell arguments and marks blank placeholders")
+check("\\\\(" not in manager,
+      "Manager maintenance command and backup-result strings use live Swift interpolation")
 
 check("selectedProfileBundleID" in manager and "导出为所选 App 的独立配置" in manager and
       "com.modhw.ios.profiles" in manager and "exportAsPerAppProfile" in manager,
@@ -140,6 +142,8 @@ if core_source.is_file():
           'access(path.fileSystemRepresentation, X_OK)' in core and
           '[path isEqualToString:@"/tools"]' in core,
           "Alpha11 Core reports only the fixed allowlisted maintenance tool inventory")
+    check('@"mod-hw-maintenance"' in core,
+          "Core inventory includes the packaged fixed-command maintenance dispatcher")
     check('@"profiles"' in core and 'InstalledProfiles' in core and
           'com.modhw.ios.profiles' in core and '[path isEqualToString:@"/profiles"]' in core and
           'NSPropertyListSerialization' in core,

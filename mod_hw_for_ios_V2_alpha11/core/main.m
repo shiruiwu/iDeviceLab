@@ -93,6 +93,7 @@ static NSArray *InstalledMaintenanceTools(void) {
         @"mod-hw-app-backup-verify",
         @"mod-hw-app-restore",
         @"mod-hw-app-clean",
+        @"mod-hw-maintenance",
         @"mod-hw-keychain-diagnose",
         @"mod-hw-selftest"
     ];
