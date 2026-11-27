@@ -16,7 +16,7 @@ enum IconRenderer {
                 height: IPAIconFitting.canvasSize
             )
         ) {
-            problems.append("This image is smaller than 1024×1024, so it is scaled up.")
+            problems.append("所选图片小于 1024×1024，导出时将放大处理。")
         }
 
         for slot in plan.slots {
@@ -25,7 +25,7 @@ enum IconRenderer {
                 width: slot.pixelWidth,
                 height: slot.pixelHeight
             ) else {
-                problems.append("Could not render \(slot.path).")
+                problems.append("无法生成图标文件：\(slot.path)。")
                 continue
             }
 
