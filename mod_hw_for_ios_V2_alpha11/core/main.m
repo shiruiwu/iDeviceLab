@@ -239,7 +239,12 @@ static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSS
     }
     NSString *container = [NSString stringWithUTF8String:resolved];
     NSString *root = @"/var/mobile/Containers/Data/Application";
-    NSString *rootResolved = [NSString stringWithUTF8String:realpath(root.fileSystemRepresentation, NULL) ?: ""];
+    char rootBuffer[PATH_MAX] = {0};
+    if (!realpath(root.fileSystemRepresentation, rootBuffer)) {
+        gManagerBridgeTokenFailureReason = @"application-containers-unavailable";
+        return NO;
+    }
+    NSString *rootResolved = [NSString stringWithUTF8String:rootBuffer];
     NSString *prefix = [rootResolved stringByAppendingString:@"/"];
     if (rootResolved.length == 0 || ![container hasPrefix:prefix]) {
         gManagerBridgeTokenFailureReason = @"manager-data-container-invalid";
