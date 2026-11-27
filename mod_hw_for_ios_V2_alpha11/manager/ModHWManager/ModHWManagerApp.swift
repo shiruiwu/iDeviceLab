@@ -873,7 +873,9 @@ struct ContentView: View {
                 if action == "restore" {
                     let verification = try await MaintenanceClient.request(action: "verify", archive: archive)
                     guard verification.ok else {
-                        maintenanceResult = "还原已阻止：备份校验失败。\n\(verification.output ?? verification.error ?? "无详细输出")"
+                        let detail = verification.output ?? verification.error ?? "无详细输出"
+                        maintenanceResult = "还原已阻止：备份校验失败。\n\(detail)"
+                        recordOperation("restore", target: bundleID, success: false, detail: "还原前校验失败：\(detail)")
                         return
                     }
                 }
