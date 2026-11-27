@@ -58,7 +58,7 @@ struct ProfileManagerView: View {
                     pendingApplyBundleID = nil
                 }
             } message: {
-                Text(pendingApplyBundleID == "__global__" ? "将把当前配置写入全局 Hook plist。旧文件会先备份；重新启动需要应用全局配置的目标 App 后生效。" : "将把当前配置写入所选 App 的 per-App Hook plist。旧文件会先备份；强制关闭并重新打开目标 App 后生效。")
+                Text(pendingApplyBundleID == "__global__" ? "将把当前配置写入全局 Hook 配置文件。旧文件会先备份；重新启动需要应用全局配置的目标应用后生效。" : "将把当前配置写入所选应用的分应用 Hook 配置文件。旧文件会先备份；强制关闭并重新打开目标应用后生效。")
             }
         }
         .accentColor(.cyan)
@@ -335,12 +335,12 @@ struct ProfileManagerView: View {
             .disabled(!profile.isHookConfigurationReady)
             Text(profile.isHookConfigurationReady
                  ? "UDID 基本格式已满足；应用前仍会由 Root Helper 校验全部字段。"
-                 : "填写或生成 40 位十六进制 UDID 后，才可应用到指定 App。")
+                 : "填写或生成 40 位十六进制 UDID 后，才可应用到指定应用。")
                 .font(.caption).foregroundColor(.secondary)
         } header: {
             Text("原作者 Hook 硬件参数")
         } footer: {
-            Text("可应用为全局配置（写入 com.modhw.ios.devices.plist），也可按 Bundle ID 单独应用。Per-App 配置优先于全局配置。仅影响已注入 Hook 且重新启动的目标 App，不改变基带或真实硬件。")
+            Text("可应用为全局配置（写入 com.modhw.ios.devices.plist），也可按 Bundle ID 单独应用。分应用配置优先于全局配置。仅影响已注入 Hook 且重新启动的目标应用，不改变基带或真实硬件。")
         }
     }
 
@@ -392,7 +392,7 @@ private var header: some View {
     }
 
     private var footer: some View {
-        Text("自动保存已启用 · Hook 参数仅对目标 App 生效")
+        Text("自动保存已启用 · Hook 参数仅对目标应用生效")
             .font(.caption2).foregroundColor(.secondary)
             .frame(maxWidth: .infinity).padding(.vertical, 8)
     }
