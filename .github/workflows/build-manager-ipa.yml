@@ -15,7 +15,7 @@ env:
 jobs:
   build-manager:
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: mod_hw_for_ios_V2_alpha11
@@ -36,22 +36,27 @@ jobs:
       - name: Check build script syntax
         run: bash -n scripts/build-trollstore-ipa.sh
 
-      - name: Build iOS Simulator smoke-test app
-        run: |
-          xcodebuild -project manager/ModHWManager.xcodeproj -scheme ModHWManager -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build
-          test -d build/simulator/Build/Products/Debug-iphonesimulator/ModHWManager.app
-
-      - name: Launch app in iOS Simulator
+      - name: Build Release iOS Simulator smoke-test app
         run: |
           set -euo pipefail
+          xcodebuild -project manager/ModHWManager.xcodeproj -scheme ModHWManager -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build
+          test -d build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
+
+      - name: Launch Release app and capture runtime diagnostics
+        run: |
+          set -euo pipefail
+          mkdir -p build/diagnostics
           DEVICE_ID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for group in d["devices"].values() for x in group if x["isAvailable"] and x["name"].startswith("iPhone")))' )"
+          echo "Simulator UDID: $DEVICE_ID" | tee build/diagnostics/simulator.txt
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
-          xcrun simctl install "$DEVICE_ID" build/simulator/Build/Products/Debug-iphonesimulator/ModHWManager.app
-          xcrun simctl launch "$DEVICE_ID" com.modhw.manager
-          sleep 8
-          # terminate succeeds only if the process is still alive after the observation window.
+          xcrun simctl install "$DEVICE_ID" build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
+          xcrun simctl launch "$DEVICE_ID" com.modhw.manager 2>&1 | tee build/diagnostics/launch.txt
+          sleep 30
+          # terminate returns non-zero if the app has already exited or crashed.
           xcrun simctl terminate "$DEVICE_ID" com.modhw.manager
+          log show --last 3m --style compact --predicate 'process == "ModHWManager"' > build/diagnostics/manager-runtime.log 2>&1 || true
+          xcrun simctl spawn "$DEVICE_ID" launchctl list > build/diagnostics/launchctl-list.txt 2>&1 || true
 
       - name: Build TrollStore IPA
         run: bash scripts/build-trollstore-ipa.sh
@@ -87,6 +92,15 @@ jobs:
           print("Entitlements verified")
           PY
           echo "Verified: bundle=$BUNDLE_ID build=$BUILD minOS=$MIN_OS arch=arm64"
+
+      - name: Upload runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-hw-manager-runtime-diagnostics
+          path: mod_hw_for_ios_V2_alpha11/build/diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload Manager IPA
         uses: actions/upload-artifact@v4
