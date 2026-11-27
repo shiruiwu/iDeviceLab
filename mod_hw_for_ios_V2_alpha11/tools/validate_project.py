@@ -82,6 +82,9 @@ check("PropertyListSerialization.propertyList" in manager, "Manager parses plist
 check("字段值未展示" in manager, "Manager does not display plist values")
 check('http://127.0.0.1:18081/status' in manager and 'http://127.0.0.1:18081/apps' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "read-only"' in manager,
       "Manager validates the read-only Alpha11 Core status response")
+check("POST to Core is rejected with HTTP 405" in selftest.read_text() and
+      "for endpoint in system apps tools profiles backups" in selftest.read_text(),
+      "On-device self-test verifies all read-only endpoints and rejects POST without changing device data")
 check('import UIKit' in manager and 'UIPasteboard.general.string = command' in manager,
       "Manager explicitly imports UIKit for native command-copy support")
 check('http://127.0.0.1:18081/system' in manager and 'fetchSystemSummary()' in manager and
