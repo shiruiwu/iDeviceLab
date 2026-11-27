@@ -94,6 +94,8 @@ static NSArray *InstalledMaintenanceTools(void) {
         @"mod-hw-app-restore",
         @"mod-hw-app-clean",
         @"mod-hw-maintenance",
+        @"mod-hw-maintenance-helper",
+        @"mod-hw-manager-pair",
         @"mod-hw-keychain-diagnose",
         @"mod-hw-selftest"
     ];
@@ -188,7 +190,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
         return @{@"ok": @NO, @"error": @"read-only endpoint"};
     }
     if ([path isEqualToString:@"/status"]) {
-        return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.2.0-alpha11", @"port": @(kPort), @"mode": @"read-only"};
+        return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.3.0-alpha11", @"port": @(kPort), @"mode": @"read-only"};
     }
     if ([path isEqualToString:@"/system"]) return SystemSummary();
     if ([path isEqualToString:@"/apps"]) return @{@"ok": @YES, @"apps": InstalledApplications()};

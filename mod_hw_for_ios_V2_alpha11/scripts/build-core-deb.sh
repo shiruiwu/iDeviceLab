@@ -5,18 +5,22 @@ WORK="$ROOT/build/core-deb"
 PKG="$WORK/pkg"
 OUT="$ROOT/release"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/libexec" "$PKG/var/jb/Library/LaunchDaemons" "$OUT"
+mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/libexec" "$PKG/var/jb/usr/bin" "$PKG/var/jb/Library/LaunchDaemons" "$OUT"
 rm -rf "$WORK"
-mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/libexec" "$PKG/var/jb/Library/LaunchDaemons"
+mkdir -p "$PKG/DEBIAN" "$PKG/var/jb/usr/libexec" "$PKG/var/jb/usr/bin" "$PKG/var/jb/Library/LaunchDaemons"
 xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -isysroot "$SDK" -fobjc-arc -Wall -Wextra -framework Foundation "$ROOT/core/main.m" -o "$PKG/var/jb/usr/libexec/idevelab-core"
 chmod 0755 "$PKG/var/jb/usr/libexec/idevelab-core"
+xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -isysroot "$SDK" -fobjc-arc -Wall -Wextra -framework Foundation "$ROOT/core/maintenance_helper.m" -o "$PKG/var/jb/usr/bin/mod-hw-maintenance-helper"
+xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -isysroot "$SDK" -fobjc-arc -Wall -Wextra -framework Foundation "$ROOT/core/manager_pair.m" -o "$PKG/var/jb/usr/bin/mod-hw-manager-pair"
+chmod 0755 "$PKG/var/jb/usr/bin/mod-hw-maintenance-helper" "$PKG/var/jb/usr/bin/mod-hw-manager-pair"
 install -m 0644 "$ROOT/core/layout/Library/LaunchDaemons/com.idevelab.core.alpha11.plist" "$PKG/var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
+install -m 0644 "$ROOT/core/layout/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist" "$PKG/var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
 install -m 0755 "$ROOT/core/layout/DEBIAN/postinst" "$PKG/DEBIAN/postinst"
 install -m 0755 "$ROOT/core/layout/DEBIAN/prerm" "$PKG/DEBIAN/prerm"
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.idevelab.core.alpha11
 Name: iDeviceLab Alpha11 Core
-Version: 0.2.1~alpha11
+Version: 0.3.0~alpha11
 Architecture: iphoneos-arm64
 Description: Rootless loopback-only read-only diagnostics Core for the Alpha11 manager.
 Maintainer: iDeviceLab contributors

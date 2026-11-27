@@ -33,5 +33,16 @@ if [ "$1" = "configure" ]; then
   if ! "$LAUNCHCTL" print "$LABEL" >/dev/null 2>&1; then
     echo "Alpha11 Core bootstrap was requested but launchd did not confirm the service. launchctl=$LAUNCHCTL label=$LABEL" >&2
   fi
+
+  HELPER_PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
+  HELPER_LABEL="system/com.idevelab.maintenance.alpha11"
+  [ -x /var/jb/usr/bin/mod-hw-maintenance-helper ] || { echo "Maintenance Helper executable missing" >&2; exit 1; }
+  "$LAUNCHCTL" bootout system "$HELPER_PLIST" >/dev/null 2>&1 || true
+  "$LAUNCHCTL" enable "$HELPER_LABEL" >/dev/null 2>&1 || true
+  if "$LAUNCHCTL" bootstrap system "$HELPER_PLIST"; then
+    "$LAUNCHCTL" kickstart -k "$HELPER_LABEL" >/dev/null 2>&1 || true
+  else
+    echo "Alpha11 Maintenance Helper installed but launchd bootstrap failed; direct Manager operations remain unavailable." >&2
+  fi
 fi
 exit 0
