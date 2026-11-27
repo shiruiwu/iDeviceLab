@@ -36,6 +36,23 @@ jobs:
       - name: Check build script syntax
         run: bash -n scripts/build-trollstore-ipa.sh
 
+      - name: Build iOS Simulator smoke-test app
+        run: |
+          xcodebuild -project manager/ModHWManager.xcodeproj -scheme ModHWManager -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build
+          test -d build/simulator/Build/Products/Debug-iphonesimulator/ModHWManager.app
+
+      - name: Launch app in iOS Simulator
+        run: |
+          set -euo pipefail
+          DEVICE_ID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for group in d["devices"].values() for x in group if x["isAvailable"] and x["name"].startswith("iPhone")))' )"
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" build/simulator/Build/Products/Debug-iphonesimulator/ModHWManager.app
+          xcrun simctl launch "$DEVICE_ID" com.modhw.manager
+          sleep 8
+          xcrun simctl spawn "$DEVICE_ID" launchctl list | grep -F 'com.modhw.manager'
+          xcrun simctl terminate "$DEVICE_ID" com.modhw.manager
+
       - name: Build TrollStore IPA
         run: bash scripts/build-trollstore-ipa.sh
 
