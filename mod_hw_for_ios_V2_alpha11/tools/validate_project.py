@@ -78,7 +78,7 @@ check("hookConfiguration" in profile_models and "UniqueDeviceID" in profile_mode
 check("apply-profile" in profile_view and "MaintenanceClient.request" in profile_view and
       "确认写入并备份旧配置" in profile_view and "强制关闭并重新打开目标 App" in profile_view,
       "Profile manager applies a validated per-App Hook plist through Root Helper after explicit confirmation")
-check("ProfileManagerView()" in manager and "ProfileStore()" in app_entry and
+check("ProfileManagerView(availableApps:" in manager and "ProfileAppOption" in profile_models and "availableApps" in profile_view and "ProfileStore()" in app_entry and
       ".environmentObject(profileStore)" in app_entry and
       "应用选择与配置绑定" in profile_view and "全部参数一键随机" in profile_view and
       "配置备份" in profile_view and "struct DeviceProfile" in profile_models and
