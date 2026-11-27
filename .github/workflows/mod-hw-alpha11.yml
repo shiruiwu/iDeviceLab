@@ -67,10 +67,10 @@ jobs:
 
       - name: Verify IPA package
         run: |
-          test -s release/mod_hw_manager_trollstore.ipa
-          unzip -t release/mod_hw_manager_trollstore.ipa
-          unzip -l release/mod_hw_manager_trollstore.ipa | grep -E 'Payload/ModHWManager.app/Info.plist$'
-          unzip -l release/mod_hw_manager_trollstore.ipa | grep -E 'Payload/ModHWManager.app/[^/]+$'
+          test -s release/mod_hw_manager_trollstore_build16.ipa
+          unzip -t release/mod_hw_manager_trollstore_build16.ipa
+          unzip -l release/mod_hw_manager_trollstore_build16.ipa | grep -E 'Payload/ModHWManager.app/Info.plist$'
+          unzip -l release/mod_hw_manager_trollstore_build16.ipa | grep -E 'Payload/ModHWManager.app/[^/]+$'
 
       - name: Build rootless config and app-backup tools DEB
         run: bash scripts/build-diagnostics-deb.sh
@@ -177,7 +177,7 @@ jobs:
         with:
           name: mod-hw-v2-final-safe-builds
           path: |
-            mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
+            mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build16.ipa
             mod_hw_for_ios_V2_alpha11/release/idevelab-core-alpha11.deb
             mod_hw_for_ios_V2_alpha11/release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
           if-no-files-found: error
