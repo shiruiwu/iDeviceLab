@@ -385,26 +385,14 @@ struct ContentView: View {
                 Text("配置还原会先保留当前配置快照；Keychain 诊断仅读取签名 Entitlements，不读取或修改 Keychain 项。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
-            Section("配置备份") {
-                Button("直接备份当前 Hook 配置") { performMaintenance("config-backup") }
-                    .disabled(!helperPaired || maintenanceRunning)
-                Button("还原最近一次配置备份") {
-                    pendingMaintenanceAction = "config-restore"
-                    showMaintenanceConfirmation = true
-                }
-                .disabled(!helperPaired || maintenanceRunning)
-                Text("配置还原会先保留当前配置快照，并在替换前检查 plist 格式。")
-                    .font(.footnote).foregroundStyle(.secondary)
-            }
         }
         .confirmationDialog("确认执行破坏性操作", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
-            if pendingMaintenanceAction == "restore" {
-                Button("确认还原", role: .destructive) { performMaintenance("restore") }
-            } else if pendingMaintenanceAction == "clean" {
-                Button("确认清理", role: .destructive) { performMaintenance("clean") }
-            } else if pendingMaintenanceAction == "config-restore" {
-                Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
-            }
+            Button("确认还原 App", role: .destructive) { performMaintenance("restore") }
+                .disabled(pendingMaintenanceAction != "restore")
+            Button("确认清理 App", role: .destructive) { performMaintenance("clean") }
+                .disabled(pendingMaintenanceAction != "clean")
+            Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
+                .disabled(pendingMaintenanceAction != "config-restore")
             Button("取消", role: .cancel) { pendingMaintenanceAction = nil }
         } message: {
             Text("此操作会改变所选 App 或配置数据。请确认目标和备份状态无误。")
