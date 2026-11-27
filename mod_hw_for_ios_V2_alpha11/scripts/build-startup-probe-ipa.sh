@@ -10,7 +10,10 @@ IPA="$OUT/mod_hw_manager_startup_probe_build12.ipa"
 ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
 
 command -v xcodebuild >/dev/null 2>&1 || { echo "需要 macOS + Xcode。" >&2; exit 2; }
-command -v ldid >/dev/null 2>&1 || { echo "需要 ldid。" >&2; exit 3; }
+if ! command -v ldid >/dev/null 2>&1; then
+    command -v brew >/dev/null 2>&1 || { echo "需要 ldid，且当前环境没有 Homebrew。" >&2; exit 3; }
+    brew install ldid
+fi
 [[ -f "$ENTITLEMENTS" ]] || { echo "缺少 TrollStore entitlements。" >&2; exit 4; }
 mkdir -p "$BUILD_DIR" "$OUT"
 rm -rf "$DERIVED" "$BUILD_DIR/Payload"
