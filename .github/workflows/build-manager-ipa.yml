@@ -93,7 +93,7 @@ jobs:
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
           test "$BUNDLE_ID" = "com.modhw.manager"
-          test "$BUILD" = "16"
+          test "$BUILD" = "17"
           test "$MIN_OS" = "16.0"
           test -s "$APP/$EXECUTABLE"
           file "$APP/$EXECUTABLE" | grep -q Mach-O
@@ -137,7 +137,7 @@ jobs:
       - name: Upload sandboxed full Manager diagnostic IPA
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-sandboxed-build16-core-bridge
+          name: mod-hw-manager-sandboxed-build17-core-bridge
           path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build16.ipa
           if-no-files-found: error
           retention-days: 14
