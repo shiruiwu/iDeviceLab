@@ -12,6 +12,7 @@
 #import <sys/stat.h>
 #import <pwd.h>
 #import <stdlib.h>
+#import <limits.h>
 
 // Alpha11 companion Core: read-only local diagnostics, bound to loopback.
 static const int kPort = 18081;
@@ -187,7 +188,41 @@ static NSArray *AvailableBackups(void) {
 }
 
 static NSString *gManagerBridgeTokenFailureReason = @"not-checked";
-static BOOL ManagerBridgeTokenMatches(NSString *candidate) {
+
+static BOOL ManagerBundleIdentifierForPID(pid_t pid, NSString **bundleIdentifier) {
+    if (pid <= 1) return NO;
+    int mib[3] = {CTL_KERN, KERN_PROCARGS2, pid};
+    size_t size = 0;
+    if (sysctl(mib, 3, NULL, &size, NULL, 0) != 0 || size < sizeof(int) + 2 || size > 1024 * 1024) return NO;
+    char *buffer = calloc(1, size + 1);
+    if (!buffer) return NO;
+    BOOL success = NO;
+    if (sysctl(mib, 3, buffer, &size, NULL, 0) == 0 && size > sizeof(int)) {
+        char *cursor = buffer + sizeof(int);
+        char *end = buffer + size;
+        while (cursor < end && *cursor == '\0') cursor++;
+        size_t length = strnlen(cursor, (size_t)(end - cursor));
+        if (length > 0 && length < 4096) {
+            NSString *executable = [[NSString alloc] initWithBytes:cursor length:length encoding:NSUTF8StringEncoding];
+            NSRange marker = [executable rangeOfString:@".app/" options:NSBackwardsSearch];
+            if (marker.location != NSNotFound) {
+                NSString *appPath = [executable substringToIndex:marker.location + 4];
+                NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[appPath stringByAppendingPathComponent:@"Info.plist"]];
+                NSString *identifier = info[@"CFBundleIdentifier"];
+                if ([appPath.lastPathComponent isEqualToString:@"ModHWManager.app"] &&
+                    ([identifier isEqualToString:@"com.modhw.manager.sandboxed"] ||
+                     [identifier isEqualToString:@"com.modhw.manager"])) {
+                    if (bundleIdentifier) *bundleIdentifier = identifier;
+                    success = YES;
+                }
+            }
+        }
+    }
+    free(buffer);
+    return success;
+}
+
+static BOOL ManagerBridgeTokenMatches(NSString *candidate, NSString **matchedBundleIdentifier) {
     gManagerBridgeTokenFailureReason = @"invalid-header";
     if (![candidate isKindOfClass:NSString.class] || candidate.length != 64) return NO;
     NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
@@ -222,7 +257,7 @@ static BOOL ManagerBridgeTokenMatches(NSString *candidate) {
         const uint8_t *a = stored.bytes, *b = supplied.bytes;
         uint8_t difference = 0;
         for (NSUInteger i = 0; i < 64; i++) difference |= (uint8_t)(a[i] ^ b[i]);
-        if (difference == 0) { gManagerBridgeTokenFailureReason = @"matched"; return YES; }
+        if (difference == 0) { gManagerBridgeTokenFailureReason = @"matched"; if (matchedBundleIdentifier) *matchedBundleIdentifier = identifier; return YES; }
     }
     if (managerContainers == 0) gManagerBridgeTokenFailureReason = @"manager-container-not-found";
     else if (tokenFiles == 0) gManagerBridgeTokenFailureReason = @"manager-token-file-not-found";
@@ -289,7 +324,8 @@ static NSDictionary *ForwardMaintenanceRequest(NSDictionary *request) {
 static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSString *bridgeToken) {
     NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"/";
     if ([path isEqualToString:@"/maintenance"] && [method isEqualToString:@"GET"]) {
-        if (!ManagerBridgeTokenMatches(bridgeToken)) {
+        NSString *authenticatedBundleIdentifier = nil;
+        if (!ManagerBridgeTokenMatches(bridgeToken, &authenticatedBundleIdentifier)) {
             return @{@"ok": @NO, @"error": [NSString stringWithFormat:@"Manager 私有通信凭据验证失败（%@），拒绝维护请求。", gManagerBridgeTokenFailureReason]};
         }
         NSURLComponents *components = [NSURLComponents componentsWithString:[@"http://127.0.0.1" stringByAppendingString:target]];
@@ -300,14 +336,20 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSString
         if (![object isKindOfClass:NSDictionary.class]) return @{@"ok": @NO, @"error": @"维护请求格式无效。"};
         NSDictionary *request = object;
         NSNumber *pid = request[@"managerPID"];
-        if (![pid isKindOfClass:NSNumber.class] || pid.intValue <= 1) return @{@"ok": @NO, @"error": @"缺少有效的 Manager 进程标识。"};
+        if (![pid isKindOfClass:NSNumber.class] || pid.longLongValue <= 1 || pid.longLongValue > INT_MAX)
+            return @{@"ok": @NO, @"error": @"缺少有效的 Manager 进程标识。"};
+        NSString *liveBundleIdentifier = nil;
+        if (!ManagerBundleIdentifierForPID((pid_t)pid.intValue, &liveBundleIdentifier) ||
+            ![liveBundleIdentifier isEqualToString:authenticatedBundleIdentifier]) {
+            return @{@"ok": @NO, @"error": @"通信凭据与当前 Manager 进程不匹配，已拒绝权限请求。"};
+        }
         return ForwardMaintenanceRequest(request);
     }
     if (![method isEqualToString:@"GET"]) {
         return @{@"ok": @NO, @"error": @"method not allowed"};
     }
     if ([path isEqualToString:@"/status"]) {
-        return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.3.5-alpha11", @"port": @(kPort), @"mode": @"authenticated-manager-bridge"};
+        return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.3.6-alpha11", @"port": @(kPort), @"mode": @"authenticated-manager-bridge"};
     }
     if ([path isEqualToString:@"/system"]) return SystemSummary();
     if ([path isEqualToString:@"/apps"]) return @{@"ok": @YES, @"apps": InstalledApplications()};
@@ -342,7 +384,7 @@ static void Reply(int fd, NSDictionary *payload, int status) {
 int main(void) {
     @autoreleasepool {
         signal(SIGPIPE, SIG_IGN);
-        fprintf(stderr, "[idevelab-core] starting version 0.3.5-alpha11 pid=%d uid=%d\n", getpid(), getuid());
+        fprintf(stderr, "[idevelab-core] starting version 0.3.6-alpha11 pid=%d uid=%d\n", getpid(), getuid());
         fflush(stderr);
         int server = socket(AF_INET, SOCK_STREAM, 0);
         if (server < 0) { fprintf(stderr, "[idevelab-core] socket failed errno=%d (%s)\n", errno, strerror(errno)); return 1; }
