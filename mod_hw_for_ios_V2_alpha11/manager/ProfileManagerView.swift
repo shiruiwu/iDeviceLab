@@ -208,7 +208,9 @@ struct ProfileManagerView: View {
         } header: {
             Text("配置管理")
         }
-    }private func environmentSection(profile: DeviceProfile) -> some View {
+    }
+
+    private func environmentSection(profile: DeviceProfile) -> some View {
         Section {
             HStack {
                 Picker("设备型号", selection: binding(\.deviceModel, profile: profile)) {
@@ -283,7 +285,7 @@ struct ProfileManagerView: View {
         } header: {
             Text("测试数值")
         }
-    }private func hookConfigurationSection(profile: DeviceProfile) -> some View {
+    }    private func hookConfigurationSection(profile: DeviceProfile) -> some View {
         Section {
             TextField("SerialNumber", text: optionalBinding(\.serialNumber, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
@@ -321,15 +323,14 @@ struct ProfileManagerView: View {
                  ? "UDID 基本格式已满足；应用前仍会由 Root Helper 校验全部字段。"
                  : "填写或生成 40 位十六进制 UDID 后，才可应用到指定 App。")
                 .font(.caption).foregroundColor(.secondary)
+        } header: {
+            Text("原作者 Hook 硬件参数")
         } footer: {
             Text("这些值写入原作者 Hook 使用的 per-App plist。它们只影响已注入 Hook 且重新启动的目标 App，不会改变基带或真实硬件。随机值仅用于测试，不保证运营商或第三方服务接受。")
         }
     }
 
-        } header: {
-            Text("原作者 Hook 硬件参数")
-        }
-    }private var randomizationSection: some View {
+private var randomizationSection: some View {
         Section {
             Button { store.randomizeAll() } label: {
                 Label("全部参数一键随机", systemImage: "shuffle")
@@ -340,7 +341,9 @@ struct ProfileManagerView: View {
         } header: {
             Text("随机生成")
         }
-    }private var backupSection: some View {
+    }
+
+    private var backupSection: some View {
         Section {
             Button { prepareExport() } label: {
                 Label("生成配置备份 JSON", systemImage: "square.and.arrow.up")
