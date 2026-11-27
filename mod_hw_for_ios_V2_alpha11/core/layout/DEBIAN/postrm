@@ -1,12 +1,17 @@
 #!/bin/sh
 # Stop the helper and remove its IPC endpoint when the Core package is removed.
 set -eu
-for candidate in /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /var/jb/bin/launchctl /var/jb/usr/bin/launchctl /var/jb/basebin/launchctl; do
-  if [ -x "$candidate" ]; then
-    "$candidate" bootout system /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist >/dev/null 2>&1 || true
-    break
-  fi
+LAUNCHCTL=""
+for candidate in /var/jb/usr/bin/launchctl /var/jb/usr/sbin/launchctl /var/jb/basebin/launchctl /var/jb/bin/launchctl /var/jb/sbin/launchctl /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /usr/libexec/launchctl; do
+  if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
 done
+if [ -z "$LAUNCHCTL" ] && [ -d /var/jb ]; then
+  LAUNCHCTL="$(find /var/jb -name launchctl -perm -111 -print -quit 2>/dev/null || true)"
+fi
+if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then LAUNCHCTL="$(command -v launchctl)"; fi
+if [ -n "$LAUNCHCTL" ]; then
+  "$LAUNCHCTL" bootout system /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist >/dev/null 2>&1 || true
+fi
 rm -f /var/run/com.idevelab.maintenance.sock
 if [ "${1:-}" = "purge" ]; then
   rm -f /var/jb/var/root/Library/Preferences/com.idevelab.manager-cdhash
