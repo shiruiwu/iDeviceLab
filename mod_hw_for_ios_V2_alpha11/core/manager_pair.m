@@ -97,7 +97,8 @@ int main(int argc, char **argv) {
         NSString *infoPath = [appPath stringByAppendingPathComponent:@"Info.plist"];
         NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:infoPath];
         NSString *bundleID = info[@"CFBundleIdentifier"];
-        if (![bundleID isEqualToString:@"com.modhw.manager"] ||
+        if ((![bundleID isEqualToString:@"com.modhw.manager"] &&
+             ![bundleID isEqualToString:@"com.modhw.manager.sandboxed"]) ||
             ![appPath.lastPathComponent isEqualToString:@"ModHWManager.app"]) {
             fprintf(stderr, "Bundle ID 或应用名称不匹配：%s\n", executable);
             return 5;
