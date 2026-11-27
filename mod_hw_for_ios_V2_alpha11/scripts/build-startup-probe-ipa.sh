@@ -6,15 +6,15 @@ BUILD_DIR="$ROOT/build/startup-probe"
 DERIVED="$BUILD_DIR/DerivedData"
 APP="$DERIVED/Build/Products/Release-iphoneos/StartupProbe.app"
 OUT="$ROOT/release"
-IPA="$OUT/mod_hw_manager_startup_probe_build12.ipa"
-ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
+IPA="$OUT/mod_hw_manager_startup_probe_build13.ipa"
+
 
 command -v xcodebuild >/dev/null 2>&1 || { echo "需要 macOS + Xcode。" >&2; exit 2; }
 if ! command -v ldid >/dev/null 2>&1; then
     command -v brew >/dev/null 2>&1 || { echo "需要 ldid，且当前环境没有 Homebrew。" >&2; exit 3; }
     brew install ldid
 fi
-[[ -f "$ENTITLEMENTS" ]] || { echo "缺少 TrollStore entitlements。" >&2; exit 4; }
+
 mkdir -p "$BUILD_DIR" "$OUT"
 rm -rf "$DERIVED" "$BUILD_DIR/Payload"
 rm -f "$IPA"
@@ -35,16 +35,17 @@ if grep -E 'libswift[^[:space:]]*' <<< "$LINKS"; then
     echo "Objective-C 探针意外依赖 Swift 运行时。" >&2
     exit 7
 fi
-ldid -S"$ENTITLEMENTS" "$BINARY"
+# Control build: ad-hoc signature with no extra entitlements.
+ldid -S "$BINARY"
 ldid -e "$BINARY" > "$BUILD_DIR/embedded-entitlements.plist"
 python3 - "$BUILD_DIR/embedded-entitlements.plist" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], "rb") as f:
     e = plistlib.load(f)
-assert e.get("com.apple.private.security.no-sandbox") is True, e
+assert not e.get("com.apple.private.security.no-sandbox", False), e
 assert not e.get("platform-application", False), e
-print("Probe entitlements verified")
+print("Sandboxed control entitlements verified")
 PY
 (cd "$BUILD_DIR" && /usr/bin/zip -qry "$IPA" Payload)
 /usr/bin/unzip -t "$IPA" >/dev/null
-echo "Pure UIKit startup probe built: $IPA"
+echo "Sandboxed UIKit control built: $IPA"
