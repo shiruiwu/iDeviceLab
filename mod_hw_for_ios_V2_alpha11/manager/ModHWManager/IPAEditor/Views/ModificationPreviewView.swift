@@ -11,7 +11,7 @@ struct ModificationPreviewView: View {
 
     private var warnings: [String] {
         var messages = summary.warnings
-        let signature = "Modifying an IPA invalidates its signature. Re-sign it before installing."
+        let signature = "修改 IPA 会使原签名失效，安装前请重新签名。"
 
         if !messages.contains(signature) {
             messages.append(signature)
@@ -21,7 +21,7 @@ struct ModificationPreviewView: View {
     }
 
     var body: some View {
-        IPASheet(title: "Review Changes", centeredTitle: true) {
+        IPASheet(title: "检查更改", centeredTitle: true) {
             actionRow
 
             ModificationReviewContent(
@@ -39,7 +39,7 @@ struct ModificationPreviewView: View {
     private var actionRow: some View {
         HStack(spacing: 10) {
             Button(action: onClose) {
-                Text("Cancel")
+                Text("取消")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -53,7 +53,7 @@ struct ModificationPreviewView: View {
                             .accentColor(.green)
                     }
 
-                    Text(isExporting ? "Exporting…" : "Confirm")
+                    Text(isExporting ? "正在导出…" : "确认")
                         .font(.subheadline.weight(.semibold))
                 }
                 .frame(maxWidth: .infinity)
