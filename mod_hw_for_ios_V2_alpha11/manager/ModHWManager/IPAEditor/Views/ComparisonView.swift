@@ -12,11 +12,11 @@ struct ComparisonView: View {
     @State private var showPicker = false
 
     var body: some View {
-        IPASheet(title: "Compare IPAs", onClose: onClose) {
+        IPASheet(title: "比较 IPA", onClose: onClose) {
             fileCard
 
             if isComparing {
-                IPALoadingRow(text: "Comparing…")
+                IPALoadingRow(text: "正在比较…")
             }
 
             if let errorMessage {
@@ -26,7 +26,7 @@ struct ComparisonView: View {
             if let result {
                 if !result.hasDifferences {
                     IPAInfoBanner(
-                        message: "No differences found.",
+                        message: "未发现差异。",
                         color: .blue,
                         icon: "checkmark.circle.fill"
                     )
@@ -52,20 +52,20 @@ struct ComparisonView: View {
 
     private var fileCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            IPACardHeader(icon: "arrow.left.arrow.right", title: "Files")
+            IPACardHeader(icon: "arrow.left.arrow.right", title: "文件")
 
-            IPAMetadataRow(label: "Original", value: primaryName, monospaced: false)
+            IPAMetadataRow(label: "原始版本", value: primaryName, monospaced: false)
 
             if let secondaryURL {
                 IPASubtleDivider()
-                IPAMetadataRow(label: "Compared", value: secondaryURL.lastPathComponent)
+                IPAMetadataRow(label: "对比版本", value: secondaryURL.lastPathComponent)
             }
 
             Button {
                 showPicker = true
             } label: {
                 Label(
-                    secondaryURL == nil ? "Select IPA" : "Choose Another IPA",
+                    secondaryURL == nil ? "选择 IPA" : "选择其他 IPA",
                     systemImage: "folder"
                 )
                 .font(.subheadline.weight(.semibold))
@@ -79,7 +79,7 @@ struct ComparisonView: View {
 
     private func metadataCard(_ result: IPAComparisonResult) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            IPACardHeader(icon: "app.badge", title: "Metadata")
+            IPACardHeader(icon: "app.badge", title: "元数据")
 
             ForEach(result.metadata) { item in
                 IPASubtleDivider()
@@ -126,15 +126,15 @@ struct ComparisonView: View {
 
     private func filesCard(_ result: IPAComparisonResult) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            IPACardHeader(icon: "doc.on.doc", title: "Files")
+            IPACardHeader(icon: "doc.on.doc", title: "文件")
 
-            IPAFileCountRow(label: "Added", count: result.addedFiles.count, color: .green)
-            IPAFileCountRow(label: "Removed", count: result.removedFiles.count, color: .red)
-            IPAFileCountRow(label: "Changed", count: result.changedFiles.count, color: .orange)
+            IPAFileCountRow(label: "新增", count: result.addedFiles.count, color: .green)
+            IPAFileCountRow(label: "已移除", count: result.removedFiles.count, color: .red)
+            IPAFileCountRow(label: "已更改", count: result.changedFiles.count, color: .orange)
 
             if !result.addedFiles.isEmpty {
                 IPASubtleDivider().padding(.vertical, 6)
-                Text("Added")
+                Text("新增")
                     .font(.footnote.weight(.semibold))
                     .foregroundColor(.secondary)
                 IPAPathList(paths: result.addedFiles, limit: 8)
@@ -143,7 +143,7 @@ struct ComparisonView: View {
 
             if !result.removedFiles.isEmpty {
                 IPASubtleDivider().padding(.vertical, 6)
-                Text("Removed")
+                Text("已移除")
                     .font(.footnote.weight(.semibold))
                     .foregroundColor(.secondary)
                 IPAPathList(paths: result.removedFiles, limit: 8)
@@ -152,7 +152,7 @@ struct ComparisonView: View {
 
             if !result.changedFiles.isEmpty {
                 IPASubtleDivider().padding(.vertical, 6)
-                Text("Changed")
+                Text("已更改")
                     .font(.footnote.weight(.semibold))
                     .foregroundColor(.secondary)
                 IPAPathList(paths: result.changedFiles, limit: 8)
