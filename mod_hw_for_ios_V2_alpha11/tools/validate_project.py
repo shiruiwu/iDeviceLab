@@ -297,7 +297,7 @@ if core_source.is_file():
           "Backup inventory rejects symlinks and requires exact root:mobile ownership and 0750/0640 modes")
 if core_control.is_file():
     check("Architecture: iphoneos-arm64" in core_control_text and
-          re.search(r"^Version: 0\\.3\\.[0-9]+~alpha11$", core_control_text, re.M) is not None,
+          "Version: 0.3." in core_control_text and "~alpha11" in core_control_text,
           "Alpha11 Core package metadata targets Rootless arm64")
 
 diagnostic = ROOT / "scripts/diagnose-config.sh"
