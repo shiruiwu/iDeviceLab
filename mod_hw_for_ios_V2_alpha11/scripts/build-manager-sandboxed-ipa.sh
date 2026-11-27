@@ -6,7 +6,7 @@ BUILD_DIR="$ROOT/build/manager-sandboxed"
 DERIVED="$BUILD_DIR/DerivedData"
 APP="$DERIVED/Build/Products/Release-iphoneos/ModHWManager.app"
 OUT="$ROOT/release"
-IPA="$OUT/mod_hw_manager_sandboxed_build14.ipa"
+IPA="$OUT/mod_hw_manager_sandboxed_build15.ipa"
 
 command -v xcodebuild >/dev/null 2>&1 || { echo "需要 macOS + Xcode。" >&2; exit 2; }
 command -v ldid >/dev/null 2>&1 || { echo "需要 ldid。" >&2; exit 3; }
@@ -15,14 +15,14 @@ rm -rf "$DERIVED" "$BUILD_DIR/Payload"
 rm -f "$IPA"
 
 xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme ModHWManager
-xcodebuild -project "$PROJECT" -scheme ModHWManager -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed CURRENT_PROJECT_VERSION=14 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ENABLE_BITCODE=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO build
+xcodebuild -project "$PROJECT" -scheme ModHWManager -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed CURRENT_PROJECT_VERSION=15 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ENABLE_BITCODE=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO build
 
 [[ -d "$APP" ]] || { echo "找不到 Manager.app。" >&2; exit 4; }
 PAYLOAD="$BUILD_DIR/Payload"
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 14' "$INFO"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 15' "$INFO"
 BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")"
 [[ "$BUNDLE_ID" == "com.modhw.manager.sandboxed" ]] || { echo "Bundle ID 不匹配：$BUNDLE_ID" >&2; exit 5; }
