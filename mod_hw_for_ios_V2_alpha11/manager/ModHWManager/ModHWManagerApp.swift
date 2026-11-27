@@ -4,6 +4,7 @@ import Foundation
 import UniformTypeIdentifiers
 import CoreFoundation
 import Darwin
+import Security
 
 // Build 11 starts with UIKit only. SwiftUI and ProfileStore are not instantiated
 // until the user explicitly enters the full manager. This distinguishes an app-loader
@@ -1521,6 +1522,38 @@ struct MaintenanceOperationResult: Decodable {
 
 enum MaintenanceClient {
     private static let bridgeURL = URL(string: "http://127.0.0.1:18081/maintenance")!
+    private static let bridgeTokenName = "idevelab-manager-bridge.token"
+
+    // The token lives only in this app's sandbox container. The unsandboxed
+    // mobile Core reads it from the container metadata; other apps cannot.
+    private static func bridgeToken() throws -> String {
+        let fileManager = FileManager.default
+        guard let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw NSError(domain: "MaintenanceHelper", code: 7, userInfo: [NSLocalizedDescriptionKey: "无法定位 Manager 私有数据目录。"])
+        }
+        try fileManager.createDirectory(at: support, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let tokenURL = support.appendingPathComponent(bridgeTokenName, isDirectory: false)
+        var tokenData: Data
+        if fileManager.fileExists(atPath: tokenURL.path) {
+            tokenData = try Data(contentsOf: tokenURL, options: [.mappedIfSafe])
+        } else {
+            var random = Data(count: 32)
+            let result = random.withUnsafeMutableBytes { bytes in
+                SecRandomCopyBytes(kSecRandomDefault, 32, bytes.baseAddress!)
+            }
+            guard result == errSecSuccess else {
+                throw NSError(domain: "MaintenanceHelper", code: 8, userInfo: [NSLocalizedDescriptionKey: "无法生成 Core 通信凭据。"])
+            }
+            tokenData = Data(random.map { String(format: "%02x", $0).utf8 }.joined().utf8)
+            try tokenData.write(to: tokenURL, options: [.atomic])
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tokenURL.path)
+        }
+        guard tokenData.count == 64,
+              String(data: tokenData, encoding: .ascii)?.allSatisfy({ $0.isHexDigit }) == true else {
+            throw NSError(domain: "MaintenanceHelper", code: 9, userInfo: [NSLocalizedDescriptionKey: "Manager 通信凭据文件无效，请重新启动管理器。"])
+        }
+        return String(decoding: tokenData, as: UTF8.self)
+    }
 
     static func request(action: String, bundleID: String? = nil, archive: String? = nil, profile: [String: Any]? = nil, confirm: Bool = false) async throws -> MaintenanceOperationResult {
         var payload: [String: Any] = ["action": action, "managerPID": Int(getpid())]
@@ -1539,6 +1572,7 @@ enum MaintenanceClient {
         }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        request.setValue(try bridgeToken(), forHTTPHeaderField: "X-iDeviceLab-Manager-Token")
         request.timeoutInterval = 300
         request.cachePolicy = .reloadIgnoringLocalCacheData
         let (data, response) = try await URLSession.shared.data(for: request)
