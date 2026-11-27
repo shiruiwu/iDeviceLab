@@ -56,6 +56,7 @@ jobs:
           test -d build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
 
       - name: Launch Release app and capture runtime diagnostics
+        if: false
         timeout-minutes: 5
         continue-on-error: true
         run: |
