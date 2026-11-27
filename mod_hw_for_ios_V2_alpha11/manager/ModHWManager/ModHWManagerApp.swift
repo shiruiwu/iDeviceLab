@@ -154,7 +154,7 @@ struct ContentView: View {
             NavigationStack { profilesPage }
                 .tabItem { Label("配置", systemImage: "slider.horizontal.3") }
 
-            ProfileManagerView()
+            ProfileManagerView(availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) })
                 .tabItem { Label("环境管理", systemImage: "slider.horizontal.3") }
 
             IPAEditorView()

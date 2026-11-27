@@ -86,3 +86,10 @@ struct ManagedApp: Identifiable, Codable, Equatable {
     var bundleIdentifier: String
     var profileID: UUID
 }
+
+
+struct ProfileAppOption: Identifiable, Equatable {
+    let name: String
+    let bundleIdentifier: String
+    var id: String { bundleIdentifier }
+}

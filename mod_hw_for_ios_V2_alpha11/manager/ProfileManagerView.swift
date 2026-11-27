@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 import UIKit
 
 struct ProfileManagerView: View {
+    var availableApps: [ProfileAppOption] = []
     @EnvironmentObject private var store: ProfileStore
     @State private var showingImporter = false
     @State private var exportURL: URL?
@@ -20,6 +21,19 @@ struct ProfileManagerView: View {
                 if let profile = store.selectedProfile {
                     Form {
                         Section {
+                            if !availableApps.isEmpty {
+                                Picker("从 Core App 清单选择", selection: $newAppBundleID) {
+                                    Text("手动填写").tag("")
+                                    ForEach(availableApps) { app in
+                                        Text(app.name).tag(app.bundleIdentifier)
+                                    }
+                                }
+                                .onChange(of: newAppBundleID) { value in
+                                    if let selected = availableApps.first(where: { $0.bundleIdentifier == value }) {
+                                        newAppName = selected.name
+                                    }
+                                }
+                            }
                             TextField("应用名称", text: $newAppName)
                             TextField("Bundle ID（应用标识符）", text: $newAppBundleID)
                                 .textInputAutocapitalization(.never)
@@ -339,6 +353,11 @@ struct ProfileManagerView: View {
         }
         Task {
             do {
+                let helperStatus = try await MaintenanceClient.request(action: "status")
+                guard helperStatus.paired == true else {
+                    alertMessage = "Root Helper 尚未与当前管理器配对。请先到「备份与维护」页复制配对命令并在越狱终端执行。"
+                    return
+                }
                 let result = try await MaintenanceClient.request(
                     action: "apply-profile",
                     bundleID: bundleID,
