@@ -44,7 +44,7 @@ struct ModificationReviewContent: View {
         VStack(spacing: 12) {
             if summary.isEmpty {
                 IPAInfoBanner(
-                    message: "No changes to export.",
+                    message: "没有需要导出的更改。",
                     color: .secondary,
                     icon: "info.circle"
                 )
@@ -66,14 +66,14 @@ struct ModificationReviewContent: View {
 
     private var iconCard: some View {
         HStack(alignment: .top, spacing: 18) {
-            IPAIconThumbnail(image: originalIcon, caption: "Original", size: 64)
+            IPAIconThumbnail(image: originalIcon, caption: "原始版本", size: 64)
 
             Image(systemName: "arrow.right")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.secondary)
                 .frame(height: 64)
 
-            IPAIconThumbnail(image: replacementIcon, caption: "Replacement", size: 64)
+            IPAIconThumbnail(image: replacementIcon, caption: "替换内容", size: 64)
         }
         .frame(maxWidth: .infinity)
         .cardStyle()
@@ -81,7 +81,7 @@ struct ModificationReviewContent: View {
 
     private var changesCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            IPACardHeader(icon: "square.and.pencil", title: "Changes")
+            IPACardHeader(icon: "square.and.pencil", title: "更改内容")
 
             ForEach(Array(summary.changes.enumerated()), id: \.element.id) { index, change in
                 if index > 0 {
@@ -123,14 +123,14 @@ struct ModificationReviewContent: View {
 
     private var filesCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            IPACardHeader(icon: "doc.on.doc", title: "Files")
+            IPACardHeader(icon: "doc.on.doc", title: "文件")
 
-            IPAFileCountRow(label: "Added", count: addedCount, color: .green)
-            IPAFileCountRow(label: "Removed", count: summary.removedFiles.count, color: .red)
-            IPAFileCountRow(label: "Modified", count: modifiedCount, color: .orange)
+            IPAFileCountRow(label: "新增", count: addedCount, color: .green)
+            IPAFileCountRow(label: "已移除", count: summary.removedFiles.count, color: .red)
+            IPAFileCountRow(label: "已修改", count: modifiedCount, color: .orange)
 
             if addedCount > 0 {
-                listSection(title: "Added")
+                listSection(title: "新增")
 
                 VStack(alignment: .leading, spacing: 4) {
                     if !addedIconFiles.isEmpty {
@@ -145,13 +145,13 @@ struct ModificationReviewContent: View {
             }
 
             if !summary.removedFiles.isEmpty {
-                listSection(title: "Removed")
+                listSection(title: "已移除")
                 IPAPathList(paths: summary.removedFiles, limit: 5)
                     .padding(.top, 4)
             }
 
             if modifiedCount > 0 {
-                listSection(title: "Modified")
+                listSection(title: "已修改")
 
                 VStack(alignment: .leading, spacing: 4) {
                     if !modifiedIconFiles.isEmpty {
@@ -178,13 +178,13 @@ struct ModificationReviewContent: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Text("App Icon")
+                    Text("应用图标")
                         .font(.subheadline)
                         .foregroundColor(.primary)
 
                     Spacer(minLength: 8)
 
-                    Text(files.count == 1 ? "1 file" : "\(files.count) files")
+                    Text(files.count == 1 ? "1 个文件" : "\(files.count) 个文件")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
