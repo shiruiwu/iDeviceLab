@@ -66,10 +66,14 @@ jobs:
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance-helper'
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-manager-pair'
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist'
+dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance-helper'
+dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-manager-pair'
+dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist'
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist'
           dpkg-deb -e "$CORE_PACKAGE" "$RUNNER_TEMP/alpha11-core-control"
           test -x "$RUNNER_TEMP/alpha11-core-control/postinst"
           test -x "$RUNNER_TEMP/alpha11-core-control/prerm"
+test -x "$RUNNER_TEMP/alpha11-core-control/postrm"
           test -x "$RUNNER_TEMP/alpha11-core-control/postrm"
 
       - name: Upload Rootless Debian packages
