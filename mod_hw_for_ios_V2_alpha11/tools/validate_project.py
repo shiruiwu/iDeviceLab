@@ -128,6 +128,29 @@ check("RawPlistDocument" in manager and "regularFileWithContents: data" in manag
 check("ARCHS=arm64" in ipa and "unzip -t" in ipa, "IPA build targets arm64 and verifies archive")
 check(core_source.is_file() and core_makefile.is_file() and core_control.is_file() and core_daemon.is_file(),
       "Alpha11 read-only Core source and Rootless package files exist")
+helper_source = ROOT / "core/maintenance_helper.m"
+pair_source = ROOT / "core/manager_pair.m"
+helper_daemon = ROOT / "core/layout/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
+if helper_daemon.is_file():
+    helper_plist = plistlib.loads(helper_daemon.read_bytes())
+    check(helper_plist.get("Label") == "com.idevelab.maintenance.alpha11" and
+          helper_plist.get("ProgramArguments") == ["/var/jb/usr/bin/mod-hw-maintenance-helper"] and
+          helper_plist.get("UserName") == "root" and helper_plist.get("GroupName") == "wheel",
+          "Root maintenance helper has a dedicated root-owned launchd service")
+check(helper_source.is_file() and pair_source.is_file(),
+      "Pinned-signature maintenance helper and explicit Manager pairing utility exist")
+if helper_source.is_file():
+    src = helper_source.read_text()
+    check("LOCAL_PEERPID" in src and "getpeereid" in src and "CS_OPS_CDHASH" in src and
+          "CS_VALID" in src and "com.idevelab.manager-cdhash" in src and
+          "posix_spawn" in src and "300.0" in src and
+          all(action in src for action in ('@"backup"', '@"verify"', '@"restore"', '@"clean"')),
+          "Root helper authenticates the paired process signature and executes only bounded fixed maintenance commands")
+if pair_source.is_file():
+    src = pair_source.read_text()
+    check("KERN_PROCARGS2" in src and "com.modhw.manager" in src and
+          "CS_OPS_CDHASH" in src and 'strcmp(confirmation, "PAIR\\n")' in src,
+          "Pairing utility requires root confirmation and pins the exact Manager app code hash")
 check(core_package_builder_path.is_file() and
       'xcrun --sdk iphoneos clang' in core_package_builder and
       'var/jb/usr/libexec/idevelab-core' in core_package_builder and
@@ -158,7 +181,7 @@ if core_source.is_file():
           'access(path.fileSystemRepresentation, X_OK)' in core and
           '[path isEqualToString:@"/tools"]' in core,
           "Alpha11 Core reports only the fixed allowlisted maintenance tool inventory")
-    check('@"mod-hw-maintenance"' in core,
+    check('@"mod-hw-maintenance"' in core and @"mod-hw-maintenance-helper"' in core and @"mod-hw-manager-pair"' in core,
           "Core inventory includes the packaged fixed-command maintenance dispatcher")
     check('@"profiles"' in core and 'InstalledProfiles' in core and
           'com.modhw.ios.profiles' in core and '[path isEqualToString:@"/profiles"]' in core and
@@ -177,7 +200,7 @@ if core_source.is_file():
           'st.st_gid == mobileGID' in core,
           "Backup inventory rejects symlinks and requires exact root:mobile ownership and 0750/0640 modes")
 if core_control.is_file():
-    check("Architecture: iphoneos-arm64" in core_control_text and "Version: 0.2.0~alpha11" in core_control_text,
+    check("Architecture: iphoneos-arm64" in core_control_text and "Version: 0.3.0~alpha11" in core_control_text,
           "Alpha11 Core package metadata targets Rootless arm64")
 
 diagnostic = ROOT / "scripts/diagnose-config.sh"

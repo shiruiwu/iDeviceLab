@@ -146,7 +146,9 @@ jobs:
               files = {m.name.lstrip('./'): m for m in archive.getmembers()}
               binary_path = 'var/jb/usr/libexec/idevelab-core'
               plist_path = 'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist'
-              assert binary_path in files and plist_path in files, sorted(files)
+              helper_plist_path = 'var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist'
+              assert binary_path in files and plist_path in files and helper_plist_path in files, sorted(files)
+              assert 'var/jb/usr/bin/mod-hw-maintenance-helper' in files and 'var/jb/usr/bin/mod-hw-manager-pair' in files
               binary = archive.extractfile(files[binary_path]).read()
               assert binary[:4] == bytes.fromhex('cffaedfe'), binary[:4].hex()
               plist = plistlib.loads(archive.extractfile(files[plist_path]).read())
