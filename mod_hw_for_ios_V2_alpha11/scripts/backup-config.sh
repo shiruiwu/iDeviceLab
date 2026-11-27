@@ -54,6 +54,7 @@ if [ -e "$PROFILE_DIR" ]; then
     [ -f "$PROFILE" ] || continue
     [ ! -L "$PROFILE" ] || fail "配置文件是符号链接：$(basename "$PROFILE")"
     plutil -lint "$PROFILE" >/dev/null 2>&1 || fail "配置文件 plist 无效：$(basename "$PROFILE")"
+    plutil -convert xml1 -o - "$PROFILE" 2>/dev/null | grep -q '<dict>' || fail "配置文件根对象不是 Dictionary：$(basename "$PROFILE")"
     NAME="$(basename "$PROFILE")"
     BUNDLE_ID="$(printf '%s' "$NAME" | sed 's/\.plist$//')"
     case "$BUNDLE_ID" in ''|*[!A-Za-z0-9._-]*|.*|*..*|*.) fail "配置文件名不是有效 Bundle ID：$NAME" ;; esac

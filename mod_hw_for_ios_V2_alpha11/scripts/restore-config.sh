@@ -84,6 +84,7 @@ if [ -n "$LATEST" ] && [ -r "$LATEST" ]; then
       BUNDLE_ID="$(printf '%s' "$NAME" | sed 's/\.plist$//')"
       case "$BUNDLE_ID" in ''|*[!A-Za-z0-9._-]*|.*|*..*|*.) fail "per-App 配置文件名无效：$NAME" ;; esac
       plutil -lint "$PROFILE" >/dev/null 2>&1 || fail "per-App plist 格式无效：$NAME"
+      plutil -convert xml1 -o - "$PROFILE" 2>/dev/null | grep -q '<dict>' || fail "per-App plist 根对象不是 Dictionary：$NAME"
     done
   fi
   [ -f "$STAGE/com.modhw.ios.devices.plist" ] || [ -d "$STAGE/com.modhw.ios.profiles" ] || fail '归档中没有可还原的配置。'
