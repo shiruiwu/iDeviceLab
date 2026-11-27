@@ -26,6 +26,14 @@ check 'Rootless jailbreak path exists' test -d /var/jb
 check 'Alpha11 Core executable installed' test -x /var/jb/usr/libexec/idevelab-core
 check 'Alpha11 Core LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
 check 'Alpha11 Core LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
+check 'Root maintenance helper executable installed' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
+check 'Manager pairing command installed' test -x /var/jb/usr/bin/mod-hw-manager-pair
+check 'Root helper LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
+check 'Root helper LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
+if [ -f /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist ]; then
+  check 'Root helper LaunchDaemon runs as root' sh -c '[ "$(plutil -extract UserName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = root ]'
+  check 'Root helper LaunchDaemon uses wheel group' sh -c '[ "$(plutil -extract GroupName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = wheel ]'
+fi
 if plutil -extract UserName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist 2>/dev/null | grep -qx mobile; then
   echo '[PASS] Alpha11 Core runs as mobile (unprivileged)'
   PASS=$((PASS + 1))
@@ -42,10 +50,14 @@ if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
 fi
 if [ -n "$LAUNCHCTL" ]; then
   check 'Alpha11 Core launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.core.alpha11
+  check 'Root maintenance helper launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.maintenance.alpha11
 else
   echo '[FAIL] launchctl is unavailable in standard and Dopamine rootless paths'
   FAIL=$((FAIL + 1))
 fi
+MOBILE_GID_FOR_SOCKET="$(id -g mobile 2>/dev/null || echo unknown)"
+SOCKET_META="$(stat -f '%u:%g:%Lp' /var/run/com.idevelab.maintenance.sock 2>/dev/null || echo missing)"
+check 'Root helper socket is root:mobile with mode 0660' test "$SOCKET_META" = "0:$MOBILE_GID_FOR_SOCKET:660"
 if command -v curl >/dev/null 2>&1; then
   RESPONSE="$(curl --silent --show-error --fail --max-time 3 http://127.0.0.1:18081/status 2>/dev/null || true)"
   if contains "$RESPONSE" '"version":"0.3.0-alpha11"' && contains "$RESPONSE" '"mode":"read-only"'; then

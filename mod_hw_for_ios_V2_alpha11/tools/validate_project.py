@@ -231,6 +231,11 @@ for path, label in [
 ]:
     check(path.is_file(), label + " script exists")
 
+check("com.idevelab.maintenance.alpha11" in selftest.read_text() and
+      "mod-hw-maintenance-helper" in selftest.read_text() and
+      "mod-hw-manager-pair" in selftest.read_text() and "maintenance.sock" in selftest.read_text(),
+      "On-device self-test verifies root helper installation, launchd service, and protected local socket")
+
 if diagnostic.is_file():
     diag = diagnostic.read_text()
     check("plutil -lint" in diag, "Device diagnostic validates plist syntax")
