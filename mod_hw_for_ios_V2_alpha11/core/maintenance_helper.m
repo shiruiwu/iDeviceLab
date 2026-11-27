@@ -122,7 +122,7 @@ static BOOL ReadPinnedHash(uint8_t output[CS_CDHASH_LEN]) {
     char text[64] = {0};
     size_t count = fread(text, 1, sizeof(text) - 1, file);
     fclose(file);
-    if (count < 40) return NO;
+    if (!((count == 40) || (count == 41 && text[40] == '\n'))) return NO;
     for (size_t i = 0; i < CS_CDHASH_LEN; i++) {
         char pair[3] = {text[i * 2], text[i * 2 + 1], 0};
         char *end = NULL;
@@ -569,7 +569,7 @@ int main(void) {
 
         struct stat existing;
         if (lstat(kSocketPath, &existing) == 0) {
-            if (!S_ISSOCK(existing.st_mode)) return 3;
+            if (!S_ISSOCK(existing.st_mode) || existing.st_uid != 0) return 3;
             if (unlink(kSocketPath) != 0) return 4;
         } else if (errno != ENOENT) {
             return 5;
