@@ -125,12 +125,9 @@ final class ProfileStore: ObservableObject {
             String((0..<count).compactMap { _ in alphabet.randomElement() })
         }
         func randomMAC() -> String {
-            let raw = random(12, from: hexadecimal)
-            return stride(from: 0, to: 12, by: 2).map { index in
-                let start = raw.index(raw.startIndex, offsetBy: index)
-                let end = raw.index(start, offsetBy: 2)
-                return String(raw[start..<end])
-            }.joined(separator: ":")
+            var bytes = (0..<6).map { _ in UInt8.random(in: 0...255) }
+            bytes[0] = (bytes[0] & 0xFC) | 0x02
+            return bytes.map { String(format: "%02X", $0) }.joined(separator: ":")
         }
         let body = "35" + random(12, from: "0123456789")
         var checksum = 0
