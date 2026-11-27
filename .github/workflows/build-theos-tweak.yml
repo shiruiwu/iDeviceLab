@@ -59,6 +59,7 @@ jobs:
           dpkg-deb --info "$DIAGNOSTICS_PACKAGE"
           dpkg-deb --contents "$DIAGNOSTICS_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance'
           dpkg-deb --contents "$DIAGNOSTICS_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-app-clean'
+          dpkg-deb --contents "$DIAGNOSTICS_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-acceptance-iphone12'
           dpkg-deb --info "$CORE_PACKAGE"
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/libexec/idevelab-core'
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance-helper'
