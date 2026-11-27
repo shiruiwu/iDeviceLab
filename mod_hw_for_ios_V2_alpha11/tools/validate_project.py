@@ -277,12 +277,12 @@ if core_source.is_file():
     check('@"GET"' in core and 'ForwardMaintenanceRequest' in core and
           'com.idevelab.maintenance.sock' in core and '[path isEqualToString:@"/maintenance"]' in core and
           'ManagerBridgeTokenMatches' in core and 'MCMMetadataIdentifier' in core and
-          'sandbox_container_path_for_pid' in core and 'ManagerBundleIdentifierForPID' in core and
+          'managerContainer' in core and 'realpath(' in core and 'ManagerBundleIdentifierForPID' in core and
           'authenticatedBundleIdentifier' in core and
           '通信凭据与当前 Manager 进程不匹配' in core and
           'X-iDeviceLab-Manager-Token' in core and
           'application-containers-unreadable' not in core,
-          "Alpha11 Core resolves only the requesting Manager PID data container and verifies its private token before proxying to Root Helper")
+          "Alpha11 Core validates only the requesting Manager PID's supplied own data container and verifies its private token before proxying to Root Helper")
     check("INADDR_LOOPBACK" in core and "kPort = 18081" in core,
           "Alpha11 Core binds only to loopback port 18081")
     check('@"tools"' in core and 'InstalledMaintenanceTools' in core and
