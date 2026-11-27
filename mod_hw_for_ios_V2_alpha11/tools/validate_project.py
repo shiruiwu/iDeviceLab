@@ -17,17 +17,14 @@ manager = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
 gestalt_source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
 project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
-trollstore_entitlements_path = ROOT / "manager/TrollStore.entitlements"
-if trollstore_entitlements_path.is_file():
-    trollstore_entitlements = plistlib.loads(trollstore_entitlements_path.read_bytes())
-    check(trollstore_entitlements.get("com.apple.private.security.no-sandbox") is True and
-          not trollstore_entitlements.get("platform-application", False),
-          "TrollStore Manager receives only the no-sandbox entitlement needed for authenticated local Unix-socket IPC")
-else:
-    check(False, "TrollStore Manager entitlement file exists")
-check('ldid -S"$ENTITLEMENTS" "$BINARY"' in ipa and
-      'ldid -e "$BINARY"' in ipa and 'embedded-entitlements.plist' in ipa,
-      "TrollStore IPA build embeds and verifies Manager entitlements before packaging")
+sandboxed_ipa = (ROOT / "scripts/build-manager-sandboxed-ipa.sh").read_text()
+check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa and
+      "CURRENT_PROJECT_VERSION=16" in sandboxed_ipa and
+      "com.apple.private.security.no-sandbox" not in sandboxed_ipa and
+      "NSAllowsLocalNetworking" in sandboxed_ipa,
+      "Known-good sandboxed Manager Build16 keeps its Bundle ID and reaches Core over loopback HTTP")
+check('ldid -S "$BINARY"' in sandboxed_ipa and 'ldid -e "$BINARY"' in sandboxed_ipa,
+      "Sandboxed Manager is ad-hoc signed without privileged entitlements")
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
 theos_workflow_path = ROOT.parent / ".github/workflows/build-theos-tweak.yml"
 theos_workflow = theos_workflow_path.read_text() if theos_workflow_path.is_file() else ""
@@ -158,7 +155,8 @@ check("mod-hw-maintenance" in package_builder and "maintenance-dispatch.sh" in p
       "Rootless utility DEB packages the fixed-command terminal fallback dispatcher")
 check('acceptance-iphone12' in manager and "运行 iPhone 12 / iOS 16.2 最终验收" in manager,
       "Manager exposes the final read-only iPhone 12 acceptance gate")
-check("MaintenanceClient.request" in manager and "AF_UNIX" in manager and
+check("MaintenanceClient.request" in manager and "managerPID" in manager and
+      "127.0.0.1:18081/maintenance" in manager and
       'MaintenanceClient.request(action: "pair")' in manager and "func pairMaintenanceHelper()" in manager and
       "config-backup" in manager and "keychain-diagnose" in manager and "confirmationDialog" in manager and
       "helperPaired" in manager and "performMaintenance" in manager,
@@ -269,8 +267,9 @@ if postinst.is_file() and prerm.is_file():
 
 if core_source.is_file():
     core = core_source.read_text()
-    check('@"GET"' in core and '@"POST"' not in core and 'read-only endpoint' in core,
-          "Alpha11 Core exposes read-only HTTP methods only")
+    check('@"GET"' in core and 'ForwardMaintenanceRequest' in core and
+          'com.idevelab.maintenance.sock' in core and '[path isEqualToString:@"/maintenance"]' in core,
+          "Alpha11 Core proxies authenticated Manager requests to the local Root Helper")
     check("INADDR_LOOPBACK" in core and "kPort = 18081" in core,
           "Alpha11 Core binds only to loopback port 18081")
     check('@"tools"' in core and 'InstalledMaintenanceTools' in core and
@@ -285,7 +284,7 @@ if core_source.is_file():
           "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
 
 
-    check('@"version": @"0.3.2-alpha11"' in core,
+    check('@"version": @"0.3.4-alpha11"' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
           'HasSecureBackupMetadata' in core and
