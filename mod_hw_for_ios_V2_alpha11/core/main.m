@@ -186,46 +186,48 @@ static NSArray *AvailableBackups(void) {
     return backups;
 }
 
+static NSString *gManagerBridgeTokenFailureReason = @"not-checked";
 static BOOL ManagerBridgeTokenMatches(NSString *candidate) {
+    gManagerBridgeTokenFailureReason = @"invalid-header";
     if (![candidate isKindOfClass:NSString.class] || candidate.length != 64) return NO;
     NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
     if ([candidate rangeOfCharacterFromSet:invalid].location != NSNotFound) return NO;
-
     struct passwd *mobile = getpwnam("mobile");
-    if (!mobile) return NO;
-    NSString *containersRoot = @"/var/mobile/Containers/Data/Application";
+    if (!mobile) { gManagerBridgeTokenFailureReason = @"mobile-account-missing"; return NO; }
+    NSString *root = @"/var/mobile/Containers/Data/Application";
     struct stat rootStat;
-    if (lstat(containersRoot.fileSystemRepresentation, &rootStat) != 0 || !S_ISDIR(rootStat.st_mode)) return NO;
-    NSArray<NSString *> *entries = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:containersRoot error:nil];
+    if (stat(root.fileSystemRepresentation, &rootStat) != 0 || !S_ISDIR(rootStat.st_mode)) { gManagerBridgeTokenFailureReason = @"application-containers-unavailable"; return NO; }
+    NSArray<NSString *> *entries = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:root error:nil];
+    if (![entries isKindOfClass:NSArray.class]) { gManagerBridgeTokenFailureReason = @"application-containers-unreadable"; return NO; }
+    NSUInteger managerContainers = 0, tokenFiles = 0, validTokenFiles = 0;
     for (NSString *entry in entries) {
         if (entry.length < 30 || [entry containsString:@"/"] || [entry containsString:@".."]) continue;
-        NSString *container = [containersRoot stringByAppendingPathComponent:entry];
+        NSString *container = [root stringByAppendingPathComponent:entry];
         struct stat containerStat;
-        if (lstat(container.fileSystemRepresentation, &containerStat) != 0 ||
-            !S_ISDIR(containerStat.st_mode) || containerStat.st_uid != mobile->pw_uid) continue;
-
+        if (stat(container.fileSystemRepresentation, &containerStat) != 0 || !S_ISDIR(containerStat.st_mode) || containerStat.st_uid != mobile->pw_uid) continue;
         NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
-        struct stat metadataStat;
-        if (lstat(metadataPath.fileSystemRepresentation, &metadataStat) != 0 || !S_ISREG(metadataStat.st_mode)) continue;
         NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
         NSString *identifier = metadata[@"MCMMetadataIdentifier"];
-        if (![identifier isEqualToString:@"com.modhw.manager.sandboxed"] &&
-            ![identifier isEqualToString:@"com.modhw.manager"]) continue;
-
-        NSString *supportPath = [container stringByAppendingPathComponent:@"Library/Application Support"];
-        NSString *tokenPath = [supportPath stringByAppendingPathComponent:@"idevelab-manager-bridge.token"];
+        if (![identifier isEqualToString:@"com.modhw.manager.sandboxed"] && ![identifier isEqualToString:@"com.modhw.manager"]) continue;
+        managerContainers++;
+        NSString *tokenPath = [[container stringByAppendingPathComponent:@"Library/Application Support"] stringByAppendingPathComponent:@"idevelab-manager-bridge.token"];
         struct stat tokenStat;
-        if (lstat(tokenPath.fileSystemRepresentation, &tokenStat) != 0 ||
-            !S_ISREG(tokenStat.st_mode) || tokenStat.st_uid != mobile->pw_uid ||
-            (tokenStat.st_mode & 07777) != 0600 || tokenStat.st_size != 64) continue;
+        if (lstat(tokenPath.fileSystemRepresentation, &tokenStat) != 0) continue;
+        tokenFiles++;
+        if (!S_ISREG(tokenStat.st_mode) || tokenStat.st_uid != mobile->pw_uid || (tokenStat.st_mode & 0777) != 0600 || tokenStat.st_size != 64) continue;
         NSData *stored = [NSData dataWithContentsOfFile:tokenPath options:NSDataReadingMappedIfSafe error:nil];
         NSData *supplied = [candidate dataUsingEncoding:NSASCIIStringEncoding];
         if (stored.length != 64 || supplied.length != 64) continue;
+        validTokenFiles++;
         const uint8_t *a = stored.bytes, *b = supplied.bytes;
         uint8_t difference = 0;
         for (NSUInteger i = 0; i < 64; i++) difference |= (uint8_t)(a[i] ^ b[i]);
-        if (difference == 0) return YES;
+        if (difference == 0) { gManagerBridgeTokenFailureReason = @"matched"; return YES; }
     }
+    if (managerContainers == 0) gManagerBridgeTokenFailureReason = @"manager-container-not-found";
+    else if (tokenFiles == 0) gManagerBridgeTokenFailureReason = @"manager-token-file-not-found";
+    else if (validTokenFiles == 0) gManagerBridgeTokenFailureReason = @"manager-token-file-permissions-or-format-invalid";
+    else gManagerBridgeTokenFailureReason = @"manager-token-mismatch";
     return NO;
 }
 
@@ -288,7 +290,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSString
     NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"/";
     if ([path isEqualToString:@"/maintenance"] && [method isEqualToString:@"GET"]) {
         if (!ManagerBridgeTokenMatches(bridgeToken)) {
-            return @{@"ok": @NO, @"error": @"Manager 私有通信凭据验证失败，拒绝维护请求。"};
+            return @{@"ok": @NO, @"error": [NSString stringWithFormat:@"Manager 私有通信凭据验证失败（%@），拒绝维护请求。", gManagerBridgeTokenFailureReason]};
         }
         NSURLComponents *components = [NSURLComponents componentsWithString:[@"http://127.0.0.1" stringByAppendingString:target]];
         NSString *json = nil;
