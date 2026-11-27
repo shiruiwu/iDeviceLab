@@ -612,7 +612,7 @@ struct ContentView: View {
                     }
                 }
             } else {
-                TextField("Bundle ID", text: $maintenanceBundleID)
+                TextField("应用标识（Bundle ID）", text: $maintenanceBundleID)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
             }
         }
@@ -1398,7 +1398,7 @@ struct ContentView: View {
                 entries = dictionary.keys.sorted().map { key in
                     PlistEntry(key: key, typeName: Self.typeName(dictionary[key]))
                 }
-                status = "导入成功（\(format == .binary ? "Binary" : "XML") plist）。已读取字段名称和类型；字段值未展示，导出保留原始字节。"
+                status = "导入成功（\(format == .binary ? "二进制" : "XML") plist）。已读取字段名称和类型；字段值未展示，导出保留原始字节。"
             } else if let array = object as? [Any] {
                 rootType = "Array"
                 entries = array.enumerated().map { index, value in
@@ -1422,14 +1422,14 @@ struct ContentView: View {
 
     private static func typeName(_ value: Any?) -> String {
         guard let value else { return "缺失" }
-        if value is String { return "String" }
-        if value is Data { return "Data" }
-        if value is Date { return "Date" }
+        if value is String { return "字符串" }
+        if value is Data { return "数据" }
+        if value is Date { return "日期" }
         if let number = value as? NSNumber {
-            return CFGetTypeID(number) == CFBooleanGetTypeID() ? "Boolean" : "Number"
+            return CFGetTypeID(number) == CFBooleanGetTypeID() ? "布尔值" : "数字"
         }
-        if value is [String: Any] { return "Dictionary" }
-        if value is [Any] { return "Array" }
+        if value is [String: Any] { return "字典" }
+        if value is [Any] { return "数组" }
         return String(describing: type(of: value))
     }
 }
