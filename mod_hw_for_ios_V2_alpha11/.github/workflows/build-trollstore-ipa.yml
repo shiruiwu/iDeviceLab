@@ -3,6 +3,8 @@ name: Build TrollStore IPA
 on:
   workflow_dispatch:
   push:
+    branches:
+      - 'mod-hw-alpha11'
     tags:
       - 'v*'
 
@@ -28,7 +30,7 @@ jobs:
 
       - name: Run project checks
         run: |
-          swiftc -frontend -parse manager/ModHWManager/ModHWManagerApp.swift
+          find manager -name '*.swift' -print0 | xargs -0 -n1 swiftc -frontend -parse
           bash -n scripts/build-trollstore-ipa.sh
 
       - name: Build unsigned TrollStore IPA
