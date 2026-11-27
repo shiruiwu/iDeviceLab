@@ -23,16 +23,30 @@ check '设备为 iPhone 12（iPhone13,2）' test "$DEVICE_MODEL" = "iPhone13,2"
 check '系统版本为 iOS 16.2' test "$IOS_VERSION" = "16.2"
 check 'Rootless 越狱目录存在' test -d /var/jb
 check '统一完整套件 DEB 已安装' package_installed com.idevelab.fullsuite.alpha11
+PACKAGE_IDENTITY="$(dpkg-query -W -f='${Version}|${Architecture}' com.idevelab.fullsuite.alpha11 2>/dev/null || true)"
+check '完整套件版本和架构正确（2.0.0~alpha11 / iphoneos-arm64）' test "$PACKAGE_IDENTITY" = '2.0.0~alpha11|iphoneos-arm64'
 check 'Core 二进制存在' test -x /var/jb/usr/libexec/idevelab-core
 check 'Root Helper 二进制存在' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
 check 'Manager 配对工具存在' test -x /var/jb/usr/bin/mod-hw-manager-pair
 check '原作者 Hook 动态库存在' test -f /var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.dylib
 check '原作者 Hook 过滤 plist 存在' test -f /var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist
 
-APP_INFO="$(find /var/containers/Bundle/Application -path '*/ModHWManager.app/Info.plist' -print -quit 2>/dev/null || true)"
-check 'TrollStore 管理器 App 已安装' test -n "$APP_INFO"
+APP_INFO=''
+APP_COUNT=0
+for candidate in /var/containers/Bundle/Application/*/ModHWManager.app/Info.plist; do
+  [ -f "$candidate" ] || continue
+  APP_INFO="$candidate"
+  APP_COUNT=$((APP_COUNT + 1))
+done
+check 'TrollStore 管理器 App 唯一安装（避免误验收旧副本）' test "$APP_COUNT" -eq 1
 APP_BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw -o - "$APP_INFO" 2>/dev/null || true)"
 check '管理器 Bundle ID 正确' test "$APP_BUNDLE_ID" = "com.modhw.manager"
+APP_BUILD_VERSION="$(plutil -extract CFBundleVersion raw -o - "$APP_INFO" 2>/dev/null || true)"
+check '管理器 Build 版本为 9' test "$APP_BUILD_VERSION" = "9"
+APP_EXECUTABLE="$(plutil -extract CFBundleExecutable raw -o - "$APP_INFO" 2>/dev/null || true)"
+APP_BINARY="$(dirname "$APP_INFO")/$APP_EXECUTABLE"
+check '管理器主程序存在且不是符号链接' test -f "$APP_BINARY"
+check '管理器主程序可执行' test -x "$APP_BINARY"
 
 PIN_PATH='/var/jb/var/root/Library/Preferences/com.idevelab.manager-cdhash'
 check '管理器已完成 Root Helper 配对' test -s "$PIN_PATH"

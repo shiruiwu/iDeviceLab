@@ -336,9 +336,12 @@ check("com.idevelab.maintenance.alpha11" in selftest.read_text() and
 
 acceptance_script = ROOT / "scripts/acceptance-iphone12.sh"
 check(acceptance_script.is_file() and "com.idevelab.fullsuite.alpha11" in acceptance_script.read_text() and
+      "2.0.0~alpha11|iphoneos-arm64" in acceptance_script.read_text() and
+      "APP_COUNT" in acceptance_script.read_text() and "CFBundleVersion" in acceptance_script.read_text() and
+      "CFBundleExecutable" in acceptance_script.read_text() and
       "iPhone13,2" in acceptance_script.read_text() and "16.2" in acceptance_script.read_text() and
       "mod-hw-selftest" in acceptance_script.read_text(),
-      "Read-only final acceptance script targets the unified package and iPhone 12 / iOS 16.2")
+      "Final acceptance validates exact full-suite package identity, unique Manager install/build, and iPhone 12 / iOS 16.2")
 
 if diagnostic.is_file():
     diag = diagnostic.read_text()
