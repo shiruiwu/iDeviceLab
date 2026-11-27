@@ -322,9 +322,10 @@ check("com.idevelab.maintenance.alpha11" in selftest.read_text() and
       "On-device self-test verifies root helper installation, launchd service, and protected local socket")
 
 acceptance_script = ROOT / "scripts/acceptance-iphone12.sh"
-check(acceptance_script.is_file() and "iPhone13,2" in acceptance_script.read_text() and
-      "16.2" in acceptance_script.read_text() and "mod-hw-selftest" in acceptance_script.read_text(),
-      "Read-only final acceptance script targets iPhone 12 / iOS 16.2 and runs the device self-test")
+check(acceptance_script.is_file() and "com.idevelab.fullsuite.alpha11" in acceptance_script.read_text() and
+      "iPhone13,2" in acceptance_script.read_text() and "16.2" in acceptance_script.read_text() and
+      "mod-hw-selftest" in acceptance_script.read_text(),
+      "Read-only final acceptance script targets the unified package and iPhone 12 / iOS 16.2")
 
 if diagnostic.is_file():
     diag = diagnostic.read_text()

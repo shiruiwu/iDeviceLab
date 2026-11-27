@@ -22,9 +22,7 @@ IOS_VERSION="$(plutil -extract ProductVersion raw -o - /System/Library/CoreServi
 check '设备为 iPhone 12（iPhone13,2）' test "$DEVICE_MODEL" = "iPhone13,2"
 check '系统版本为 iOS 16.2' test "$IOS_VERSION" = "16.2"
 check 'Rootless 越狱目录存在' test -d /var/jb
-check 'Alpha11 Core DEB 已安装' package_installed com.idevelab.core.alpha11
-check '诊断与维护工具 DEB 已安装' package_installed com.modhw.ios.diagnostics
-check '原作者 Hook tweak DEB 已安装' package_installed com.modhw.ios
+check '统一完整套件 DEB 已安装' package_installed com.idevelab.fullsuite.alpha11
 check 'Core 二进制存在' test -x /var/jb/usr/libexec/idevelab-core
 check 'Root Helper 二进制存在' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
 check 'Manager 配对工具存在' test -x /var/jb/usr/bin/mod-hw-manager-pair
