@@ -37,7 +37,7 @@ private struct ManagerLaunchGate: View {
                         .multilineTextAlignment(.center)
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 28)
-                    Text("设备：\\(UIDevice.current.model)    系统：iOS \\(UIDevice.current.systemVersion)")
+                    Text("设备：\(UIDevice.current.model)    系统：iOS \(UIDevice.current.systemVersion)")
                         .font(.footnote.monospaced())
                         .foregroundColor(.secondary)
                     Button {
