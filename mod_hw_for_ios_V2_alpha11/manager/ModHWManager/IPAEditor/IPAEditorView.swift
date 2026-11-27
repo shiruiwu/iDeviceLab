@@ -406,7 +406,7 @@ struct IPAEditorView: View {
                 }
 
                 if isImporting {
-                    IPALoadingRow(text: "Reading IPA…")
+                    IPALoadingRow(text: "正在读取 IPA…")
                 }
 
                 if let errorMessage {
@@ -863,7 +863,7 @@ struct IPAEditorView: View {
                 clearStaleExportState()
             }
 
-            Text("\(cleanDisplayName.count)/30 characters")
+            Text("\(cleanDisplayName.count)/30 个字符")
                 .font(.caption)
                 .foregroundColor(cleanDisplayName.count > 30 ? .red : .secondary)
         }
@@ -1792,7 +1792,7 @@ struct IPAEditorView: View {
             return ""
         }
 
-        return "Applied: " + labels.joined(separator: ", ")
+        return "已应用：" + labels.joined(separator: ", ")
     }
 
 
