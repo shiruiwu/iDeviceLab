@@ -30,9 +30,10 @@ BINARY="$PAYLOAD/StartupProbe.app/StartupProbe"
 file "$BINARY" | grep -q 'Mach-O'
 lipo "$BINARY" -verify_arch arm64
 LINKS="$(otool -L "$BINARY")"
-if grep -E 'SwiftUI\.framework|PhotosUI\.framework|Combine\.framework|libswiftPhotosUI|libswiftUniformTypeIdentifiers' <<< "$LINKS"; then
-    echo "纯 UIKit 探针意外链接了高层 UI/媒体运行库。" >&2
-    exit 6
+grep -q 'UIKit.framework/UIKit' <<< "$LINKS" || { echo "探针没有链接 UIKit。" >&2; exit 6; }
+if grep -E 'libswift[^[:space:]]*' <<< "$LINKS"; then
+    echo "Objective-C 探针意外依赖 Swift 运行时。" >&2
+    exit 7
 fi
 ldid -S"$ENTITLEMENTS" "$BINARY"
 ldid -e "$BINARY" > "$BUILD_DIR/embedded-entitlements.plist"
