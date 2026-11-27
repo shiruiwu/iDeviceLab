@@ -56,8 +56,8 @@ jobs:
           test -d build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
 
       - name: Launch Release app and capture runtime diagnostics
-        if: false
-        timeout-minutes: 5
+        if: true
+        timeout-minutes: 8
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -137,7 +137,7 @@ jobs:
       - name: Upload sandboxed full Manager diagnostic IPA
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-sandboxed-build14
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build14.ipa
+          name: mod-hw-manager-sandboxed-build15
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build15.ipa
           if-no-files-found: error
           retention-days: 14
