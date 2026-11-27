@@ -34,7 +34,12 @@ jobs:
           find manager -name '*.swift' -print0 | xargs -0 -n1 swiftc -frontend -parse
 
       - name: Check build script syntax
-        run: bash -n scripts/build-trollstore-ipa.sh
+        run: |
+          bash -n scripts/build-trollstore-ipa.sh
+          bash -n scripts/build-startup-probe-ipa.sh
+
+      - name: Build isolated UIKit-only startup probe
+        run: bash scripts/build-startup-probe-ipa.sh
 
       - name: Build Release iOS Simulator smoke-test app
         run: |
@@ -107,5 +112,13 @@ jobs:
         with:
           name: mod-hw-manager-build11-uikit-diagnostic
           path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload pure UIKit startup probe IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-hw-manager-pure-uikit-probe-build12
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_startup_probe_build12.ipa
           if-no-files-found: error
           retention-days: 14
