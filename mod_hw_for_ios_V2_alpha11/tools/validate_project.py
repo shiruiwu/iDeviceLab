@@ -262,6 +262,11 @@ check("com.idevelab.maintenance.alpha11" in selftest.read_text() and
       "mod-hw-manager-pair" in selftest.read_text() and "maintenance.sock" in selftest.read_text(),
       "On-device self-test verifies root helper installation, launchd service, and protected local socket")
 
+acceptance_script = ROOT / "scripts/acceptance-iphone12.sh"
+check(acceptance_script.is_file() and "iPhone13,2" in acceptance_script.read_text() and
+      "16.2" in acceptance_script.read_text() and "mod-hw-selftest" in acceptance_script.read_text(),
+      "Read-only final acceptance script targets iPhone 12 / iOS 16.2 and runs the device self-test")
+
 if diagnostic.is_file():
     diag = diagnostic.read_text()
     check("plutil -lint" in diag, "Device diagnostic validates plist syntax")
