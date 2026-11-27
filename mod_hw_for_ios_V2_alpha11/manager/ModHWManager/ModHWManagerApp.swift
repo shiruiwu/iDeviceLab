@@ -1248,7 +1248,7 @@ struct ContentView: View {
                       payload["ok"] as? Bool == true,
                       let service = payload["service"] as? String,
                       let version = payload["version"] as? String,
-                      payload["mode"] as? String == "read-only" else {
+                      payload["mode"] as? String == "authenticated-manager-bridge" else {
                     coreStatus = "响应格式不匹配（不是预期的 Core 服务）"
                     return
                 }
