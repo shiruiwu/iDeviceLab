@@ -43,19 +43,28 @@ for component in components:
         relative = os.path.relpath(root, source)
         target_root = destination if relative == "." else os.path.join(destination, relative)
         os.makedirs(target_root, exist_ok=True)
+        if any(os.path.islink(os.path.join(root, name)) for name in dirs):
+            raise SystemExit("Symlinked package directories are not accepted: " + component)
         for name in files:
             src = os.path.join(root, name)
             dst = os.path.join(target_root, name)
+            source_is_link = os.path.islink(src)
             if os.path.lexists(dst):
-                same = os.path.isfile(dst) and os.path.isfile(src)
-                if same:
-                    with open(dst, "rb") as left, open(src, "rb") as right:
-                        same = left.read() == right.read()
+                if source_is_link:
+                    same = os.path.islink(dst) and os.readlink(dst) == os.readlink(src)
+                else:
+                    same = not os.path.islink(dst) and os.path.isfile(dst) and os.path.isfile(src)
+                    if same:
+                        with open(dst, "rb") as left, open(src, "rb") as right:
+                            same = left.read() == right.read()
                 if not same:
                     raise SystemExit("Conflicting payload path: " + os.path.relpath(dst, destination))
                 continue
-            shutil.copy2(src, dst)
-            os.chmod(dst, stat.S_IMODE(os.stat(src).st_mode))
+            if source_is_link:
+                os.symlink(os.readlink(src), dst)
+            else:
+                shutil.copy2(src, dst)
+                os.chmod(dst, stat.S_IMODE(os.stat(src).st_mode))
 PY
 
 for hook in postinst prerm postrm; do
