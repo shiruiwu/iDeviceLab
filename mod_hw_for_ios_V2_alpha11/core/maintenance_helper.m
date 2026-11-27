@@ -159,6 +159,7 @@ static BOOL PeerMatchesPinned(pid_t pid) {
 
 
 static BOOL ProcessExecutablePath(pid_t pid, char output[4096]) {
+    if (pid <= 1) return NO;
     int mib[3] = {CTL_KERN, KERN_PROCARGS2, pid};
     size_t size = 0;
     if (sysctl(mib, 3, NULL, &size, NULL, 0) != 0 || size < sizeof(int) + 2 || size > 1024 * 1024) return NO;
@@ -181,6 +182,10 @@ static BOOL ProcessExecutablePath(pid_t pid, char output[4096]) {
 }
 
 static BOOL PairManagerProcess(pid_t pid, NSString **message) {
+    if (pid <= 1) {
+        if (message) *message = @"Manager 进程标识无效。";
+        return NO;
+    }
     char executable[4096] = {0};
     if (!ProcessExecutablePath(pid, executable)) {
         if (message) *message = @"无法读取管理器进程路径。";
@@ -244,6 +249,22 @@ static BOOL PairManagerProcess(pid_t pid, NSString **message) {
     if (!saved || rename(temporary, kPinPath) != 0) {
         unlink(temporary);
         if (message) *message = @"写入 Manager 配对记录失败。";
+        return NO;
+    }
+    uint8_t persistedHash[CS_CDHASH_LEN] = {0};
+    if (!ReadPinnedHash(persistedHash) || memcmp(hash, persistedHash, sizeof(hash)) != 0) {
+        unlink(kPinPath);
+        if (message) *message = @"配对记录写入后校验失败，已清除无效记录。";
+        return NO;
+    }
+    uint32_t finalStatus = 0;
+    uint8_t finalHash[CS_CDHASH_LEN] = {0};
+    if (QueryCSOps(pid, CS_OPS_STATUS, &finalStatus, sizeof(finalStatus)) != 0 ||
+        (finalStatus & CS_VALID) == 0 || (finalStatus & CS_KILLED) != 0 ||
+        QueryCSOps(pid, CS_OPS_CDHASH, finalHash, sizeof(finalHash)) != 0 ||
+        memcmp(hash, finalHash, sizeof(hash)) != 0) {
+        unlink(kPinPath);
+        if (message) *message = @"配对期间 Manager 进程已退出或签名发生变化，请重新打开管理器后配对。";
         return NO;
     }
     if (message) *message = @"Manager 已完成签名配对。现在可以使用受限维护功能。";
@@ -340,6 +361,13 @@ static int RunFixedTool(const char *path, NSArray<NSString *> *arguments, NSStri
     return 1;
 }
 
+
+static BOOL PeerIsTrustedCore(int fd, pid_t *peerPID) {
+    if (!PeerIsMobile(fd, peerPID)) return NO;
+    char executable[4096] = {0};
+    if (!ProcessExecutablePath(*peerPID, executable)) return NO;
+    return strcmp(executable, "/var/jb/usr/libexec/idevelab-core") == 0;
+}
 
 static BOOL MatchesCharacterSet(NSString *value, NSUInteger minimum, NSUInteger maximum, NSString *allowedCharacters) {
     if (![value isKindOfClass:NSString.class] || value.length < minimum || value.length > maximum) return NO;
@@ -634,8 +662,8 @@ static void HandleClient(int fd) {
     struct timeval timeout = {.tv_sec = 5, .tv_usec = 0};
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     pid_t peer = 0;
-    if (!PeerIsMobile(fd, &peer)) {
-        SendJSON(fd, Failure(@"仅允许本机 mobile 用户连接。"));
+    if (!PeerIsTrustedCore(fd, &peer)) {
+        SendJSON(fd, Failure(@"仅允许已安装的 iDeviceLab Core 服务连接。"));
         return;
     }
     NSDictionary *request = nil;
@@ -645,7 +673,12 @@ static void HandleClient(int fd) {
     }
     NSString *action = request[@"action"];
     NSNumber *managerPIDValue = request[@"managerPID"];
-    pid_t managerPID = [managerPIDValue isKindOfClass:NSNumber.class] ? (pid_t)managerPIDValue.intValue : peer;
+    if (![managerPIDValue isKindOfClass:NSNumber.class] ||
+        managerPIDValue.longLongValue <= 1 || managerPIDValue.longLongValue > INT_MAX) {
+        SendJSON(fd, Failure(@"缺少有效的 Manager 进程标识。"));
+        return;
+    }
+    pid_t managerPID = (pid_t)managerPIDValue.intValue;
     if (managerPID <= 1) {
         SendJSON(fd, Failure(@"Manager 进程标识无效。"));
         return;
