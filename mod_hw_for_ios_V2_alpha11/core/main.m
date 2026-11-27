@@ -186,6 +186,60 @@ static NSArray *AvailableBackups(void) {
     return backups;
 }
 
+static BOOL ManagerBridgeTokenMatches(NSString *candidate) {
+    if (![candidate isKindOfClass:NSString.class] || candidate.length != 64) return NO;
+    NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
+    if ([candidate rangeOfCharacterFromSet:invalid].location != NSNotFound) return NO;
+
+    struct passwd *mobile = getpwnam("mobile");
+    if (!mobile) return NO;
+    NSString *containersRoot = @"/var/mobile/Containers/Data/Application";
+    struct stat rootStat;
+    if (lstat(containersRoot.fileSystemRepresentation, &rootStat) != 0 || !S_ISDIR(rootStat.st_mode)) return NO;
+    NSArray<NSString *> *entries = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:containersRoot error:nil];
+    for (NSString *entry in entries) {
+        if (entry.length < 30 || [entry containsString:@"/"] || [entry containsString:@".."]) continue;
+        NSString *container = [containersRoot stringByAppendingPathComponent:entry];
+        struct stat containerStat;
+        if (lstat(container.fileSystemRepresentation, &containerStat) != 0 ||
+            !S_ISDIR(containerStat.st_mode) || containerStat.st_uid != mobile->pw_uid) continue;
+
+        NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
+        struct stat metadataStat;
+        if (lstat(metadataPath.fileSystemRepresentation, &metadataStat) != 0 || !S_ISREG(metadataStat.st_mode)) continue;
+        NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
+        NSString *identifier = metadata[@"MCMMetadataIdentifier"];
+        if (![identifier isEqualToString:@"com.modhw.manager.sandboxed"] &&
+            ![identifier isEqualToString:@"com.modhw.manager"]) continue;
+
+        NSString *supportPath = [container stringByAppendingPathComponent:@"Library/Application Support"];
+        NSString *tokenPath = [supportPath stringByAppendingPathComponent:@"idevelab-manager-bridge.token"];
+        struct stat tokenStat;
+        if (lstat(tokenPath.fileSystemRepresentation, &tokenStat) != 0 ||
+            !S_ISREG(tokenStat.st_mode) || tokenStat.st_uid != mobile->pw_uid ||
+            (tokenStat.st_mode & 07777) != 0600 || tokenStat.st_size != 64) continue;
+        NSData *stored = [NSData dataWithContentsOfFile:tokenPath options:NSDataReadingMappedIfSafe error:nil];
+        NSData *supplied = [candidate dataUsingEncoding:NSASCIIStringEncoding];
+        if (stored.length != 64 || supplied.length != 64) continue;
+        const uint8_t *a = stored.bytes, *b = supplied.bytes;
+        uint8_t difference = 0;
+        for (NSUInteger i = 0; i < 64; i++) difference |= (uint8_t)(a[i] ^ b[i]);
+        if (difference == 0) return YES;
+    }
+    return NO;
+}
+
+static NSString *HTTPHeaderValue(NSArray<NSString *> *lines, NSString *headerName) {
+    for (NSString *line in lines) {
+        NSRange separator = [line rangeOfString:@":"];
+        if (separator.location == NSNotFound) continue;
+        NSString *name = [[line substringToIndex:separator.location] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        if ([name caseInsensitiveCompare:headerName] != NSOrderedSame) continue;
+        return [[line substringFromIndex:separator.location + 1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+    }
+    return nil;
+}
+
 static NSDictionary *ForwardMaintenanceRequest(NSDictionary *request) {
     NSData *payload = [NSJSONSerialization dataWithJSONObject:request options:0 error:nil];
     if (!payload || payload.length > 32768) return @{@"ok": @NO, @"error": @"维护请求无效或过大。"};
@@ -230,9 +284,12 @@ static NSDictionary *ForwardMaintenanceRequest(NSDictionary *request) {
     return object;
 }
 
-static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
+static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSString *bridgeToken) {
     NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"/";
     if ([path isEqualToString:@"/maintenance"] && [method isEqualToString:@"GET"]) {
+        if (!ManagerBridgeTokenMatches(bridgeToken)) {
+            return @{@"ok": @NO, @"error": @"Manager 私有通信凭据验证失败，拒绝维护请求。"};
+        }
         NSURLComponents *components = [NSURLComponents componentsWithString:[@"http://127.0.0.1" stringByAppendingString:target]];
         NSString *json = nil;
         for (NSURLQueryItem *item in components.queryItems) if ([item.name isEqualToString:@"request"]) { json = item.value; break; }
@@ -324,7 +381,8 @@ int main(void) {
                                      [path isEqualToString:@"/tools"] ||
                                      [path isEqualToString:@"/profiles"] ||
                                      [path isEqualToString:@"/backups"];
-                        NSDictionary *result = ProcessRequest(method, target);
+                        NSString *bridgeToken = HTTPHeaderValue(lines, @"X-iDeviceLab-Manager-Token");
+                        NSDictionary *result = ProcessRequest(method, target, bridgeToken);
                         int status = ![method isEqualToString:@"GET"] ? 405 : (known ? 200 : 404);
                         Reply(client, result, status);
                     } else {
