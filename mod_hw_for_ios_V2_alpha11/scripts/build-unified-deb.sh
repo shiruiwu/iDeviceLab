@@ -20,13 +20,18 @@ TWEAK_PACKAGE="${TWEAK_PACKAGES[0]}"
 command -v dpkg-deb >/dev/null 2>&1 || { echo "缺少 dpkg-deb。" >&2; exit 3; }
 
 assert_package_field() {
-  package="$1"; field="$2"; expected="$3"
-  actual="$(dpkg-deb -f "$package" "$field")" || {
-    echo "无法读取包字段 $field：$package" >&2; exit 3;
+  local package_path="$1"
+  local field_name="$2"
+  local expected_value="$3"
+  local got_value
+  got_value="$(dpkg-deb -f "$package_path" "$field_name")" || {
+    echo "无法读取包字段 $field_name：$package_path" >&2
+    exit 3
   }
-  [ "$actual" = "$expected" ] || {
-    echo "包身份校验失败：$package 的 $field=$actual，预期 $expected" >&2; exit 3;
-  }
+  if [ "$got_value" != "$expected_value" ]; then
+    echo "包身份校验失败：$package_path 的 $field_name=$got_value，预期 $expected_value" >&2
+    exit 3
+  fi
 }
 assert_package_field "$TWEAK_PACKAGE" Package com.modhw.ios
 assert_package_field "$TWEAK_PACKAGE" Version '2.0.2~alpha11'
@@ -53,8 +58,6 @@ dpkg-deb -e "$TWEAK_PACKAGE" "$WORK/control-tweak"
 dpkg-deb -e "$DIAGNOSTICS_PACKAGE" "$WORK/control-diagnostics"
 dpkg-deb -e "$CORE_PACKAGE" "$WORK/control-core"
 
-# The unified package owns the complete payload. Avoid silently dropping
-# maintainer scripts if an upstream component later adds its own lifecycle hook.
 for component in tweak diagnostics core; do
   for hook in preinst postinst prerm postrm; do
     if [ -e "$WORK/control-$component/$hook" ]; then
@@ -76,8 +79,7 @@ done
 python3 - "$WORK" "$PKG" <<'PY'
 import os, shutil, stat, sys
 work, destination = sys.argv[1:]
-components = ("tweak", "diagnostics", "core")
-for component in components:
+for component in ("tweak", "diagnostics", "core"):
     source = os.path.join(work, component)
     for root, dirs, files in os.walk(source):
         relative = os.path.relpath(root, source)
@@ -88,9 +90,8 @@ for component in components:
         for name in files:
             src = os.path.join(root, name)
             dst = os.path.join(target_root, name)
-            source_is_link = os.path.islink(src)
             if os.path.lexists(dst):
-                if source_is_link:
+                if os.path.islink(src):
                     same = os.path.islink(dst) and os.readlink(dst) == os.readlink(src)
                 else:
                     same = not os.path.islink(dst) and os.path.isfile(dst) and os.path.isfile(src)
@@ -100,7 +101,7 @@ for component in components:
                 if not same:
                     raise SystemExit("Conflicting payload path: " + os.path.relpath(dst, destination))
                 continue
-            if source_is_link:
+            if os.path.islink(src):
                 os.symlink(os.readlink(src), dst)
             else:
                 shutil.copy2(src, dst)
@@ -134,7 +135,7 @@ assert_package_field "$FULL_PACKAGE" Depends 'firmware (>= 15.0), mobilesubstrat
 assert_package_field "$FULL_PACKAGE" Replaces 'com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11'
 assert_package_field "$FULL_PACKAGE" Conflicts 'com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11'
 dpkg-deb --info "$FULL_PACKAGE"
-CONTENTS="$(dpkg-deb --contents "$OUT/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb")"
+CONTENTS="$(dpkg-deb --contents "$FULL_PACKAGE")"
 for expected in \
   'var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.dylib' \
   'var/jb/usr/bin/mod-hw-app-backup' \
