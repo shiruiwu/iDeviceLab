@@ -301,7 +301,7 @@ static BOOL ValidateHookProfile(NSDictionary *profile, NSString **errorMessage) 
                 if (errorMessage) *errorMessage = [NSString stringWithFormat:@"%@ 必须是字符串。", rawKey];
                 return NO;
             }
-            NSString *text = [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+            NSString *text = [value stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
             BOOL valid = NO;
             if ([rawKey isEqualToString:@"SerialNumber"]) {
                 valid = MatchesCharacterSet(text, 1, 32, @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
@@ -430,7 +430,7 @@ static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, NSString
         NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
         formatter.locale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"];
         formatter.dateFormat = @"yyyyMMdd-HHmmss";
-        NSString *backupName = [NSString stringWithFormat:@"%@-%@-%d.plist", bundleID, [formatter stringFromDate:NSDate.date], getpid()];
+        NSString *backupName = [NSString stringWithFormat:@"%@-%@-%d.plist", bundleID, [formatter stringFromDate:[NSDate date]], getpid()];
         backupPath = [backupRoot stringByAppendingPathComponent:backupName];
         if (!WriteSecureFile(backupPath, oldData, mobile->pw_gid)) {
             if (message) *message = @"旧配置备份失败，已取消写入。";
