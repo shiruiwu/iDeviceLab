@@ -60,7 +60,7 @@ check("fileImporter" in manager and "fileExporter" in manager, "Manager imports 
 check("TabView" in manager and "设备总览" in manager and "配置管理" in manager and
       "备份与维护" in manager and "设备诊断" in manager,
       "Manager exposes the integrated dashboard, profiles, maintenance, and diagnostics navigation")
-check("mod-hw-maintenance" in manager and "case \\"$ACTION\\" in" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
+check("mod-hw-maintenance" in manager and 'case "$ACTION" in' in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       "必须在越狱终端以 root 身份运行" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       all(action in (ROOT / "scripts/maintenance-dispatch.sh").read_text() for action in ("backup)", "verify)", "restore)", "clean)")) and
       "未知操作" in (ROOT / "scripts/maintenance-dispatch.sh").read_text(),
