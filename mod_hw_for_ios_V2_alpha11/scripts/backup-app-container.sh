@@ -84,6 +84,12 @@ fi
 
 tar -czpf "$TMP" -C "$MATCH" .
 tar -tzf "$TMP" >/dev/null
+# Restore and cleanup reject links and special files. Do not publish a backup
+# that passes SHA verification but cannot be safely restored.
+if ! tar -tvzf "$TMP" | awk 'substr($0,1,1) != "-" && substr($0,1,1) != "d" { bad=1 } END { exit bad }'; then
+  echo '目标容器含符号链接或特殊文件；为避免生成不可安全还原的备份，已中止。' >&2
+  exit 9
+fi
 chmod 0640 "$TMP"
 chown root:mobile "$TMP"
 mv "$TMP" "$ARCHIVE"

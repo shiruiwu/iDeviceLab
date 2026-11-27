@@ -78,6 +78,12 @@ ACTUAL="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 }
 
 tar -tzf "$ARCHIVE" >/dev/null
+# Keep verifier policy aligned with restore and cleanup: only regular files
+# and directories are accepted by the current safe extraction implementation.
+if ! tar -tvzf "$ARCHIVE" | awk 'substr($0,1,1) != "-" && substr($0,1,1) != "d" { bad=1 } END { exit bad }'; then
+  echo '归档包含符号链接或特殊文件；当前还原/清理流程不接受此类条目。' >&2
+  exit 8
+fi
 echo '备份完整性验证通过。'
 echo "归档：$NAME"
 echo "SHA-256：$ACTUAL"
