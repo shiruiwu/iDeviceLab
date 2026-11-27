@@ -65,7 +65,7 @@ jobs:
       - name: Upload Core DEB
         uses: actions/upload-artifact@v4
         with:
-          name: idevelab-core-alpha11-build15
+          name: idevelab-core-alpha11-build16-roothelper-pairing
           path: mod_hw_for_ios_V2_alpha11/release/idevelab-core-alpha11.deb
           if-no-files-found: error
           retention-days: 14
