@@ -19,6 +19,8 @@ ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
 theos_workflow_path = ROOT.parent / ".github/workflows/build-theos-tweak.yml"
 theos_workflow = theos_workflow_path.read_text() if theos_workflow_path.is_file() else ""
+check(not any(line.startswith(("dpkg-deb --contents", "test -x")) for line in theos_workflow.splitlines()),
+      "Theos workflow shell commands remain inside their YAML run block")
 check("bash scripts/build-diagnostics-deb.sh" in theos_workflow and
       "bash scripts/build-core-deb.sh" in theos_workflow and
       "release/*.deb" in theos_workflow and "mod-hw-maintenance-helper" in theos_workflow,
