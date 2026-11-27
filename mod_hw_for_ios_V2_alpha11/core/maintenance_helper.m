@@ -513,8 +513,10 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
         path = @"/var/jb/usr/bin/mod-hw-diagnose";
     } else if ([action isEqualToString:@"selftest"]) {
         path = @"/var/jb/usr/bin/mod-hw-selftest";
+    } else if ([action isEqualToString:@"acceptance-iphone12"]) {
+        path = @"/var/jb/usr/bin/mod-hw-acceptance-iphone12";
     } else {
-        return Failure(@"只允许 status、backup、verify、restore、clean、config-backup、config-restore、keychain-diagnose、diagnose-config、selftest。");
+        return Failure(@"只允许 status、backup、verify、restore、clean、config-backup、config-restore、keychain-diagnose、diagnose-config、selftest、acceptance-iphone12。");
     }
 
     if (access(path.fileSystemRepresentation, X_OK) != 0) return Failure(@"维护脚本未安装或不可执行。");
