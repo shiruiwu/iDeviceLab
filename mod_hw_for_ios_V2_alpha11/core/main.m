@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <sys/socket.h>
+#import <sys/un.h>
 #import <netinet/in.h>
 #import <arpa/inet.h>
 #import <unistd.h>
@@ -185,10 +186,66 @@ static NSArray *AvailableBackups(void) {
     return backups;
 }
 
+static NSDictionary *ForwardMaintenanceRequest(NSDictionary *request) {
+    NSData *payload = [NSJSONSerialization dataWithJSONObject:request options:0 error:nil];
+    if (!payload || payload.length > 32768) return @{@"ok": @NO, @"error": @"维护请求无效或过大。"};
+    NSMutableData *line = [payload mutableCopy];
+    const uint8_t newline = '\n';
+    [line appendBytes:&newline length:1];
+
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return @{@"ok": @NO, @"error": [NSString stringWithFormat:@"无法创建 Helper 连接：%s", strerror(errno)]};
+    struct sockaddr_un address = {0};
+    address.sun_family = AF_UNIX;
+    strlcpy(address.sun_path, "/var/run/com.idevelab.maintenance.sock", sizeof(address.sun_path));
+    if (connect(fd, (struct sockaddr *)&address, sizeof(address)) != 0) {
+        int saved = errno; close(fd);
+        return @{@"ok": @NO, @"error": [NSString stringWithFormat:@"Root Helper 尚未启动或不可访问：%s", strerror(saved)]};
+    }
+    struct timeval timeout = {.tv_sec = 300, .tv_usec = 0};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    const uint8_t *bytes = line.bytes;
+    size_t offset = 0;
+    while (offset < line.length) {
+        ssize_t sent = send(fd, bytes + offset, line.length - offset, 0);
+        if (sent < 0 && errno == EINTR) continue;
+        if (sent <= 0) { int saved = errno; close(fd); return @{@"ok": @NO, @"error": [NSString stringWithFormat:@"发送到 Root Helper 失败：%s", strerror(saved)]}; }
+        offset += (size_t)sent;
+    }
+    NSMutableData *response = [NSMutableData data];
+    uint8_t buffer[4096];
+    BOOL complete = NO;
+    while (response.length < 131072 && !complete) {
+        ssize_t count = recv(fd, buffer, sizeof(buffer), 0);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) break;
+        uint8_t *newlinePtr = memchr(buffer, '\n', (size_t)count);
+        size_t appendCount = newlinePtr ? (size_t)(newlinePtr - buffer) : (size_t)count;
+        [response appendBytes:buffer length:appendCount];
+        complete = newlinePtr != NULL;
+    }
+    close(fd);
+    id object = complete ? [NSJSONSerialization JSONObjectWithData:response options:NSJSONReadingFragmentsAllowed error:nil] : nil;
+    if (![object isKindOfClass:NSDictionary.class]) return @{@"ok": @NO, @"error": @"Root Helper 未返回有效响应。"};
+    return object;
+}
+
 static NSDictionary *ProcessRequest(NSString *method, NSString *target) {
     NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"/";
+    if ([path isEqualToString:@"/maintenance"] && [method isEqualToString:@"GET"]) {
+        NSURLComponents *components = [NSURLComponents componentsWithString:[@"http://127.0.0.1" stringByAppendingString:target]];
+        NSString *json = nil;
+        for (NSURLQueryItem *item in components.queryItems) if ([item.name isEqualToString:@"request"]) { json = item.value; break; }
+        NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+        id object = data ? [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingFragmentsAllowed error:nil] : nil;
+        if (![object isKindOfClass:NSDictionary.class]) return @{@"ok": @NO, @"error": @"维护请求格式无效。"};
+        NSDictionary *request = object;
+        NSNumber *pid = request[@"managerPID"];
+        if (![pid isKindOfClass:NSNumber.class] || pid.intValue <= 1) return @{@"ok": @NO, @"error": @"缺少有效的 Manager 进程标识。"};
+        return ForwardMaintenanceRequest(request);
+    }
     if (![method isEqualToString:@"GET"]) {
-        return @{@"ok": @NO, @"error": @"read-only endpoint"};
+        return @{@"ok": @NO, @"error": @"method not allowed"};
     }
     if ([path isEqualToString:@"/status"]) {
         return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.3.2-alpha11", @"port": @(kPort), @"mode": @"read-only"};
@@ -260,7 +317,8 @@ int main(void) {
                     if (first.count >= 2) {
                         NSString *method = first[0], *target = first[1];
                         NSString *path = [[target componentsSeparatedByString:@"?"] firstObject] ?: @"";
-                        BOOL known = [path isEqualToString:@"/status"] ||
+                        BOOL known = [path isEqualToString:@"/maintenance"] ||
+                                     [path isEqualToString:@"/status"] ||
                                      [path isEqualToString:@"/system"] ||
                                      [path isEqualToString:@"/apps"] ||
                                      [path isEqualToString:@"/tools"] ||
