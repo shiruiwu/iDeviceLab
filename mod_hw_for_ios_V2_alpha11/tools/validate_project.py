@@ -295,7 +295,7 @@ if core_source.is_file():
           "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
 
 
-    check('@"version": @"0.3.6-alpha11"' in core and 'version 0.3.6-alpha11 pid=' in core,
+    check('@"version": @"0.3.7-alpha11"' in core and 'version 0.3.7-alpha11 pid=' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
           'HasSecureBackupMetadata' in core and
