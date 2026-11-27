@@ -491,7 +491,7 @@ struct IPAPathList: View {
             }
 
             if paths.count > limit {
-                Text("+ \(paths.count - limit) more")
+                Text("+ 另有 \(paths.count - limit) 项")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
