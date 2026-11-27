@@ -80,7 +80,7 @@ jobs:
       - name: Verify IPA structure and metadata
         run: |
           set -euo pipefail
-          IPA=release/mod_hw_manager_trollstore.ipa
+          IPA=release/mod_hw_manager_trollstore_build16.ipa
           test -s "$IPA"
           unzip -t "$IPA"
           TMP="$(mktemp -d)"
@@ -93,7 +93,7 @@ jobs:
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
           test "$BUNDLE_ID" = "com.modhw.manager"
-          test "$BUILD" = "11"
+          test "$BUILD" = "16"
           test "$MIN_OS" = "16.0"
           test -s "$APP/$EXECUTABLE"
           file "$APP/$EXECUTABLE" | grep -q Mach-O
@@ -121,7 +121,7 @@ jobs:
       - name: Upload Manager IPA
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-build11-uikit-diagnostic
+          name: mod-hw-manager-build16-roothelper-pairing
           path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
           if-no-files-found: error
           retention-days: 14
