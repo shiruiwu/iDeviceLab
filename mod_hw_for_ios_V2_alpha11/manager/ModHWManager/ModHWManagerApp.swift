@@ -238,8 +238,14 @@ struct ContentView: View {
                             )
                                 .environmentObject(profileStore)
                         }
-                        dashboardTile("模板管理", detail: "创建、导入与导出配置模板", icon: "shippingbox.fill", color: .indigo) {
-                            profilesPage
+                        dashboardTile("模板管理", detail: "创建、复制、导入与导出配置模板", icon: "shippingbox.fill", color: .indigo) {
+                            ProfileManagerView(
+                                availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) },
+                                onOperation: { action, success, detail in
+                                    recordOperation(action, target: "Hook 配置", success: success, detail: detail)
+                                }
+                            )
+                                .environmentObject(profileStore)
                         }
                         dashboardTile("系统诊断", detail: "Core、插件与权限检查", icon: "stethoscope", color: .cyan) {
                             NavigationStack { diagnosticsPage }
