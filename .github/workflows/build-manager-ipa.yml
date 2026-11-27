@@ -42,7 +42,7 @@ jobs:
           bash -n scripts/build-trollstore-ipa.sh
           bash -n scripts/build-startup-probe-ipa.sh
 
-      - name: Build isolated UIKit-only startup probe
+      - name: Build sandboxed UIKit startup control
         run: bash scripts/build-startup-probe-ipa.sh
 
       - name: Build Release iOS Simulator smoke-test app
@@ -119,10 +119,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload pure UIKit startup probe IPA
+      - name: Upload sandboxed UIKit startup control IPA
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-pure-uikit-probe-build12
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_startup_probe_build12.ipa
+          name: mod-hw-manager-sandboxed-uikit-control-build13
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_startup_probe_build13.ipa
           if-no-files-found: error
           retention-days: 14
