@@ -3,6 +3,8 @@ name: Build mod_hw Alpha11 Theos tweak
 on:
   workflow_dispatch:
   push:
+    branches:
+      - mod-hw-alpha11
     paths:
       - 'mod_hw_for_ios_V2_alpha11/**'
       - '.github/workflows/build-theos-tweak.yml'
@@ -26,8 +28,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install packaging tools
-        run: |
-          brew install ldid dpkg
+        run: brew install ldid dpkg
 
       - name: Install Theos and iOS SDKs
         run: |
@@ -35,8 +36,6 @@ jobs:
           git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/theos/theos.git "$GITHUB_WORKSPACE/theos"
           git clone --depth 1 https://github.com/theos/sdks.git "$RUNNER_TEMP/theos-sdks"
           rsync -a "$RUNNER_TEMP/theos-sdks/" "$GITHUB_WORKSPACE/theos/sdks/"
-          test -d "$GITHUB_WORKSPACE/theos/sdks"
-          find "$GITHUB_WORKSPACE/theos/sdks" -maxdepth 1 -type d -name 'iPhoneOS*.sdk' -print | head -5
           test -n "$(find "$GITHUB_WORKSPACE/theos/sdks" -maxdepth 1 -type d -name 'iPhoneOS*.sdk' -print -quit)"
 
       - name: Build Rootless tweak package
@@ -48,19 +47,17 @@ jobs:
           PACKAGE="$(find packages -maxdepth 1 -type f -name '*.deb' -print -quit)"
           test -n "$PACKAGE"
           dpkg-deb --info "$PACKAGE"
-          dpkg-deb --contents "$PACKAGE"
+          dpkg-deb --contents "$PACKAGE" | grep -F 'var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.dylib'
 
-      - name: Build Alpha11 Diagnostics and Core Rootless packages
+      - name: Build and verify Theos Core package
+        env:
+          THEOS: ${{ github.workspace }}/theos
         run: |
           set -euo pipefail
-          bash scripts/build-diagnostics-deb.sh
-          bash scripts/build-core-deb.sh
-          DIAGNOSTICS_PACKAGE="release/mod_hw_for_ios_V2_diagnostics_FINAL.deb"
-          CORE_PACKAGE="release/idevelab-core-alpha11.deb"
-          test -s "$DIAGNOSTICS_PACKAGE"
-          test -s "$CORE_PACKAGE"
-          dpkg-deb --info "$DIAGNOSTICS_PACKAGE"
-          dpkg-deb --contents "$DIAGNOSTICS_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance'
+          chmod 0755 core/layout/DEBIAN/postinst core/layout/DEBIAN/prerm core/layout/DEBIAN/postrm
+          make -C core clean package FINALPACKAGE=1
+          CORE_PACKAGE="$(find core/packages -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$CORE_PACKAGE"
           dpkg-deb --info "$CORE_PACKAGE"
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/libexec/idevelab-core'
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance-helper'
@@ -72,12 +69,23 @@ jobs:
           test -x "$RUNNER_TEMP/alpha11-core-control/prerm"
           test -x "$RUNNER_TEMP/alpha11-core-control/postrm"
 
+      - name: Build release diagnostics and Core DEBs
+        run: |
+          set -euo pipefail
+          bash scripts/build-diagnostics-deb.sh
+          bash scripts/build-core-deb.sh
+          dpkg-deb --info release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
+          dpkg-deb --info release/idevelab-core-alpha11.deb
+          dpkg-deb --contents release/idevelab-core-alpha11.deb | grep -F 'var/jb/usr/bin/mod-hw-maintenance-helper'
+          dpkg-deb --contents release/idevelab-core-alpha11.deb | grep -F 'var/jb/usr/bin/mod-hw-manager-pair'
+
       - name: Upload Rootless Debian packages
         uses: actions/upload-artifact@v4
         with:
           name: mod-hw-alpha11-rootless-debs
           path: |
             mod_hw_for_ios_V2_alpha11/packages/*.deb
+            mod_hw_for_ios_V2_alpha11/core/packages/*.deb
             mod_hw_for_ios_V2_alpha11/release/*.deb
           if-no-files-found: error
           retention-days: 14
