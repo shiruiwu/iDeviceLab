@@ -5,59 +5,63 @@ import UniformTypeIdentifiers
 import CoreFoundation
 import Darwin
 
-@main
-struct ModHWManagerApp: App {
-    var body: some Scene {
-        WindowGroup { ManagerLaunchGate() }
+// Build 11 starts with UIKit only. SwiftUI and ProfileStore are not instantiated
+// until the user explicitly enters the full manager. This distinguishes an app-loader
+// / UIKit launch problem from SwiftUI runtime or manager initialization failures.
+@UIApplicationMain
+final class ModHWManagerAppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        let controller = UIViewController()
+        controller.view.backgroundColor = .systemBackground
+
+        let title = UILabel()
+        title.text = "mod_hw 管理器"
+        title.font = .boldSystemFont(ofSize: 30)
+        title.textAlignment = .center
+
+        let detail = UILabel()
+        detail.text = "UIKit 启动诊断页 · Build 11\n设备：\(UIDevice.current.model)\niOS：\(UIDevice.current.systemVersion)\n若此页面可见，说明应用已通过系统加载并完成 UIKit 启动。"
+        detail.font = .systemFont(ofSize: 15)
+        detail.textColor = .secondaryLabel
+        detail.textAlignment = .center
+        detail.numberOfLines = 0
+
+        let button = UIButton(type: .system)
+        button.setTitle("进入完整管理器", for: .normal)
+        button.titleLabel?.font = .boldSystemFont(ofSize: 18)
+        button.backgroundColor = .systemBlue
+        button.setTitleColor(.white, for: .normal)
+        button.layer.cornerRadius = 12
+        button.contentEdgeInsets = UIEdgeInsets(top: 15, left: 24, bottom: 15, right: 24)
+        button.addTarget(self, action: #selector(enterFullManager), for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [title, detail, button])
+        stack.axis = .vertical
+        stack.spacing = 24
+        stack.alignment = .fill
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        controller.view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.leadingAnchor, constant: 28),
+            stack.trailingAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.trailingAnchor, constant: -28),
+            stack.centerYAnchor.constraint(equalTo: controller.view.centerYAnchor)
+        ])
+
+        window = UIWindow(frame: UIScreen.main.bounds)
+        window?.rootViewController = controller
+        window?.makeKeyAndVisible()
+        return true
     }
-}
 
-// The diagnostic gate deliberately avoids constructing ProfileStore or ContentView
-// until the user taps the button. This separates an app-loader/SwiftUI launch failure
-// from a crash caused by manager state initialization or the full view hierarchy.
-private struct ManagerLaunchGate: View {
-    @State private var profileStore: ProfileStore?
-    @State private var launchManager = false
-
-    var body: some View {
-        Group {
-            if launchManager, let profileStore {
-                ContentView().environmentObject(profileStore)
-            } else {
-                VStack(spacing: 18) {
-                    Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 54))
-                        .foregroundColor(.green)
-                    Text("mod_hw 管理器")
-                        .font(.largeTitle.bold())
-                    Text("启动诊断页 · Build 10")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    Text("基础启动界面已加载。点击下方按钮后，才会初始化配置存储并载入完整管理界面。")
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 28)
-                    Text("设备：\(UIDevice.current.model)    系统：iOS \(UIDevice.current.systemVersion)")
-                        .font(.footnote.monospaced())
-                        .foregroundColor(.secondary)
-                    Button {
-                        profileStore = ProfileStore()
-                        launchManager = true
-                    } label: {
-                        Text("进入完整管理器")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                    }
-                    .padding(.horizontal, 28)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(uiColor: .systemBackground))
-            }
-        }
+    @objc private func enterFullManager() {
+        let store = ProfileStore()
+        let manager = ContentView().environmentObject(store)
+        window?.rootViewController = UIHostingController(rootView: manager)
     }
 }
 
