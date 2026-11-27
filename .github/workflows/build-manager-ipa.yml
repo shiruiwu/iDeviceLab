@@ -77,7 +77,7 @@ jobs:
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
           test "$BUNDLE_ID" = "com.modhw.manager"
-          test "$BUILD" = "10"
+          test "$BUILD" = "11"
           test "$MIN_OS" = "16.0"
           test -s "$APP/$EXECUTABLE"
           file "$APP/$EXECUTABLE" | grep -q Mach-O
@@ -105,7 +105,7 @@ jobs:
       - name: Upload Manager IPA
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-build10-diagnostic
+          name: mod-hw-manager-build11-uikit-diagnostic
           path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore.ipa
           if-no-files-found: error
           retention-days: 14
