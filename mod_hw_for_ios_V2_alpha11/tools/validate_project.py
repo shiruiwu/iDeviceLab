@@ -215,7 +215,7 @@ if core_source.is_file():
           'access(path.fileSystemRepresentation, X_OK)' in core and
           '[path isEqualToString:@"/tools"]' in core,
           "Alpha11 Core reports only the fixed allowlisted maintenance tool inventory")
-    check('@"mod-hw-maintenance"' in core and '@"mod-hw-maintenance-helper"' in core and '@"mod-hw-manager-pair"' in core,
+    check('@"mod-hw-maintenance"' in core and '@"mod-hw-maintenance-helper"' in core and '@"mod-hw-manager-pair"' in core and '@"mod-hw-acceptance-iphone12"' in core,
           "Core inventory includes the packaged fixed-command maintenance dispatcher")
     check('@"profiles"' in core and 'InstalledProfiles' in core and
           'com.modhw.ios.profiles' in core and '[path isEqualToString:@"/profiles"]' in core and
