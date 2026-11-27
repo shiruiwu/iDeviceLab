@@ -93,7 +93,7 @@ jobs:
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
           test "$BUNDLE_ID" = "com.modhw.manager"
-          test "$BUILD" = "17"
+          test "$BUILD" = "16"
           test "$MIN_OS" = "16.0"
           test -s "$APP/$EXECUTABLE"
           file "$APP/$EXECUTABLE" | grep -q Mach-O
@@ -108,6 +108,35 @@ jobs:
           print("Entitlements verified")
           PY
           echo "Verified: bundle=$BUNDLE_ID build=$BUILD minOS=$MIN_OS arch=arm64"
+
+      - name: Verify sandboxed Manager Build17
+        run: |
+          set -euo pipefail
+          IPA=release/mod_hw_manager_sandboxed_build17.ipa
+          test -s "$IPA"
+          unzip -t "$IPA"
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+          unzip -q "$IPA" -d "$TMP"
+          APP="$TMP/Payload/ModHWManager.app"
+          test -s "$APP/Info.plist"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
+          MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
+          test "$BUNDLE_ID" = "com.modhw.manager.sandboxed"
+          test "$BUILD" = "17"
+          test "$MIN_OS" = "16.0"
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
+          file "$APP/$EXECUTABLE" | grep -q Mach-O
+          lipo "$APP/$EXECUTABLE" -verify_arch arm64
+          ldid -e "$APP/$EXECUTABLE" > "$TMP/sandboxed-entitlements.plist"
+          python3 - "$TMP/sandboxed-entitlements.plist" <<'PY'
+          import plistlib,sys
+          with open(sys.argv[1],"rb") as f: e=plistlib.load(f)
+          assert not e.get("com.apple.private.security.no-sandbox",False),e
+          assert not e.get("platform-application",False),e
+          print("Sandboxed Build17 entitlements verified")
+          PY
 
       - name: Upload runtime diagnostics
         if: always()
@@ -138,6 +167,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mod-hw-manager-sandboxed-build17-core-bridge
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build16.ipa
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build17.ipa
           if-no-files-found: error
           retention-days: 14
