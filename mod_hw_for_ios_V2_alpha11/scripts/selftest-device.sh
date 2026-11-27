@@ -59,6 +59,26 @@ else
   echo '[SKIP] curl unavailable; use the manager app to test the Core endpoint'
   SKIP=$((SKIP + 1))
 fi
+if command -v curl >/dev/null 2>&1; then
+  for endpoint in system apps tools profiles backups; do
+    CODE="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 3 "http://127.0.0.1:18081/$endpoint" 2>/dev/null || true)"
+    if [ "$CODE" = 200 ]; then
+      echo "[PASS] Read-only endpoint /$endpoint returns HTTP 200"
+      PASS=$((PASS + 1))
+    else
+      echo "[FAIL] Read-only endpoint /$endpoint returned HTTP ${CODE:-no response}"
+      FAIL=$((FAIL + 1))
+    fi
+  done
+  CODE="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 3 --request POST http://127.0.0.1:18081/backups 2>/dev/null || true)"
+  if [ "$CODE" = 405 ]; then
+    echo '[PASS] POST to Core is rejected with HTTP 405 (read-only guard)'
+    PASS=$((PASS + 1))
+  else
+    echo "[FAIL] POST to Core returned HTTP ${CODE:-no response}; expected 405"
+    FAIL=$((FAIL + 1))
+  fi
+fi
 check 'App-container backup command installed' command -v mod-hw-app-backup
 check 'App-container backup verifier installed' command -v mod-hw-app-backup-verify
 check 'Guarded App-container restore command installed' command -v mod-hw-app-restore
