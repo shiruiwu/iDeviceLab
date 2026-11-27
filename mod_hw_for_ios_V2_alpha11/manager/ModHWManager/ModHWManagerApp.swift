@@ -382,7 +382,9 @@ struct ContentView: View {
                     .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
                 Button("运行只读设备自检") { performMaintenance("selftest") }
                     .disabled(!helperPaired || maintenanceRunning)
-                Text("配置还原会先保留当前配置快照；Keychain 诊断仅读取签名 Entitlements，不读取或修改 Keychain 项。")
+                Button("运行 iPhone 12 / iOS 16.2 最终验收") { performMaintenance("acceptance-iphone12") }
+                    .disabled(!helperPaired || maintenanceRunning)
+                Text("最终验收只检查机型、系统版本、安装包、Root Helper 配对和只读自检，不执行备份、还原或清理。配置还原会先保留当前配置快照；Keychain 诊断仅读取签名 Entitlements。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }
