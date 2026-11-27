@@ -32,7 +32,7 @@ struct FileBrowserView: View {
                         }
 
                         if model.items.isEmpty {
-                            Text("This folder is empty.")
+                            Text("此文件夹为空。")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .center)
@@ -46,8 +46,8 @@ struct FileBrowserView: View {
                         if !editedFiles.isEmpty {
                             Text(
                                 editedFiles.count == 1
-                                    ? "1 file edited"
-                                    : "\(editedFiles.count) files edited"
+                                    ? "已编辑 1 个文件"
+                                    : "已编辑 \(editedFiles.count) 个文件"
                             )
                             .font(.caption)
                             .foregroundColor(.blue)
@@ -118,7 +118,7 @@ struct FileBrowserView: View {
                     .scaleEffect(0.8)
             }
 
-            Button("Done", action: onClose)
+            Button("完成", action: onClose)
                 .font(.body.weight(.semibold))
         }
         .padding(.horizontal, 16)
@@ -196,7 +196,7 @@ struct FileBrowserView: View {
                 Button {
                     beginEdit(item)
                 } label: {
-                    Text("Edit")
+                    Text("编辑")
                         .font(.footnote.weight(.semibold))
                         .foregroundColor(.blue)
                         .padding(.vertical, 6)
@@ -244,7 +244,7 @@ struct FileBrowserView: View {
 
         if let pending = editedFiles[item.path] {
             guard let text = TextFileEditing.decode(pending) else {
-                errorMessage = "This file cannot be edited as text."
+                errorMessage = "此文件无法作为文本编辑。"
                 return
             }
 
@@ -334,11 +334,11 @@ final class FileBrowserModel: ObservableObject {
 
     var title: String {
         if path.isEmpty {
-            return "IPA Contents"
+            return "IPA 内容"
         }
 
         let components = path.split(separator: "/").map(String.init)
-        return components.last ?? "IPA Contents"
+        return components.last ?? "IPA 内容"
     }
 
     var footer: String {
@@ -393,7 +393,7 @@ final class FileBrowserModel: ObservableObject {
 
     func extract(_ item: BrowserItem, completion: @escaping (Result<URL, Error>) -> Void) {
         guard let archive else {
-            completion(.failure(SimpleError("The IPA is no longer open.")))
+            completion(.failure(SimpleError("IPA 已不再处于打开状态。")))
             return
         }
 
@@ -407,12 +407,12 @@ final class FileBrowserModel: ObservableObject {
                       name != ".",
                       name != "..",
                       !name.contains("/") else {
-                    throw SimpleError("This file has a name that cannot be extracted safely.")
+                    throw SimpleError("此文件名无法安全提取。")
                 }
 
                 let data = try archive.data(at: item.path)
                 let directory = (self.baseDirectory ?? FileManager.default.temporaryDirectory)
-                    .appendingPathComponent("Extracted", isDirectory: true)
+                    .appendingPathComponent("已提取", isDirectory: true)
 
                 try FileManager.default.createDirectory(
                     at: directory,
@@ -438,7 +438,7 @@ final class FileBrowserModel: ObservableObject {
 
     func text(of item: BrowserItem) throws -> String {
         guard let archive else {
-            throw SimpleError("The IPA is no longer open.")
+            throw SimpleError("IPA 已不再处于打开状态。")
         }
 
         if let cached = editability[item.path] {
@@ -446,7 +446,7 @@ final class FileBrowserModel: ObservableObject {
             case let .editable(text):
                 return text
             case .notEditable:
-                throw SimpleError("This file cannot be edited as text.")
+                throw SimpleError("此文件无法作为文本编辑。")
             }
         }
 
@@ -454,7 +454,7 @@ final class FileBrowserModel: ObservableObject {
 
         guard let text = TextFileEditing.decode(data) else {
             editability[item.path] = .notEditable
-            throw SimpleError("This file cannot be edited as text.")
+            throw SimpleError("此文件无法作为文本编辑。")
         }
 
         editability[item.path] = .editable(text)
