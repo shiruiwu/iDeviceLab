@@ -10,7 +10,7 @@ struct IPAInfoSheet: View {
     @State private var showTechnicalDetails = false
 
     var body: some View {
-        IPASheet(title: "IPA Info", onClose: onClose) {
+        IPASheet(title: "IPA 信息", onClose: onClose) {
             overviewCard
             applicationCard
             technicalCard
@@ -22,7 +22,7 @@ struct IPAInfoSheet: View {
             IPAIconThumbnail(image: iconImage, size: 62)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(info.displayName.isEmpty ? "Unnamed App" : info.displayName)
+                Text(info.displayName.isEmpty ? "未命名应用" : info.displayName)
                     .font(.headline)
 
                 Text(info.bundleIdentifier)
@@ -45,20 +45,20 @@ struct IPAInfoSheet: View {
 
     private var applicationCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            IPACardHeader(icon: "app.badge", title: "Application")
+            IPACardHeader(icon: "app.badge", title: "应用")
 
-            IPAMetadataRow(label: "Version", value: value(info.marketingVersion))
+            IPAMetadataRow(label: "版本", value: value(info.marketingVersion))
             IPASubtleDivider()
-            IPAMetadataRow(label: "Build", value: value(info.buildNumber))
+            IPAMetadataRow(label: "构建版本", value: value(info.buildNumber))
             IPASubtleDivider()
-            IPAMetadataRow(label: "Minimum iOS", value: value(info.minimumOSVersion))
+            IPAMetadataRow(label: "最低 iOS 版本", value: value(info.minimumOSVersion))
             IPASubtleDivider()
             IPAMetadataRow(
-                label: "File size",
+                label: "文件大小",
                 value: IPAFormatting.fileSize(info.fileSize)
             )
             IPASubtleDivider()
-            IPAMetadataRow(label: "Extensions", value: "\(info.extensions.count)")
+            IPAMetadataRow(label: "扩展组件", value: "\(info.extensions.count)")
         }
         .cardStyle()
     }
@@ -72,7 +72,7 @@ struct IPAInfoSheet: View {
             } label: {
                 IPACardHeader(
                     icon: "cpu",
-                    title: "Technical Details",
+                    title: "技术详情",
                     isExpanded: showTechnicalDetails
                 )
             }
@@ -83,28 +83,28 @@ struct IPAInfoSheet: View {
                     .padding(.top, 12)
 
                 IPAMetadataRow(
-                    label: "Executable",
+                    label: "可执行文件",
                     value: value(info.executable),
                     monospaced: true
                 )
                 IPASubtleDivider()
                 IPAMetadataRow(
-                    label: "Architectures",
+                    label: "架构",
                     value: info.architectures.isEmpty
-                        ? "Unknown"
+                        ? "未知"
                         : info.architectures.joined(separator: ", "),
                     monospaced: true
                 )
                 IPASubtleDivider()
                 IPAMetadataRow(
-                    label: "Devices",
-                    value: info.deviceFamilies.isEmpty ? "Unknown" : info.deviceFamilyLabel
+                    label: "设备",
+                    value: info.deviceFamilies.isEmpty ? "未知" : info.deviceFamilyLabel
                 )
 
                 if !info.targetSDK.isEmpty {
                     IPASubtleDivider()
                     IPAMetadataRow(
-                        label: "Built with SDK",
+                        label: "编译所用 SDK",
                         value: info.targetSDK,
                         monospaced: true
                     )
@@ -112,7 +112,7 @@ struct IPAInfoSheet: View {
 
                 IPASubtleDivider()
                 IPAMetadataRow(
-                    label: "Bundle path",
+                    label: "应用包路径",
                     value: info.appRoot,
                     monospaced: true
                 )
@@ -122,6 +122,6 @@ struct IPAInfoSheet: View {
     }
 
     private func value(_ text: String) -> String {
-        text.isEmpty ? "Unknown" : text
+        text.isEmpty ? "未知" : text
     }
 }
