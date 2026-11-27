@@ -58,7 +58,7 @@ struct ProfileManagerView: View {
                     pendingApplyBundleID = nil
                 }
             } message: {
-                Text("将把当前配置写入所选 App 的 per-App Hook plist。旧文件会先备份；强制关闭并重新打开目标 App 后生效。")
+                Text(pendingApplyBundleID == "__global__" ? "将把当前配置写入全局 Hook plist。旧文件会先备份；重新启动需要应用全局配置的目标 App 后生效。" : "将把当前配置写入所选 App 的 per-App Hook plist。旧文件会先备份；强制关闭并重新打开目标 App 后生效。")
             }
         }
         .accentColor(.cyan)
@@ -481,7 +481,7 @@ private var header: some View {
                     confirm: true
                 )
                 alertMessage = result.ok
-                    ? "\(result.output ?? "Hook 配置已写入。")\n请强制关闭并重新打开目标 App。"
+                    ? "\(result.output ?? "Hook 配置已写入。")\n\(isGlobal ? "请重新启动需要应用全局配置的目标 App。" : "请强制关闭并重新打开目标 App。")"
                     : (result.error ?? result.output ?? "Hook 配置写入失败。")
                 onOperation?(isGlobal ? "全局 Hook 配置应用" : "分 App Hook 配置应用",
                              result.ok, result.output ?? result.error ?? "")
