@@ -76,14 +76,13 @@ check("ProfileManagerView()" in manager and "ProfileStore()" in app_entry and
       "Original profile manager, persistent profile store, app bindings, and JSON import/export are integrated")
 check("\\\\(" not in profile_view,
       "Original profile manager interpolates profile names and app launch results correctly")
-check("mod-hw-maintenance" in manager and 'case "$ACTION" in' in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
+check('case "$ACTION" in' in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       "必须在越狱终端以 root 身份运行" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       all(action in (ROOT / "scripts/maintenance-dispatch.sh").read_text() for action in ("backup)", "verify)", "restore)", "clean)")) and
       "未知操作" in (ROOT / "scripts/maintenance-dispatch.sh").read_text(),
       "Root-only maintenance dispatcher exposes only fixed backup, verify, restore, and clean actions")
-check("mod-hw-maintenance backup" in manager and "mod-hw-maintenance verify" in manager and
-      "mod-hw-maintenance restore" in manager and "mod-hw-maintenance clean" in manager,
-      "Manager generates a target-specific maintenance command set without claiming in-app execution")
+check("mod-hw-maintenance" in package_builder and "maintenance-dispatch.sh" in package_builder,
+      "Rootless utility DEB packages the fixed-command terminal fallback dispatcher")
 check("MaintenanceClient.request" in manager and "AF_UNIX" in manager and
       "mod-hw-manager-pair" in manager and "confirmationDialog" in manager and
       "helperPaired" in manager and "performMaintenance" in manager,
@@ -91,9 +90,9 @@ check("MaintenanceClient.request" in manager and "AF_UNIX" in manager and
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
 check('Picker("已安装 App", selection: $maintenanceBundleID)' in manager and
-      'TextField("Bundle ID' in manager and 'safeShellArgument(maintenanceBundleID)' in manager and
-      'safeShellArgument(maintenanceArchiveName)' in manager,
-      "Manager maintenance commands are parameterized by a selected or manually entered App and quoted archive name")
+      'TextField("Bundle ID' in manager and 'bundleID: bundleID.isEmpty ? nil : bundleID' in manager and
+      'archive: archive.isEmpty ? nil : archive' in manager,
+      "Manager sends the selected Bundle ID and backup filename to the Root Helper")
 check("safeShellArgument" in manager and "replacingOccurrences" in manager and "请填写" in manager,
       "Manager safely quotes shell arguments and marks blank placeholders")
 check("\\\\(" not in manager,
@@ -193,7 +192,7 @@ if core_source.is_file():
           "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
 
 
-    check('@"version": @"0.2.0-alpha11"' in core,
+    check('@"version": @"0.3.0-alpha11"' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
           'HasSecureBackupMetadata' in core and
