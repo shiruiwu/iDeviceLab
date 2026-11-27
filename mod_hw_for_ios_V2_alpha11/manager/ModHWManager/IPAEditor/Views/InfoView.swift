@@ -27,7 +27,7 @@ struct InfoView: View {
                     return Alert(
                         title: Text(alert.title),
                         message: Text(alert.message),
-                        primaryButton: .default(Text("View Update")) {
+                        primaryButton: .default(Text("查看更新")) {
                             UIApplication.shared.open(url)
                         },
                         secondaryButton: .cancel()
@@ -44,7 +44,7 @@ struct InfoView: View {
 
     private var infoContentCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Appearance", icon: "circle.lefthalf.filled")
+            sectionHeader("外观", icon: "circle.lefthalf.filled")
 
             appearanceControl
                 .padding(.top, 15)
@@ -62,7 +62,7 @@ struct InfoView: View {
             subtleDivider
                 .padding(.top, 30)
 
-            sectionHeader("Links", icon: "link")
+            sectionHeader("链接", icon: "link")
                 .padding(.top, 28)
                 .padding(.bottom, 4)
 
@@ -73,7 +73,7 @@ struct InfoView: View {
             subtleDivider
 
             infoRow(
-                title: "Check for Updates",
+                title: "检查更新",
                 icon: "arrow.clockwise",
                 trailingProgress: isCheckingForUpdate
             ) {
@@ -84,7 +84,7 @@ struct InfoView: View {
             subtleDivider
                 .padding(.top, 6)
 
-            infoRow(title: "Support Me", icon: "heart") {
+            infoRow(title: "支持开发者", icon: "heart") {
                 UIApplication.shared.open(supportURL)
             }
             .foregroundColor(.primary)
@@ -92,28 +92,28 @@ struct InfoView: View {
             subtleDivider
                 .padding(.top, 6)
 
-            sectionHeader("Feedback", icon: "bubble.left.and.bubble.right")
+            sectionHeader("反馈", icon: "bubble.left.and.bubble.right")
                 .padding(.top, 30)
                 .padding(.bottom, 4)
 
-            infoRow(title: "Report a Bug", icon: "ladybug") {
+            infoRow(title: "报告问题", icon: "ladybug") {
                 UIApplication.shared.open(reportIssueURL)
             }
 
             subtleDivider
 
-            infoRow(title: "Request a Feature", icon: "lightbulb") {
+            infoRow(title: "提出功能建议", icon: "lightbulb") {
                 UIApplication.shared.open(featureRequestURL)
             }
 
             subtleDivider
                 .padding(.top, 6)
 
-            sectionHeader("Credits", icon: "person.crop.circle")
+            sectionHeader("鸣谢", icon: "person.crop.circle")
                 .padding(.top, 30)
                 .padding(.bottom, 2)
 
-            Text("Developed by shplash")
+            Text("由 shplash 开发")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .padding(.top, 12)
@@ -123,7 +123,7 @@ struct InfoView: View {
                 .foregroundColor(.secondary)
                 .padding(.top, 2)
 
-            Text("Built with SwiftUI and ZIPFoundation")
+            Text("基于 SwiftUI 和 ZIPFoundation 构建")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .padding(.top, 2)
@@ -149,7 +149,7 @@ struct InfoView: View {
             HStack(spacing: 13) {
                 settingIcon("forward.end")
 
-                Text("Skip Review Changes")
+                Text("跳过更改确认")
                     .font(.subheadline.weight(.semibold))
             }
         }
@@ -168,7 +168,7 @@ struct InfoView: View {
             HStack(spacing: 13) {
                 settingIcon("tag")
 
-                Text("Exported Filename Suffix")
+                Text("导出文件名后缀")
                     .font(.subheadline.weight(.semibold))
             }
 
@@ -193,7 +193,7 @@ struct InfoView: View {
             }
             .padding(.leading, 39)
 
-            Text("Added to exported IPA filenames. Leave it empty for none.")
+            Text("添加到导出的 IPA 文件名中。留空则不添加。")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -203,9 +203,9 @@ struct InfoView: View {
 
     private var appearanceControl: some View {
         HStack(spacing: 0) {
-            appearanceButton("System", value: "system")
-            appearanceButton("Light", value: "light")
-            appearanceButton("Dark", value: "dark")
+            appearanceButton("跟随系统", value: "system")
+            appearanceButton("浅色", value: "light")
+            appearanceButton("深色", value: "dark")
         }
         .padding(4)
         .background(Color.primary.opacity(0.055))
@@ -306,8 +306,8 @@ struct InfoView: View {
                 DispatchQueue.main.async {
                     isCheckingForUpdate = false
                     updateAlert = UpdateAlert(
-                        title: "Couldn't Check for Updates",
-                        message: "Please check your internet connection and try again."
+                        title: "无法检查更新",
+                        message: "请检查网络连接后重试。"
                     )
                 }
                 return
@@ -322,14 +322,14 @@ struct InfoView: View {
                 if compareVersions(latestVersion, currentVersion) > 0,
                    let url = URL(string: release.htmlURL) {
                     updateAlert = UpdateAlert(
-                        title: "Update Available",
-                        message: "IPAID \(latestVersion) is available. You're running \(currentVersion).",
+                        title: "发现可用更新",
+                        message: "IPAID \(latestVersion) 已发布，当前版本为 \(currentVersion)。",
                         url: url
                     )
                 } else {
                     updateAlert = UpdateAlert(
-                        title: "You're Up to Date",
-                        message: "IPAID \(currentVersion) is the latest release."
+                        title: "已是最新版本",
+                        message: "IPAID \(currentVersion) 已是最新版本。"
                     )
                 }
             }
