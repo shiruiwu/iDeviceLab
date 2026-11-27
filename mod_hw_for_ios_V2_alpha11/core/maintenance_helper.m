@@ -157,6 +157,97 @@ static BOOL PeerMatchesPinned(pid_t pid) {
     return memcmp(expected, actual, sizeof(expected)) == 0;
 }
 
+
+static BOOL ProcessExecutablePath(pid_t pid, char output[4096]) {
+    int mib[3] = {CTL_KERN, KERN_PROCARGS2, pid};
+    size_t size = 0;
+    if (sysctl(mib, 3, NULL, &size, NULL, 0) != 0 || size < sizeof(int) + 2 || size > 1024 * 1024) return NO;
+    char *buffer = calloc(1, size + 1);
+    if (!buffer) return NO;
+    BOOL success = NO;
+    if (sysctl(mib, 3, buffer, &size, NULL, 0) == 0 && size > sizeof(int)) {
+        char *cursor = buffer + sizeof(int);
+        char *end = buffer + size;
+        while (cursor < end && *cursor == '\0') cursor++;
+        size_t length = strnlen(cursor, (size_t)(end - cursor));
+        if (length > 0 && length < 4096) {
+            memcpy(output, cursor, length);
+            output[length] = '\0';
+            success = YES;
+        }
+    }
+    free(buffer);
+    return success;
+}
+
+static BOOL PairManagerProcess(pid_t pid, NSString **message) {
+    char executable[4096] = {0};
+    if (!ProcessExecutablePath(pid, executable)) {
+        if (message) *message = @"无法读取管理器进程路径。";
+        return NO;
+    }
+    NSString *executablePath = [NSString stringWithUTF8String:executable];
+    NSRange marker = [executablePath rangeOfString:@".app/" options:NSBackwardsSearch];
+    if (marker.location == NSNotFound) {
+        if (message) *message = @"请求配对的进程不是应用程序。";
+        return NO;
+    }
+    NSString *appPath = [executablePath substringToIndex:marker.location + 4];
+    if (![appPath.lastPathComponent isEqualToString:@"ModHWManager.app"]) {
+        if (message) *message = @"只有 iDeviceLab Manager 可以发起配对。";
+        return NO;
+    }
+    NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[appPath stringByAppendingPathComponent:@"Info.plist"]];
+    if (![info[@"CFBundleIdentifier"] isEqualToString:@"com.modhw.manager"]) {
+        if (message) *message = @"Manager Bundle ID 不匹配；请安装正式 TrollStore 版本。";
+        return NO;
+    }
+
+    uint32_t status = 0;
+    uint8_t hash[CS_CDHASH_LEN] = {0};
+    if (QueryCSOps(pid, CS_OPS_STATUS, &status, sizeof(status)) != 0 ||
+        (status & CS_VALID) == 0 || (status & CS_KILLED) != 0 ||
+        QueryCSOps(pid, CS_OPS_CDHASH, hash, sizeof(hash)) != 0) {
+        if (message) *message = @"无法验证 Manager 代码签名。";
+        return NO;
+    }
+    char hex[CS_CDHASH_LEN * 2 + 1] = {0};
+    for (size_t i = 0; i < CS_CDHASH_LEN; i++) snprintf(hex + i * 2, 3, "%02x", hash[i]);
+
+    NSError *directoryError = nil;
+    [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/jb/var/root/Library/Preferences"
+                              withIntermediateDirectories:YES
+                                               attributes:@{NSFilePosixPermissions: @0700}
+                                                    error:&directoryError];
+    struct stat directoryStat;
+    if (lstat("/var/jb/var/root/Library/Preferences", &directoryStat) != 0 ||
+        !S_ISDIR(directoryStat.st_mode) || directoryStat.st_uid != 0 ||
+        chmod("/var/jb/var/root/Library/Preferences", 0700) != 0) {
+        if (message) *message = @"无法安全创建 Manager 配对目录。";
+        return NO;
+    }
+
+    char temporary[512];
+    snprintf(temporary, sizeof(temporary), "%s.tmp.%d", kPinPath, getpid());
+    int fd = open(temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+    if (fd < 0) {
+        if (message) *message = [NSString stringWithFormat:@"无法创建配对记录：%s", strerror(errno)];
+        return NO;
+    }
+    size_t length = strlen(hex);
+    ssize_t written = write(fd, hex, length);
+    BOOL saved = written == (ssize_t)length && fsync(fd) == 0 &&
+                 fchown(fd, 0, 0) == 0 && fchmod(fd, 0600) == 0;
+    close(fd);
+    if (!saved || rename(temporary, kPinPath) != 0) {
+        unlink(temporary);
+        if (message) *message = @"写入 Manager 配对记录失败。";
+        return NO;
+    }
+    if (message) *message = @"Manager 已完成签名配对。现在可以使用受限维护功能。";
+    return YES;
+}
+
 static double MonotonicSeconds(void) {
     struct timespec ts = {0};
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -554,6 +645,14 @@ static void HandleClient(int fd) {
     if ([action isEqualToString:@"status"]) {
         BOOL paired = PeerMatchesPinned(peer);
         SendJSON(fd, @{@"ok": @YES, @"paired": @(paired), @"helper": @"Alpha11 Maintenance Helper"});
+        return;
+    }
+    if ([action isEqualToString:@"pair"]) {
+        NSString *message = nil;
+        BOOL paired = PairManagerProcess(peer, &message);
+        SendJSON(fd, paired
+            ? @{@"ok": @YES, @"paired": @YES, @"action": @"pair", @"output": message ?: @"配对成功。"}
+            : @{@"ok": @NO, @"paired": @NO, @"action": @"pair", @"error": message ?: @"配对失败。"});
         return;
     }
     if (!PeerMatchesPinned(peer)) {
