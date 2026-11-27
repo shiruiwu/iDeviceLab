@@ -38,14 +38,18 @@ fi
 # Control build: ad-hoc signature with no extra entitlements.
 ldid -S "$BINARY"
 ldid -e "$BINARY" > "$BUILD_DIR/embedded-entitlements.plist"
-python3 - "$BUILD_DIR/embedded-entitlements.plist" <<'PY'
+if [[ -s "$BUILD_DIR/embedded-entitlements.plist" ]]; then
+    python3 - "$BUILD_DIR/embedded-entitlements.plist" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], "rb") as f:
     e = plistlib.load(f)
 assert not e.get("com.apple.private.security.no-sandbox", False), e
 assert not e.get("platform-application", False), e
-print("Sandboxed control entitlements verified")
+print("Sandboxed control entitlements verified (no privileged entitlements)")
 PY
+else
+    echo "Sandboxed control entitlements verified (no embedded entitlements)"
+fi
 (cd "$BUILD_DIR" && /usr/bin/zip -qry "$IPA" Payload)
 /usr/bin/unzip -t "$IPA" >/dev/null
 echo "Sandboxed UIKit control built: $IPA"
