@@ -50,21 +50,27 @@ jobs:
           dpkg-deb --info "$PACKAGE"
           dpkg-deb --contents "$PACKAGE"
 
-      - name: Build Alpha11 read-only Core package
-        env:
-          THEOS: ${{ github.workspace }}/theos
+      - name: Build Alpha11 Diagnostics and Core Rootless packages
         run: |
           set -euo pipefail
-          chmod 0755 core/layout/DEBIAN/postinst core/layout/DEBIAN/prerm core/layout/DEBIAN/postrm
-          make -C core clean package FINALPACKAGE=1
-          CORE_PACKAGE="$(find core/packages -maxdepth 1 -type f -name '*.deb' -print -quit)"
-          test -n "$CORE_PACKAGE"
+          bash scripts/build-diagnostics-deb.sh
+          bash scripts/build-core-deb.sh
+          DIAGNOSTICS_PACKAGE="release/mod_hw_for_ios_V2_diagnostics_FINAL.deb"
+          CORE_PACKAGE="release/idevelab-core-alpha11.deb"
+          test -s "$DIAGNOSTICS_PACKAGE"
+          test -s "$CORE_PACKAGE"
+          dpkg-deb --info "$DIAGNOSTICS_PACKAGE"
+          dpkg-deb --contents "$DIAGNOSTICS_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance'
           dpkg-deb --info "$CORE_PACKAGE"
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/libexec/idevelab-core'
+          dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-maintenance-helper'
+          dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/usr/bin/mod-hw-manager-pair'
           dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist'
+          dpkg-deb --contents "$CORE_PACKAGE" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist'
           dpkg-deb -e "$CORE_PACKAGE" "$RUNNER_TEMP/alpha11-core-control"
           test -x "$RUNNER_TEMP/alpha11-core-control/postinst"
           test -x "$RUNNER_TEMP/alpha11-core-control/prerm"
+          test -x "$RUNNER_TEMP/alpha11-core-control/postrm"
 
       - name: Upload Rootless Debian packages
         uses: actions/upload-artifact@v4
@@ -72,6 +78,6 @@ jobs:
           name: mod-hw-alpha11-rootless-debs
           path: |
             mod_hw_for_ios_V2_alpha11/packages/*.deb
-            mod_hw_for_ios_V2_alpha11/core/packages/*.deb
+            mod_hw_for_ios_V2_alpha11/release/*.deb
           if-no-files-found: error
           retention-days: 14
