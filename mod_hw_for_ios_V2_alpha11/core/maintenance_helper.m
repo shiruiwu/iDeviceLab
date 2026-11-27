@@ -468,21 +468,15 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
         return @{@"ok": @YES, @"paired": @NO, @"helper": @"Alpha11 Maintenance Helper"};
     }
 
-    if ([action isEqualToString:@"apply-profile", @"apply-global-profile"]) {
+    BOOL isGlobalProfile = [action isEqualToString:@"apply-global-profile"];
+    if (isGlobalProfile || [action isEqualToString:@"apply-profile"]) {
         NSString *bundleID = request[@"bundleID"];
         BOOL confirm = [request[@"confirm"] isKindOfClass:NSNumber.class] && [request[@"confirm"] boolValue];
         if (!confirm) return Failure(@"应用 Hook 配置必须明确确认。");
         NSString *message = nil;
-        if (!ApplyHookProfile(bundleID, request[@"profile"], NO, &message)) return Failure(message ?: @"Hook 配置应用失败。");
+        if (!ApplyHookProfile(isGlobalProfile ? nil : bundleID, request[@"profile"], isGlobalProfile, &message))
+            return Failure(message ?: @"Hook 配置应用失败。");
         return @{@"ok": @YES, @"action": action, @"output": message ?: @"Hook 配置已写入。"};
-    }
-
-    if ([action isEqualToString:@"apply-global-profile"]) {
-        BOOL confirm = [request[@"confirm"] isKindOfClass:NSNumber.class] && [request[@"confirm"] boolValue];
-        if (!confirm) return Failure(@"应用全局 Hook 配置必须明确确认。");
-        NSString *message = nil;
-        if (!ApplyHookProfile(nil, request[@"profile"], YES, &message)) return Failure(message ?: @"全局 Hook 配置应用失败。");
-        return @{@"ok": @YES, @"action": action, @"output": message ?: @"全局 Hook 配置已写入。"};
     }
 
     NSString *path = nil;
