@@ -119,8 +119,15 @@ Conflicts: com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11
 Section: Utilities
 EOF
 
-dpkg-deb --build --root-owner-group "$PKG" "$OUT/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb"
-dpkg-deb --info "$OUT/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb"
+FULL_PACKAGE="$OUT/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb"
+dpkg-deb --build --root-owner-group "$PKG" "$FULL_PACKAGE"
+assert_package_field "$FULL_PACKAGE" Package com.idevelab.fullsuite.alpha11
+assert_package_field "$FULL_PACKAGE" Version '2.0.0~alpha11'
+assert_package_field "$FULL_PACKAGE" Architecture iphoneos-arm64
+assert_package_field "$FULL_PACKAGE" Depends 'firmware (>= 15.0), mobilesubstrate, coreutils'
+assert_package_field "$FULL_PACKAGE" Replaces 'com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11'
+assert_package_field "$FULL_PACKAGE" Conflicts 'com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11'
+dpkg-deb --info "$FULL_PACKAGE"
 CONTENTS="$(dpkg-deb --contents "$OUT/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb")"
 for expected in \
   'var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.dylib' \
@@ -136,4 +143,4 @@ for expected in \
   'var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist'; do
   printf '%s\n' "$CONTENTS" | grep -Fq "$expected" || { echo "Unified DEB 缺少文件：$expected" >&2; exit 6; }
 done
-echo "Unified Rootless DEB verified: $OUT/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb"
+echo "Unified Rootless DEB verified: $FULL_PACKAGE"
