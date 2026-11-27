@@ -13,6 +13,16 @@ chmod 0755 "$PKG/var/jb/usr/libexec/idevelab-core"
 xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -isysroot "$SDK" -fobjc-arc -Wall -Wextra -framework Foundation "$ROOT/core/maintenance_helper.m" -o "$PKG/var/jb/usr/bin/mod-hw-maintenance-helper"
 xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -isysroot "$SDK" -fobjc-arc -Wall -Wextra -framework Foundation "$ROOT/core/manager_pair.m" -o "$PKG/var/jb/usr/bin/mod-hw-manager-pair"
 chmod 0755 "$PKG/var/jb/usr/bin/mod-hw-maintenance-helper" "$PKG/var/jb/usr/bin/mod-hw-manager-pair"
+# Rootless launchd jobs are native iOS executables and must carry an ad-hoc
+# code signature. Unsigned Mach-O files can be present in a DEB yet fail exec.
+for binary in \\
+  "$PKG/var/jb/usr/libexec/idevelab-core" \\
+  "$PKG/var/jb/usr/bin/mod-hw-maintenance-helper" \\
+  "$PKG/var/jb/usr/bin/mod-hw-manager-pair"; do
+  ldid -S "$binary"
+  ldid -e "$binary" >/dev/null
+  file "$binary" | grep -q "Mach-O" || { echo "签名后文件不是 Mach-O：$binary" >&2; exit 4; }
+done
 install -m 0644 "$ROOT/core/layout/Library/LaunchDaemons/com.idevelab.core.alpha11.plist" "$PKG/var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
 install -m 0644 "$ROOT/core/layout/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist" "$PKG/var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
 install -m 0755 "$ROOT/core/layout/DEBIAN/postinst" "$PKG/DEBIAN/postinst"
