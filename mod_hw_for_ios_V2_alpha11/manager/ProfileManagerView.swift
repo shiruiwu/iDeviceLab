@@ -184,7 +184,7 @@ struct ProfileManagerView: View {
         .padding(.vertical, 4)
     }
 
-    private func profileManagementSection(profile: DeviceProfile) -> some View {
+        private func profileManagementSection(profile: DeviceProfile) -> some View {
         Section {
             Picker("当前配置", selection: Binding(
                 get: { store.selectedID ?? profile.id },
@@ -204,7 +204,6 @@ struct ProfileManagerView: View {
             Button(role: .destructive) { store.deleteSelected() } label: {
                 Label("删除当前配置", systemImage: "trash")
             }
-       
         } header: {
             Text("配置管理")
         }
@@ -265,7 +264,11 @@ struct ProfileManagerView: View {
                 Stepper("内存测试标签：\(profile.memoryGB) GB", value: binding(\.memoryGB, profile: profile), in: 2...16, step: 2)
                 randomButton("memoryGB")
             }
-            HStack { Text("测试 UUID"); Spacer(); randomButton("testIdentifier") }
+            HStack {
+                Text("测试 UUID")
+                Spacer()
+                randomButton("testIdentifier")
+            }
             TextField("测试 UUID", text: binding(\.testIdentifier, profile: profile))
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
             HStack {
@@ -281,11 +284,12 @@ struct ProfileManagerView: View {
                     .keyboardType(.numbersAndPunctuation).multilineTextAlignment(.trailing)
             }
             Button("随机测试坐标") { store.randomize("location") }
-       
         } header: {
             Text("测试数值")
         }
-    }    private func hookConfigurationSection(profile: DeviceProfile) -> some View {
+    }
+
+    private func hookConfigurationSection(profile: DeviceProfile) -> some View {
         Section {
             TextField("SerialNumber", text: optionalBinding(\.serialNumber, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
@@ -330,14 +334,13 @@ struct ProfileManagerView: View {
         }
     }
 
-private var randomizationSection: some View {
+    private var randomizationSection: some View {
         Section {
             Button { store.randomizeAll() } label: {
                 Label("全部参数一键随机", systemImage: "shuffle")
             }
             Text("也可以使用各参数对应的随机按钮单独生成。")
                 .font(.caption).foregroundColor(.secondary)
-       
         } header: {
             Text("随机生成")
         }
@@ -356,11 +359,12 @@ private var randomizationSection: some View {
             Button { showingImporter = true } label: {
                 Label("导入配置 JSON", systemImage: "square.and.arrow.down")
             }
-       
         } header: {
             Text("配置备份")
         }
-    }private var header: some View {
+    }
+
+private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("iDevice Lab").font(.largeTitle.bold())
