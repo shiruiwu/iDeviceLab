@@ -7,9 +7,14 @@ HELPER_PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.pli
 HELPER_LABEL="system/com.idevelab.maintenance.alpha11"
 LOG_DIR="/var/mobile/Library/Logs"
 LOG_FILE="$LOG_DIR/idevelab-core-install.log"
+CORE_LOG="$LOG_DIR/idevelab-core-alpha11.log"
+CORE_ERR="$LOG_DIR/idevelab-core-alpha11-error.log"
 
 mkdir -p "$LOG_DIR"
 chown mobile:mobile "$LOG_DIR" 2>/dev/null || true
+touch "$LOG_FILE" "$CORE_LOG" "$CORE_ERR" "$LOG_DIR/idevelab-maintenance-helper.log" "$LOG_DIR/idevelab-maintenance-helper-error.log"
+chown mobile:mobile "$LOG_FILE" "$CORE_LOG" "$CORE_ERR" "$LOG_DIR/idevelab-maintenance-helper.log" "$LOG_DIR/idevelab-maintenance-helper-error.log" 2>/dev/null || true
+chmod 0644 "$LOG_FILE" "$CORE_LOG" "$CORE_ERR" "$LOG_DIR/idevelab-maintenance-helper.log" "$LOG_DIR/idevelab-maintenance-helper-error.log"
 exec >>"$LOG_FILE" 2>&1
 
 echo "===== Alpha11 Core configure: $(date) ====="
@@ -77,6 +82,11 @@ start_service() {
   done
 
   echo "ERROR: $service_label was bootstrapped but no running PID was reported"
+  "$LAUNCHCTL" print "$service_label" 2>&1 || true
+  if [ "$service_label" = "$LABEL" ]; then
+    echo "--- Core stdout ---"; tail -n 80 "$CORE_LOG" 2>/dev/null || true
+    echo "--- Core stderr ---"; tail -n 80 "$CORE_ERR" 2>/dev/null || true
+  fi
   return 1
 }
 
