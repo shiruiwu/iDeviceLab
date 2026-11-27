@@ -7,9 +7,57 @@ import Darwin
 
 @main
 struct ModHWManagerApp: App {
-    @StateObject private var profileStore = ProfileStore()
     var body: some Scene {
-        WindowGroup { ContentView().environmentObject(profileStore) }
+        WindowGroup { ManagerLaunchGate() }
+    }
+}
+
+// The diagnostic gate deliberately avoids constructing ProfileStore or ContentView
+// until the user taps the button. This separates an app-loader/SwiftUI launch failure
+// from a crash caused by manager state initialization or the full view hierarchy.
+private struct ManagerLaunchGate: View {
+    @State private var profileStore: ProfileStore?
+    @State private var launchManager = false
+
+    var body: some View {
+        Group {
+            if launchManager, let profileStore {
+                ContentView().environmentObject(profileStore)
+            } else {
+                VStack(spacing: 18) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.system(size: 54))
+                        .foregroundColor(.green)
+                    Text("mod_hw 管理器")
+                        .font(.largeTitle.bold())
+                    Text("启动诊断页 · Build 10")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Text("基础启动界面已加载。点击下方按钮后，才会初始化配置存储并载入完整管理界面。")
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 28)
+                    Text("设备：\\(UIDevice.current.model)    系统：iOS \\(UIDevice.current.systemVersion)")
+                        .font(.footnote.monospaced())
+                        .foregroundColor(.secondary)
+                    Button {
+                        profileStore = ProfileStore()
+                        launchManager = true
+                    } label: {
+                        Text("进入完整管理器")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .padding(.horizontal, 28)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(uiColor: .systemBackground))
+            }
+        }
     }
 }
 
