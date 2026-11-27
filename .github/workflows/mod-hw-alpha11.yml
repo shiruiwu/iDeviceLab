@@ -156,7 +156,14 @@ jobs:
               assert plist['Label'] == 'com.idevelab.core.alpha11'
               assert plist['ProgramArguments'] == ['/var/jb/usr/libexec/idevelab-core']
               assert plist['UserName'] == 'mobile' and plist['GroupName'] == 'mobile'
-          print('Core DEB, arm64 Mach-O, rootless install paths, and mobile LaunchDaemon verified')
+              helper_plist = plistlib.loads(archive.extractfile(files[helper_plist_path]).read())
+              assert helper_plist['Label'] == 'com.idevelab.maintenance.alpha11'
+              assert helper_plist['ProgramArguments'] == ['/var/jb/usr/bin/mod-hw-maintenance-helper']
+              assert helper_plist['UserName'] == 'root' and helper_plist['GroupName'] == 'wheel'
+              for helper_path in ('var/jb/usr/bin/mod-hw-maintenance-helper', 'var/jb/usr/bin/mod-hw-manager-pair'):
+                  helper_binary = archive.extractfile(files[helper_path]).read()
+                  assert helper_binary[:4] == bytes.fromhex('cffaedfe'), (helper_path, helper_binary[:4].hex())
+          print('Core DEB, arm64 Core and Root Helper binaries, rootless paths, and both LaunchDaemons verified')
           PY
 
       - name: Upload IPA, Core, and diagnostics DEB artifacts
