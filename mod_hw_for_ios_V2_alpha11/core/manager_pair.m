@@ -2,7 +2,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
-#include <sys/codesign.h>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <limits.h>
@@ -10,6 +10,28 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef CS_VALID
+#define CS_VALID 0x0000001
+#endif
+#ifndef CS_KILLED
+#define CS_KILLED 0x1000000
+#endif
+#ifndef CS_OPS_STATUS
+#define CS_OPS_STATUS 0
+#endif
+#ifndef CS_OPS_CDHASH
+#define CS_OPS_CDHASH 5
+#endif
+#ifndef CS_CDHASH_LEN
+#define CS_CDHASH_LEN 20
+#endif
+
+static int QueryCSOps(pid_t pid, unsigned int operation, void *buffer, size_t length) {
+    typedef int (*CSOpsFunction)(pid_t, unsigned int, void *, size_t);
+    CSOpsFunction function = (CSOpsFunction)dlsym(RTLD_DEFAULT, "csops");
+    return function ? function(pid, operation, buffer, length) : -1;
+}
 
 static const char *kPinDirectory = "/var/jb/var/root/Library/Preferences";
 static const char *kPinPath = "/var/jb/var/root/Library/Preferences/com.idevelab.manager-cdhash";
@@ -38,9 +60,9 @@ static BOOL ProcessExecutablePath(pid_t pid, char output[4096]) {
 
 static BOOL ReadCodeHash(pid_t pid, uint8_t output[CS_CDHASH_LEN]) {
     uint32_t status = 0;
-    if (csops(pid, CS_OPS_STATUS, &status, sizeof(status)) != 0 ||
+    if (QueryCSOps(pid, CS_OPS_STATUS, &status, sizeof(status)) != 0 ||
         (status & CS_VALID) == 0 || (status & CS_KILLED) != 0) return NO;
-    return csops(pid, CS_OPS_CDHASH, output, CS_CDHASH_LEN) == 0;
+    return QueryCSOps(pid, CS_OPS_CDHASH, output, CS_CDHASH_LEN) == 0;
 }
 
 int main(int argc, char **argv) {

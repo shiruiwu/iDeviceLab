@@ -3,7 +3,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/stat.h>
-#include <sys/codesign.h>
+#include <dlfcn.h>
 #include <sys/sysctl.h>
 #include <pwd.h>
 #include <unistd.h>
@@ -19,6 +19,28 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef CS_VALID
+#define CS_VALID 0x0000001
+#endif
+#ifndef CS_KILLED
+#define CS_KILLED 0x1000000
+#endif
+#ifndef CS_OPS_STATUS
+#define CS_OPS_STATUS 0
+#endif
+#ifndef CS_OPS_CDHASH
+#define CS_OPS_CDHASH 5
+#endif
+#ifndef CS_CDHASH_LEN
+#define CS_CDHASH_LEN 20
+#endif
+
+static int QueryCSOps(pid_t pid, unsigned int operation, void *buffer, size_t length) {
+    typedef int (*CSOpsFunction)(pid_t, unsigned int, void *, size_t);
+    CSOpsFunction function = (CSOpsFunction)dlsym(RTLD_DEFAULT, "csops");
+    return function ? function(pid, operation, buffer, length) : -1;
+}
 
 extern char **environ;
 
@@ -126,11 +148,11 @@ static BOOL PeerIsMobile(int fd, pid_t *pid) {
 
 static BOOL PeerMatchesPinned(pid_t pid) {
     uint32_t status = 0;
-    if (csops(pid, CS_OPS_STATUS, &status, sizeof(status)) != 0 ||
+    if (QueryCSOps(pid, CS_OPS_STATUS, &status, sizeof(status)) != 0 ||
         (status & CS_VALID) == 0 || (status & CS_KILLED) != 0) return NO;
     uint8_t expected[CS_CDHASH_LEN] = {0};
     uint8_t actual[CS_CDHASH_LEN] = {0};
-    if (!ReadPinnedHash(expected) || csops(pid, CS_OPS_CDHASH, actual, sizeof(actual)) != 0) return NO;
+    if (!ReadPinnedHash(expected) || QueryCSOps(pid, CS_OPS_CDHASH, actual, sizeof(actual)) != 0) return NO;
     return memcmp(expected, actual, sizeof(expected)) == 0;
 }
 
