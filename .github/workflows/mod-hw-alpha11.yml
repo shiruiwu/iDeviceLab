@@ -118,7 +118,7 @@ jobs:
           print('DEB ar members, architecture, dependency, and all eleven installed tools verified')
           PY
 
-      - name: Build Alpha11 Core rootless DEB
+      - name: Build and ad-hoc sign Alpha11 Core rootless DEB
         run: bash scripts/build-core-deb.sh
 
       - name: Verify Core DEB and LaunchDaemon payload
