@@ -32,6 +32,38 @@ core_makefile = ROOT / "core/Makefile"
 core_control = ROOT / "core/control"
 core_control_text = core_control.read_text() if core_control.is_file() else ""
 core_daemon = ROOT / "core/layout/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
+
+helper_source = ROOT / "core/maintenance_helper.m"
+pair_source = ROOT / "core/manager_pair.m"
+helper_daemon = ROOT / "core/layout/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
+if helper_daemon.is_file():
+    helper_plist = plistlib.loads(helper_daemon.read_bytes())
+    check(helper_plist.get("Label") == "com.idevelab.maintenance.alpha11" and
+          helper_plist.get("ProgramArguments") == ["/var/jb/usr/bin/mod-hw-maintenance-helper"] and
+          helper_plist.get("UserName") == "root" and helper_plist.get("GroupName") == "wheel" and
+          helper_plist.get("KeepAlive") is True,
+          "Root Helper is installed as a persistent root:wheel LaunchDaemon")
+check(helper_source.is_file() and pair_source.is_file(),
+      "Root Helper and explicit Manager pairing source files exist")
+if helper_source.is_file():
+    helper_text = helper_source.read_text()
+    check("LOCAL_PEERPID" in helper_text and "getpeereid" in helper_text and
+          "CS_OPS_CDHASH" in helper_text and "CS_VALID" in helper_text and
+          "com.idevelab.manager-cdhash" in helper_text and "posix_spawn" in helper_text and
+          "300.0" in helper_text and "kOutputLimit = 65536" in helper_text,
+          "Root Helper checks peer UID/PID and pinned code signature, runs bounded fixed tools, and caps execution/output")
+    check(all(token in helper_text for token in (
+          '@"backup"', '@"verify"', '@"restore"', '@"clean"', '@"apply-profile"',
+          '@"config-backup"', '@"config-restore"', '@"keychain-diagnose"',
+          '@"diagnose-config"', '@"selftest"', '@"acceptance-iphone12"')),
+          "Root Helper exposes only the declared maintenance allowlist")
+if pair_source.is_file():
+    pair_text = pair_source.read_text()
+    check("KERN_PROCARGS2" in pair_text and "CS_OPS_CDHASH" in pair_text and
+          'com.modhw.manager' in pair_text and 'ModHWManager.app' in pair_text and
+          'strcmp(confirmation, "PAIR\\n")' in pair_text and "O_NOFOLLOW" in pair_text,
+          "Pairing utility verifies the live Manager app identity and signature and requires root confirmation")
+
 if core_daemon.is_file():
     daemon = plistlib.loads(core_daemon.read_bytes())
     check(daemon.get("Label") == "com.idevelab.core.alpha11", "Alpha11 launchd plist uses a valid service label")

@@ -38,6 +38,8 @@ check '管理器 Bundle ID 正确' test "$APP_BUNDLE_ID" = "com.modhw.manager"
 
 PIN_PATH='/var/jb/var/root/Library/Preferences/com.idevelab.manager-cdhash'
 check '管理器已完成 Root Helper 配对' test -s "$PIN_PATH"
+PIN_HASH="$(cat "$PIN_PATH" 2>/dev/null || true)"
+check '配对记录是 40 位十六进制 CDHash' sh -c 'printf "%s" "$1" | grep -Eq "^[0-9a-fA-F]{40}$"' sh "$PIN_HASH"
 PIN_META="$(stat -f '%u:%g:%Lp' "$PIN_PATH" 2>/dev/null || true)"
 check '配对记录权限为 root:root 0600' test "$PIN_META" = "0:0:600"
 

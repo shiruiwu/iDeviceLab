@@ -33,9 +33,12 @@ jobs:
       - name: Run static project checks
         run: python3 tools/validate_project.py
 
-      - name: Compile Alpha11 Core against the iOS SDK
+      - name: Compile Alpha11 Core and privileged helpers against the iOS SDK
         run: |
-          xcrun --sdk iphoneos clang -fsyntax-only -target arm64-apple-ios16.0 -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" -fobjc-arc -Wall -Wextra -framework Foundation core/main.m
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          for source in core/main.m core/maintenance_helper.m core/manager_pair.m; do
+            xcrun --sdk iphoneos clang -fsyntax-only -target arm64-apple-ios16.0 -isysroot "$SDK" -fobjc-arc -Wall -Wextra -framework Foundation "$source"
+          done
 
       - name: Check Swift and shell syntax
         run: |
@@ -49,6 +52,7 @@ jobs:
           bash -n scripts/cleanup-app-container.sh
           bash -n scripts/verify-app-container-backup.sh
           bash -n scripts/selftest-device.sh
+          sh -n scripts/acceptance-iphone12.sh
           bash -n scripts/diagnose-keychain-access.sh
           bash -n scripts/build-release.sh
           bash -n scripts/build-diagnostics-deb.sh
