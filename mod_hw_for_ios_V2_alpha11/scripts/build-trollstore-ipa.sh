@@ -8,7 +8,7 @@ DERIVED="$BUILD_DIR/DerivedData"
 PAYLOAD="$BUILD_DIR/Payload"
 APP="$DERIVED/Build/Products/Release-iphoneos/ModHWManager.app"
 OUT="$ROOT/release"
-IPA="$OUT/mod_hw_manager_trollstore.ipa"
+IPA="$OUT/mod_hw_manager_trollstore_build16.ipa"
 if ! command -v xcodebuild >/dev/null 2>&1; then
   echo "错误：需要 macOS + Xcode（包含 iOS SDK）才能编译 IPA。" >&2
   exit 2
@@ -22,8 +22,8 @@ if [[ ! -d "$APP" ]]; then echo "找不到构建产物：$APP" >&2; exit 3; fi
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
-# Mark the UIKit-only startup isolation build 11.
-/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 11' "$INFO"
+# Mark the UIKit-only startup isolation build 16.
+/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 16' "$INFO"
 BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
 if ! command -v ldid >/dev/null 2>&1; then
