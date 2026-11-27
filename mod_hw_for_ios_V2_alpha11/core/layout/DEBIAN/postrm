@@ -1,0 +1,14 @@
+#!/bin/sh
+# Stop the helper and remove its IPC endpoint when the Core package is removed.
+set -eu
+for candidate in /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /var/jb/bin/launchctl /var/jb/usr/bin/launchctl /var/jb/basebin/launchctl; do
+  if [ -x "$candidate" ]; then
+    "$candidate" bootout system /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist >/dev/null 2>&1 || true
+    break
+  fi
+done
+rm -f /var/run/com.idevelab.maintenance.sock
+if [ "${1:-}" = "purge" ]; then
+  rm -f /var/jb/var/root/Library/Preferences/com.idevelab.manager-cdhash
+fi
+exit 0

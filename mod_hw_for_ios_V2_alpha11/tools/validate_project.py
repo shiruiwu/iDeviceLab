@@ -156,6 +156,10 @@ if pair_source.is_file():
     check("KERN_PROCARGS2" in src and "com.modhw.manager" in src and
           "CS_OPS_CDHASH" in src and 'strcmp(confirmation, "PAIR\\n")' in src,
           "Pairing utility requires root confirmation and pins the exact Manager app code hash")
+check((ROOT / "core/layout/DEBIAN/postrm").is_file() and
+      "com.idevelab.maintenance.alpha11.plist" in (ROOT / "core/layout/DEBIAN/postrm").read_text() and
+      "com.idevelab.maintenance.sock" in (ROOT / "core/layout/DEBIAN/postrm").read_text(),
+      "Core package has a helper shutdown and IPC cleanup post-removal hook")
 check(core_package_builder_path.is_file() and
       "Depends: firmware (>= 15.0), com.modhw.ios.diagnostics" in core_package_builder and
       'xcrun --sdk iphoneos clang' in core_package_builder and

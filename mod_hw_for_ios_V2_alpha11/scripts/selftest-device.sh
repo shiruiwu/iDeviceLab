@@ -27,6 +27,18 @@ check 'Alpha11 Core executable installed' test -x /var/jb/usr/libexec/idevelab-c
 check 'Alpha11 Core LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
 check 'Alpha11 Core LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
 check 'Root maintenance helper executable installed' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
+check 'Manager pairing utility installed' test -x /var/jb/usr/bin/mod-hw-manager-pair
+check 'Maintenance Helper LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
+check 'Maintenance Helper LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
+if plutil -extract UserName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist 2>/dev/null | grep -qx root &&
+   plutil -extract GroupName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist 2>/dev/null | grep -qx wheel; then
+  echo '[PASS] Maintenance Helper runs as root:wheel'
+  PASS=$((PASS + 1))
+else
+  echo '[FAIL] Maintenance Helper is not configured as root:wheel'
+  FAIL=$((FAIL + 1))
+fi
+check 'Root maintenance helper executable installed' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
 check 'Manager pairing command installed' test -x /var/jb/usr/bin/mod-hw-manager-pair
 check 'Root helper LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
 check 'Root helper LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
@@ -50,6 +62,7 @@ if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
 fi
 if [ -n "$LAUNCHCTL" ]; then
   check 'Alpha11 Core launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.core.alpha11
+  check 'Maintenance Helper launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.maintenance.alpha11
   check 'Root maintenance helper launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.maintenance.alpha11
 else
   echo '[FAIL] launchctl is unavailable in standard and Dopamine rootless paths'
@@ -95,6 +108,14 @@ check 'App-container backup command installed' command -v mod-hw-app-backup
 check 'App-container backup verifier installed' command -v mod-hw-app-backup-verify
 check 'Guarded App-container restore command installed' command -v mod-hw-app-restore
 check 'Backup-first App-container cleanup command installed' command -v mod-hw-app-clean
+if [ -S /var/run/com.idevelab.maintenance.sock ]; then
+  SOCKET_META="$(stat -f '%u:%g:%Lp' /var/run/com.idevelab.maintenance.sock 2>/dev/null || echo invalid)"
+  MOBILE_GID="$(id -g mobile 2>/dev/null || echo unknown)"
+  check 'Maintenance socket is root:mobile mode 0660' test "$SOCKET_META" = "0:$MOBILE_GID:660"
+else
+  echo '[FAIL] Root maintenance socket is missing'
+  FAIL=$((FAIL + 1))
+fi
 if command -v curl >/dev/null 2>&1; then
   BACKUPS_RESPONSE="$(curl --silent --show-error --fail --max-time 3 http://127.0.0.1:18081/backups 2>/dev/null || true)"
   if contains "$BACKUPS_RESPONSE" '"ok":true' && contains "$BACKUPS_RESPONSE" '"backups":'; then
