@@ -837,7 +837,7 @@ struct ContentView: View {
     }
 }
 
-private struct MaintenanceOperationResult: Decodable {
+struct MaintenanceOperationResult: Decodable {
     let ok: Bool
     let paired: Bool?
     let helper: String?
@@ -848,16 +848,23 @@ private struct MaintenanceOperationResult: Decodable {
     let outputTruncated: Bool?
 }
 
-private enum MaintenanceClient {
+enum MaintenanceClient {
     private static let socketPath = "/var/run/com.idevelab.maintenance.sock"
 
-    static func request(action: String, bundleID: String? = nil, archive: String? = nil, confirm: Bool = false) async throws -> MaintenanceOperationResult {
-        try await Task.detached(priority: .userInitiated) {
-            try perform(action: action, bundleID: bundleID, archive: archive, confirm: confirm)
+    static func request(action: String, bundleID: String? = nil, archive: String? = nil, profile: [String: Any]? = nil, confirm: Bool = false) async throws -> MaintenanceOperationResult {
+        var payload: [String: Any] = ["action": action]
+        if let bundleID { payload["bundleID"] = bundleID }
+        if let archive { payload["archive"] = archive }
+        if let profile { payload["profile"] = profile }
+        if confirm { payload["confirm"] = true }
+        var requestData = try JSONSerialization.data(withJSONObject: payload, options: [])
+        requestData.append(0x0A)
+        return try await Task.detached(priority: .userInitiated) {
+            try perform(requestData: requestData)
         }.value
     }
 
-    private static func perform(action: String, bundleID: String?, archive: String?, confirm: Bool) throws -> MaintenanceOperationResult {
+    private static func perform(requestData: Data) throws -> MaintenanceOperationResult {
         let descriptor = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { throw NSError(domain: "MaintenanceHelper", code: 1, userInfo: [NSLocalizedDescriptionKey: "无法创建本地套接字。"]) }
         defer { Darwin.close(descriptor) }
@@ -886,13 +893,6 @@ private enum MaintenanceClient {
         timeout.tv_sec = 300
         timeout.tv_usec = 0
         setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
-
-        var payload: [String: Any] = ["action": action]
-        if let bundleID { payload["bundleID"] = bundleID }
-        if let archive { payload["archive"] = archive }
-        if confirm { payload["confirm"] = true }
-        var requestData = try JSONSerialization.data(withJSONObject: payload, options: [])
-        requestData.append(0x0A)
 
         try requestData.withUnsafeBytes { rawBuffer in
             guard let base = rawBuffer.baseAddress else { return }
