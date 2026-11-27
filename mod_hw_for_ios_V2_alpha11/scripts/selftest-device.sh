@@ -148,6 +148,7 @@ else
   echo '[SKIP] Backup directory not created yet; create a test backup before checking permissions'
   SKIP=$((SKIP + 1))
 fi
+check 'iPhone 12 / iOS 16.2 acceptance script installed' command -v mod-hw-acceptance-iphone12
 check 'Config diagnostic command installed' command -v mod-hw-diagnose
 check 'Read-only Keychain entitlement diagnostic installed' command -v mod-hw-keychain-diagnose
 echo "Result: $PASS passed, $FAIL failed, $SKIP skipped"
