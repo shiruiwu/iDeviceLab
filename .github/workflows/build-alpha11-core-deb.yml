@@ -30,6 +30,9 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - name: Install Debian package verifier
+        run: brew install dpkg
+
       - name: Validate package scripts and plist
         run: |
           bash -n scripts/build-core-deb.sh
