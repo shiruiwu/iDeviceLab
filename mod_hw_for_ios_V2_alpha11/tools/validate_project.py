@@ -84,6 +84,10 @@ check("mod-hw-maintenance" in manager and 'case "$ACTION" in' in (ROOT / "script
 check("mod-hw-maintenance backup" in manager and "mod-hw-maintenance verify" in manager and
       "mod-hw-maintenance restore" in manager and "mod-hw-maintenance clean" in manager,
       "Manager generates a target-specific maintenance command set without claiming in-app execution")
+check("MaintenanceClient.request" in manager and "AF_UNIX" in manager and
+      "mod-hw-manager-pair" in manager and "confirmationDialog" in manager and
+      "helperPaired" in manager and "performMaintenance" in manager,
+      "Manager directly invokes the pinned local Root Helper and gates destructive actions behind explicit confirmation")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
 check('Picker("已安装 App", selection: $maintenanceBundleID)' in manager and
