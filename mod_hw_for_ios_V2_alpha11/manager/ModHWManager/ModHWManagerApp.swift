@@ -221,11 +221,21 @@ struct ContentView: View {
                             cleanupPage
                         }
                         dashboardTile("改机管理", detail: "全局设备参数配置", icon: "slider.horizontal.3", color: .orange) {
-                            ProfileManagerView(availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) })
+                            ProfileManagerView(
+                                availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) },
+                                onOperation: { action, success, detail in
+                                    recordOperation(action, target: "Hook 配置", success: success, detail: detail)
+                                }
+                            )
                                 .environmentObject(profileStore)
                         }
                         dashboardTile("分 App 改机", detail: "按 Bundle ID 独立配置", icon: "square.grid.2x2.fill", color: .teal) {
-                            ProfileManagerView(availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) })
+                            ProfileManagerView(
+                                availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) },
+                                onOperation: { action, success, detail in
+                                    recordOperation(action, target: "Hook 配置", success: success, detail: detail)
+                                }
+                            )
                                 .environmentObject(profileStore)
                         }
                         dashboardTile("模板管理", detail: "创建、导入与导出配置模板", icon: "shippingbox.fill", color: .indigo) {
@@ -453,7 +463,12 @@ struct ContentView: View {
                 LabeledContent("配置解析", value: importedData == nil ? "未导入" : (isValid ? "有效" : "无效"))
                 NavigationLink("打开设备配置管理") { profilesPage }
                 NavigationLink("打开分 App 环境管理") {
-                    ProfileManagerView(availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) })
+                    ProfileManagerView(
+                        availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) },
+                        onOperation: { action, success, detail in
+                            recordOperation(action, target: "Hook 配置", success: success, detail: detail)
+                        }
+                    )
                         .environmentObject(profileStore)
                 }
             }

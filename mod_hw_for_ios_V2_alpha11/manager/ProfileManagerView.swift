@@ -4,6 +4,7 @@ import UIKit
 
 struct ProfileManagerView: View {
     var availableApps: [ProfileAppOption] = []
+    var onOperation: ((String, Bool, String) -> Void)? = nil
     @EnvironmentObject private var store: ProfileStore
     @State private var showingImporter = false
     @State private var exportURL: URL?
@@ -461,13 +462,15 @@ private var header: some View {
         guard let profile = pendingApplyProfile, let bundleID = pendingApplyBundleID else { return }
         guard profile.isHookConfigurationReady else {
             alertMessage = "UniqueDeviceID 必须是 40 位十六进制字符串。"
+            onOperation?("Hook 配置应用", false, alertMessage ?? "")
             return
         }
         Task {
             do {
                 let helperStatus = try await MaintenanceClient.request(action: "status")
                 guard helperStatus.paired == true else {
-                    alertMessage = "Root Helper 尚未与当前管理器配对。请先到「备份与维护」页复制配对命令并在越狱终端执行。"
+                    alertMessage = "Root Helper 尚未与当前管理器配对。请先到「设置 → 高级维护与 iPhone 12 最终验收」复制配对命令并在越狱终端执行。"
+                    onOperation?("Hook 配置应用", false, alertMessage ?? "")
                     return
                 }
                 let isGlobal = bundleID == "__global__"
@@ -480,8 +483,11 @@ private var header: some View {
                 alertMessage = result.ok
                     ? "\(result.output ?? "Hook 配置已写入。")\n请强制关闭并重新打开目标 App。"
                     : (result.error ?? result.output ?? "Hook 配置写入失败。")
+                onOperation?(isGlobal ? "全局 Hook 配置应用" : "分 App Hook 配置应用",
+                             result.ok, result.output ?? result.error ?? "")
             } catch {
                 alertMessage = "Hook 配置写入失败：\(error.localizedDescription)"
+                onOperation?("Hook 配置应用", false, error.localizedDescription)
             }
             pendingApplyProfile = nil
             pendingApplyBundleID = nil
