@@ -19,7 +19,7 @@ project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
 sandboxed_ipa = (ROOT / "scripts/build-manager-sandboxed-ipa.sh").read_text()
 check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa and
-      "CURRENT_PROJECT_VERSION=16" in sandboxed_ipa and
+      "CURRENT_PROJECT_VERSION=17" in sandboxed_ipa and
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and
       "NSAllowsLocalNetworking" in sandboxed_ipa,
       "Known-good sandboxed Manager Build16 keeps its Bundle ID and reaches Core over loopback HTTP")
@@ -287,7 +287,7 @@ if core_source.is_file():
           "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
 
 
-    check('@"version": @"0.3.4-alpha11"' in core,
+    check('@"version": @"0.3.5-alpha11"' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
           'HasSecureBackupMetadata' in core and
