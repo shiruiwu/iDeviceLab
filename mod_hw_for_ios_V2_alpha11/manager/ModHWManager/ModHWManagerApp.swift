@@ -385,8 +385,7 @@ struct ContentView: View {
                 Button("确认还原", role: .destructive) { performMaintenance("restore") }
             } else if pendingMaintenanceAction == "clean" {
                 Button("确认清理", role: .destructive) { performMaintenance("clean") }
-            }
-            else if pendingMaintenanceAction == "config-restore" {
+            } else if pendingMaintenanceAction == "config-restore" {
                 Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
             }
             Button("取消", role: .cancel) { pendingMaintenanceAction = nil }
