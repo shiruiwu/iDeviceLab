@@ -59,10 +59,24 @@ if [ -n "$LATEST" ] && [ -r "$LATEST" ]; then
   tar -tzf "$LATEST" > "$LISTING" 2>/dev/null || fail '配置归档目录表损坏。'
   while IFS= read -r ENTRY; do
     case "$ENTRY" in
-      './'|'./com.modhw.ios.devices.plist'|'./com.modhw.ios.profiles'|'./com.modhw.ios.profiles/'|'./com.modhw.ios.profiles/'*.plist) ;;
+      './'|'./com.modhw.ios.devices.plist'|'./com.modhw.ios.profiles'|'./com.modhw.ios.profiles/') ;;
+      './com.modhw.ios.profiles/'*.plist)
+        PROFILE_NAME="${ENTRY#./com.modhw.ios.profiles/}"
+        case "$PROFILE_NAME" in
+          ''|.*|*/*|*..*|*.) fail "归档中的分 App 配置路径无效：$ENTRY" ;;
+          *[!A-Za-z0-9._-]*) fail "归档中的分 App 配置文件名无效：$ENTRY" ;;
+          *.plist) ;;
+          *) fail "归档中的分 App 配置不是 plist：$ENTRY" ;;
+        esac
+        BUNDLE_ID="${PROFILE_NAME%.plist}"
+        [ -n "$BUNDLE_ID" ] || fail "归档中的分 App Bundle ID 为空：$ENTRY"
+        ;;
       *) fail "归档包含未允许的路径：$ENTRY" ;;
     esac
   done < "$LISTING"
+  if LC_ALL=C sort "$LISTING" | uniq -d | grep -q .; then
+    fail '配置归档包含重复路径，拒绝还原。'
+  fi
   tar -tvzf "$LATEST" > "$VERBOSE" 2>/dev/null || fail '无法读取配置归档详细目录。'
   while IFS= read -r LINE; do
     TYPE="$(printf '%s' "$LINE" | cut -c 1)"
