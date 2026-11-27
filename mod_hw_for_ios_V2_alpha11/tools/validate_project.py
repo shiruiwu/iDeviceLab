@@ -403,6 +403,8 @@ if app_cleanup.is_file():
           "App cleanup rejects symlinked or non-root-owned snapshot storage")
     check("Keychain" in src and "App Groups" in src,
           "App cleanup documents Keychain and App Groups as excluded")
+    check("REMAINING=" in src and "清理后仍有未删除项目" in src,
+          "App cleanup verifies the container is empty except for its required MCM registration marker")
 if app_restore.is_file():
     src = app_restore.read_text()
     check('chown root:mobile "$BACKUP_ROOT"' in src and 'chmod 0750 "$BACKUP_ROOT"' in src,
@@ -418,6 +420,8 @@ if app_restore.is_file():
           "App restore rejects symlinked or non-root-owned rollback storage")
     check("tar -tvzf" in src and "tar -tzf" in src and "符号链接" in src,
           "App restore rejects unsafe archive paths and link/special-file entries")
+    check('diff -qr "$STAGE" "$MATCH"' in src and "还原后内容与已校验备份不一致" in src,
+          "App restore compares the restored tree with the verified staging tree before reporting success")
     check('if killall -0 "$EXECUTABLE"' in src and '[ "$KILLALL_STATUS" -eq 1 ]' in src,
           "App restore distinguishes a stopped process from a system killall execution error")
 if keychain_diag.is_file():

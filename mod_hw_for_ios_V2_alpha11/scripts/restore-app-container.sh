@@ -30,7 +30,7 @@ SAVED_CONTAINER="$(manifest_value container_id)" || fail '清单容器 ID 字段
 case "$SAVED_CONTAINER" in ''|*[!A-Za-z0-9-]*) fail '清单容器 ID 格式无效。' ;; esac
 MATCH=''; COUNT=0
 for META in "$APP_ROOT"/*/.com.apple.mobile_container_manager.metadata.plist; do
-  [ -f "$META" ] || continue
+  [ -f "$META" ] && [ ! -L "$META" ] || continue
   IDENTIFIER="$(plutil -extract MCMMetadataIdentifier raw -o - "$META" 2>/dev/null || true)"
   if [ "$IDENTIFIER" = "$BUNDLE_ID" ]; then MATCH="$(dirname "$META")"; COUNT=$((COUNT + 1)); fi
 done
@@ -97,6 +97,7 @@ find "$MATCH" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || fail '清空目标容
 cp -Rp "$STAGE/." "$MATCH/" || fail '还原复制失败；已触发自动回滚。'
 RESTORED_ID="$(plutil -extract MCMMetadataIdentifier raw -o - "$MATCH/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null || true)"
 [ "$RESTORED_ID" = "$BUNDLE_ID" ] || fail '还原后容器元数据不匹配；已触发自动回滚。'
+diff -qr "$STAGE" "$MATCH" >/dev/null || fail '还原后内容与已校验备份不一致；已触发自动回滚。'
 SUCCESS=1
 echo "App 数据容器还原完成：$BUNDLE_ID"
 echo "回滚快照：$SNAPSHOT"

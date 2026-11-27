@@ -40,7 +40,7 @@ fi
 MATCH=''
 COUNT=0
 for META in "$APP_ROOT"/*/.com.apple.mobile_container_manager.metadata.plist; do
-  [ -f "$META" ] || continue
+  [ -f "$META" ] && [ ! -L "$META" ] || continue
   IDENTIFIER="$(plutil -extract MCMMetadataIdentifier raw -o - "$META" 2>/dev/null || true)"
   if [ "$IDENTIFIER" = "$BUNDLE_ID" ]; then MATCH="$(dirname "$META")"; COUNT=$((COUNT + 1)); fi
 done
@@ -118,6 +118,8 @@ find "$MATCH" -mindepth 1 -maxdepth 1 ! -name '.com.apple.mobile_container_manag
   fail '清理过程中发生错误；已触发自动回滚。'
 CURRENT_ID="$(plutil -extract MCMMetadataIdentifier raw -o - "$MATCH/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null || true)"
 [ "$CURRENT_ID" = "$BUNDLE_ID" ] || fail '容器元数据校验失败；已触发自动回滚。'
+REMAINING="$(find "$MATCH" -mindepth 1 -maxdepth 1 ! -name '.com.apple.mobile_container_manager.metadata.plist' -print -quit)" || fail '清理结果目录检查失败；已触发自动回滚。'
+[ -z "$REMAINING" ] || fail '清理后仍有未删除项目；已触发自动回滚。'
 
 SUCCESS=1
 echo "App 本地数据容器清理完成：$BUNDLE_ID"
