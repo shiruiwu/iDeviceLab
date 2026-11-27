@@ -45,6 +45,9 @@ jobs:
       - name: Build sandboxed UIKit startup control
         run: bash scripts/build-startup-probe-ipa.sh
 
+      - name: Build sandboxed full Manager diagnostic IPA
+        run: bash scripts/build-manager-sandboxed-ipa.sh
+
       - name: Build Release iOS Simulator smoke-test app
         run: |
           set -euo pipefail
@@ -124,5 +127,13 @@ jobs:
         with:
           name: mod-hw-manager-sandboxed-uikit-control-build13
           path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_startup_probe_build13.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload sandboxed full Manager diagnostic IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-hw-manager-sandboxed-build14
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build14.ipa
           if-no-files-found: error
           retention-days: 14
