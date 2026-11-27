@@ -369,8 +369,15 @@ struct ContentView: View {
                 }
             }
             Section("配置备份") {
-                commandRow("备份配置", command: "/var/jb/usr/bin/mod-hw-config-backup")
-                commandRow("还原配置", command: "/var/jb/usr/bin/mod-hw-config-restore <备份文件>")
+                Button("直接备份当前 Hook 配置") { performMaintenance("config-backup") }
+                    .disabled(!helperPaired || maintenanceRunning)
+                Button("还原最近一次配置备份") {
+                    pendingMaintenanceAction = "config-restore"
+                    showMaintenanceConfirmation = true
+                }
+                .disabled(!helperPaired || maintenanceRunning)
+                Text("配置还原会先保留当前配置快照，并在替换前检查 plist 格式。")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
         }
         .confirmationDialog("确认执行破坏性操作", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
@@ -378,6 +385,9 @@ struct ContentView: View {
                 Button("确认还原", role: .destructive) { performMaintenance("restore") }
             } else if pendingMaintenanceAction == "clean" {
                 Button("确认清理", role: .destructive) { performMaintenance("clean") }
+            }
+            else if pendingMaintenanceAction == "config-restore" {
+                Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
             }
             Button("取消", role: .cancel) { pendingMaintenanceAction = nil }
         } message: {
@@ -429,9 +439,13 @@ struct ContentView: View {
                 Text("命令：/var/jb/usr/bin/mod-hw-keychain-diagnose <BundleID>")
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
+                Button("直接诊断所选 App Keychain Entitlements") { performMaintenance("keychain-diagnose") }
+                    .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
                 Text("设备自检命令：/var/jb/usr/bin/mod-hw-selftest")
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
+                Button("直接运行只读设备自检") { performMaintenance("selftest") }
+                    .disabled(!helperPaired || maintenanceRunning)
             }
         }
         .navigationTitle("设备诊断")
@@ -523,7 +537,7 @@ struct ContentView: View {
                     action: action,
                     bundleID: bundleID.isEmpty ? nil : bundleID,
                     archive: archive.isEmpty ? nil : archive,
-                    confirm: action == "restore" || action == "clean"
+                    confirm: ["restore", "clean", "config-restore"].contains(action)
                 )
                 maintenanceResult = result.ok
                     ? (result.output ?? "操作完成。")

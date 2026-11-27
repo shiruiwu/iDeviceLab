@@ -256,8 +256,21 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
             return Failure(@"清理必须提供有效 Bundle ID 和明确确认。");
         path = @"/var/jb/usr/bin/mod-hw-app-clean";
         [arguments addObjectsFromArray:@[bundleID, @"--confirm"]];
+    } else if ([action isEqualToString:@"config-backup"]) {
+        path = @"/var/jb/usr/bin/mod-hw-config-backup";
+    } else if ([action isEqualToString:@"config-restore"]) {
+        if (!confirm) return Failure(@"配置还原必须明确确认。");
+        path = @"/var/jb/usr/bin/mod-hw-config-restore";
+    } else if ([action isEqualToString:@"keychain-diagnose"]) {
+        if (!ValidBundleID(bundleID)) return Failure(@"Bundle ID 格式无效。");
+        path = @"/var/jb/usr/bin/mod-hw-keychain-diagnose";
+        [arguments addObject:bundleID];
+    } else if ([action isEqualToString:@"diagnose-config"]) {
+        path = @"/var/jb/usr/bin/mod-hw-diagnose";
+    } else if ([action isEqualToString:@"selftest"]) {
+        path = @"/var/jb/usr/bin/mod-hw-selftest";
     } else {
-        return Failure(@"只允许 status、backup、verify、restore、clean。");
+        return Failure(@"只允许 status、backup、verify、restore、clean、config-backup、config-restore、keychain-diagnose、diagnose-config、selftest。");
     }
 
     if (access(path, X_OK) != 0) return Failure(@"维护脚本未安装或不可执行。");

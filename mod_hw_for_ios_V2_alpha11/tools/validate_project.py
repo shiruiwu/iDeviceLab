@@ -84,7 +84,7 @@ check('case "$ACTION" in' in (ROOT / "scripts/maintenance-dispatch.sh").read_tex
 check("mod-hw-maintenance" in package_builder and "maintenance-dispatch.sh" in package_builder,
       "Rootless utility DEB packages the fixed-command terminal fallback dispatcher")
 check("MaintenanceClient.request" in manager and "AF_UNIX" in manager and
-      "mod-hw-manager-pair" in manager and "confirmationDialog" in manager and
+      "mod-hw-manager-pair" in manager and "config-backup" in manager and "keychain-diagnose" in manager and "confirmationDialog" in manager and
       "helperPaired" in manager and "performMaintenance" in manager,
       "Manager directly invokes the pinned local Root Helper and gates destructive actions behind explicit confirmation")
 check("UIPasteboard.general.string = command" in manager,
@@ -147,7 +147,7 @@ if helper_source.is_file():
     check("LOCAL_PEERPID" in src and "getpeereid" in src and "CS_OPS_CDHASH" in src and
           "CS_VALID" in src and "com.idevelab.manager-cdhash" in src and
           "posix_spawn" in src and "300.0" in src and
-          all(action in src for action in ('@"backup"', '@"verify"', '@"restore"', '@"clean"')),
+          all(action in src for action in ('@"backup"', '@"verify"', '@"restore"', '@"clean"', '@"config-backup"', '@"config-restore"', '@"keychain-diagnose"', '@"diagnose-config"', '@"selftest"')),
           "Root helper authenticates the paired process signature and executes only bounded fixed maintenance commands")
 if pair_source.is_file():
     src = pair_source.read_text()

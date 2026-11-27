@@ -48,7 +48,7 @@ else
 fi
 if command -v curl >/dev/null 2>&1; then
   RESPONSE="$(curl --silent --show-error --fail --max-time 3 http://127.0.0.1:18081/status 2>/dev/null || true)"
-  if contains "$RESPONSE" '"version":"0.2.0-alpha11"' && contains "$RESPONSE" '"mode":"read-only"'; then
+  if contains "$RESPONSE" '"version":"0.3.0-alpha11"' && contains "$RESPONSE" '"mode":"read-only"'; then
     echo '[PASS] Manager Core loopback endpoint responds with Alpha11 read-only identity'
     PASS=$((PASS + 1))
   else
