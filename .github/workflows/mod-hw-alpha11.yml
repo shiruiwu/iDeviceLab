@@ -119,7 +119,8 @@ jobs:
           import io, plistlib, tarfile
           package = 'release/idevelab-core-alpha11.deb'
           raw = open(package, 'rb').read()
-          assert raw[:8] == b'!<arch>\\n', repr(raw[:8])
+          print('CORE_PACKAGE_MAGIC_CHECK_V3', raw[:8].hex())
+          assert raw[:8].hex() == '213c617263683e0a', raw[:8].hex()
           members, offset = {}, 8
           while offset < len(raw):
               header = raw[offset:offset + 60]
