@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <CoreFoundation/CoreFoundation.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -246,12 +247,233 @@ static int RunFixedTool(const char *path, NSArray<NSString *> *arguments, NSStri
     return 1;
 }
 
+
+static BOOL MatchesCharacterSet(NSString *value, NSUInteger minimum, NSUInteger maximum, NSString *allowedCharacters) {
+    if (![value isKindOfClass:NSString.class] || value.length < minimum || value.length > maximum) return NO;
+    NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:allowedCharacters] invertedSet];
+    return [value rangeOfCharacterFromSet:invalid].location == NSNotFound;
+}
+
+static BOOL ValidIMEI(NSString *value) {
+    if (!MatchesCharacterSet(value, 15, 15, @"0123456789")) return NO;
+    NSInteger sum = 0;
+    for (NSInteger index = 13; index >= 0; index--) {
+        NSInteger digit = [value characterAtIndex:(NSUInteger)index] - '0';
+        if (((13 - index) % 2) == 0) {
+            NSInteger doubled = digit * 2;
+            sum += (doubled / 10) + (doubled % 10);
+        } else {
+            sum += digit;
+        }
+    }
+    sum += [value characterAtIndex:14] - '0';
+    return (sum % 10) == 0;
+}
+
+static BOOL ValidMACAddress(NSString *value) {
+    if (![value isKindOfClass:NSString.class]) return NO;
+    NSString *compact = [[value stringByReplacingOccurrencesOfString:@":" withString:@""] uppercaseString];
+    return MatchesCharacterSet(compact, 12, 12, @"0123456789ABCDEF");
+}
+
+static BOOL ValidateHookProfile(NSDictionary *profile, NSString **errorMessage) {
+    if (![profile isKindOfClass:NSDictionary.class] || profile.count == 0 || profile.count > 15) {
+        if (errorMessage) *errorMessage = @"Hook 配置必须是非空字典，最多 15 个字段。";
+        return NO;
+    }
+    NSSet *stringKeys = [NSSet setWithArray:@[
+        @"SerialNumber", @"InternationalMobileEquipmentIdentity", @"MobileEquipmentIdentifier",
+        @"WifiAddress", @"BluetoothAddress", @"UniqueDeviceID", @"ProductId", @"UniqueChipId",
+        @"ProductType", @"HWModelStr", @"IDFA", @"IDFV"
+    ]];
+    NSSet *booleanKeys = [NSSet setWithArray:@[
+        @"UniqueDeviceIDData", @"WifiAddressData", @"BluetoothAddressData"
+    ]];
+    for (id rawKey in profile) {
+        if (![rawKey isKindOfClass:NSString.class] ||
+            (![stringKeys containsObject:rawKey] && ![booleanKeys containsObject:rawKey])) {
+            if (errorMessage) *errorMessage = @"Hook 配置包含未允许的字段。";
+            return NO;
+        }
+        id value = profile[rawKey];
+        if ([stringKeys containsObject:rawKey]) {
+            if (![value isKindOfClass:NSString.class]) {
+                if (errorMessage) *errorMessage = [NSString stringWithFormat:@"%@ 必须是字符串。", rawKey];
+                return NO;
+            }
+            NSString *text = [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+            BOOL valid = NO;
+            if ([rawKey isEqualToString:@"SerialNumber"]) {
+                valid = MatchesCharacterSet(text, 1, 32, @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+            } else if ([rawKey isEqualToString:@"InternationalMobileEquipmentIdentity"]) {
+                valid = ValidIMEI(text);
+            } else if ([rawKey isEqualToString:@"MobileEquipmentIdentifier"]) {
+                valid = MatchesCharacterSet(text, 14, 14, @"0123456789ABCDEFabcdef");
+            } else if ([rawKey isEqualToString:@"WifiAddress"] || [rawKey isEqualToString:@"BluetoothAddress"]) {
+                valid = ValidMACAddress(text);
+            } else if ([rawKey isEqualToString:@"UniqueDeviceID"]) {
+                valid = MatchesCharacterSet(text, 40, 40, @"0123456789ABCDEFabcdef");
+            } else if ([rawKey isEqualToString:@"ProductId"]) {
+                valid = MatchesCharacterSet(text, 12, 12, @"0123456789ABCDEFabcdef");
+            } else if ([rawKey isEqualToString:@"UniqueChipId"]) {
+                valid = MatchesCharacterSet(text, 8, 32, @"0123456789ABCDEFabcdef") && (text.length % 2 == 0);
+            } else if ([rawKey isEqualToString:@"ProductType"]) {
+                valid = MatchesCharacterSet(text, 1, 32, @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.");
+            } else if ([rawKey isEqualToString:@"HWModelStr"]) {
+                valid = MatchesCharacterSet(text, 1, 32, @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+            } else if ([rawKey isEqualToString:@"IDFA"] || [rawKey isEqualToString:@"IDFV"]) {
+                valid = [[NSUUID alloc] initWithUUIDString:text] != nil;
+            }
+            if (!valid) {
+                if (errorMessage) *errorMessage = [NSString stringWithFormat:@"%@ 格式无效。", rawKey];
+                return NO;
+            }
+        } else {
+            if (![value isKindOfClass:NSNumber.class] ||
+                CFGetTypeID((__bridge CFTypeRef)value) != CFBooleanGetTypeID()) {
+                if (errorMessage) *errorMessage = [NSString stringWithFormat:@"%@ 必须是布尔值。", rawKey];
+                return NO;
+            }
+        }
+    }
+    NSString *udid = profile[@"UniqueDeviceID"];
+    if (![udid isKindOfClass:NSString.class] || !MatchesCharacterSet(udid, 40, 40, @"0123456789ABCDEFabcdef")) {
+        if (errorMessage) *errorMessage = @"必须提供 40 位十六进制 UniqueDeviceID。";
+        return NO;
+    }
+    return YES;
+}
+
+static BOOL EnsureRootMobileDirectory(NSString *path, mode_t mode, gid_t mobileGID) {
+    struct stat metadata;
+    if (lstat(path.fileSystemRepresentation, &metadata) == 0) {
+        if (!S_ISDIR(metadata.st_mode)) return NO;
+    } else if (errno == ENOENT) {
+        if (mkdir(path.fileSystemRepresentation, mode) != 0 && errno != EEXIST) return NO;
+    } else {
+        return NO;
+    }
+    if (lstat(path.fileSystemRepresentation, &metadata) != 0 || !S_ISDIR(metadata.st_mode)) return NO;
+    return chown(path.fileSystemRepresentation, 0, mobileGID) == 0 &&
+           chmod(path.fileSystemRepresentation, mode) == 0;
+}
+
+static BOOL WriteSecureFile(NSString *path, NSData *data, gid_t mobileGID) {
+    NSString *temporary = [path stringByAppendingFormat:@".tmp.%d", getpid()];
+    int fd = open(temporary.fileSystemRepresentation, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+    if (fd < 0) return NO;
+    const uint8_t *bytes = data.bytes;
+    size_t offset = 0;
+    BOOL okay = YES;
+    while (offset < data.length) {
+        ssize_t count = write(fd, bytes + offset, data.length - offset);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) { okay = NO; break; }
+        offset += (size_t)count;
+    }
+    if (okay) okay = fchown(fd, 0, mobileGID) == 0 && fchmod(fd, 0640) == 0 && fsync(fd) == 0;
+    close(fd);
+    if (!okay || rename(temporary.fileSystemRepresentation, path.fileSystemRepresentation) != 0) {
+        unlink(temporary.fileSystemRepresentation);
+        return NO;
+    }
+    struct stat metadata;
+    return lstat(path.fileSystemRepresentation, &metadata) == 0 &&
+           S_ISREG(metadata.st_mode) && metadata.st_uid == 0 &&
+           metadata.st_gid == mobileGID && (metadata.st_mode & 07777) == 0640;
+}
+
+static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, NSString **message) {
+    NSString *validationError = nil;
+    if (!ValidBundleID(bundleID) || !ValidateHookProfile(profile, &validationError)) {
+        if (message) *message = validationError ?: @"Bundle ID 无效。";
+        return NO;
+    }
+    struct passwd *mobile = getpwnam("mobile");
+    if (!mobile) {
+        if (message) *message = @"找不到 mobile 账户。";
+        return NO;
+    }
+    NSString *preferences = @"/var/mobile/Library/Preferences";
+    struct stat parentMetadata;
+    if (lstat(preferences.fileSystemRepresentation, &parentMetadata) != 0 || !S_ISDIR(parentMetadata.st_mode)) {
+        if (message) *message = @"Hook 配置父目录不存在或不是普通目录。";
+        return NO;
+    }
+    NSString *root = [preferences stringByAppendingPathComponent:@"com.modhw.ios.profiles"];
+    NSString *backupRoot = [root stringByAppendingPathComponent:@"backups"];
+    if (!EnsureRootMobileDirectory(root, 0750, mobile->pw_gid) ||
+        !EnsureRootMobileDirectory(backupRoot, 0750, mobile->pw_gid)) {
+        if (message) *message = @"无法安全创建或验证 per-App 配置目录。";
+        return NO;
+    }
+
+    NSString *target = [[root stringByAppendingPathComponent:bundleID] stringByAppendingPathExtension:@"plist"];
+    struct stat existing;
+    BOOL hasExisting = lstat(target.fileSystemRepresentation, &existing) == 0;
+    if (hasExisting && !S_ISREG(existing.st_mode)) {
+        if (message) *message = @"目标配置不是普通文件，拒绝覆盖。";
+        return NO;
+    }
+    if (!hasExisting && errno != ENOENT) {
+        if (message) *message = @"无法检查目标配置文件。";
+        return NO;
+    }
+
+    NSString *backupPath = nil;
+    if (hasExisting) {
+        NSData *oldData = [NSData dataWithContentsOfFile:target options:NSDataReadingMappedIfSafe error:nil];
+        if (!oldData || oldData.length == 0) {
+            if (message) *message = @"无法读取旧配置，未进行覆盖。";
+            return NO;
+        }
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        formatter.locale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"];
+        formatter.dateFormat = @"yyyyMMdd-HHmmss";
+        NSString *backupName = [NSString stringWithFormat:@"%@-%@-%d.plist", bundleID, [formatter stringFromDate:NSDate.date], getpid()];
+        backupPath = [backupRoot stringByAppendingPathComponent:backupName];
+        if (!WriteSecureFile(backupPath, oldData, mobile->pw_gid)) {
+            if (message) *message = @"旧配置备份失败，已取消写入。";
+            return NO;
+        }
+    }
+
+    NSError *serializationError = nil;
+    NSData *plistData = [NSPropertyListSerialization dataWithPropertyList:profile
+                                                                    format:NSPropertyListXMLFormat_v1_0
+                                                                   options:0
+                                                                     error:&serializationError];
+    if (!plistData) {
+        if (message) *message = [NSString stringWithFormat:@"Hook 配置序列化失败：%@", serializationError.localizedDescription ?: @"未知错误"];
+        return NO;
+    }
+    if (!WriteSecureFile(target, plistData, mobile->pw_gid)) {
+        if (message) *message = @"Hook 配置原子写入失败；旧文件保持不变。";
+        return NO;
+    }
+    if (message) {
+        *message = backupPath
+            ? [NSString stringWithFormat:@"已应用到 %@。旧配置备份：%@。请强制关闭并重新打开目标 App。", bundleID, backupPath]
+            : [NSString stringWithFormat:@"已应用到 %@。首次配置，无旧文件需要备份。请强制关闭并重新打开目标 App。", bundleID];
+    }
+    return YES;
+}
+
 static NSDictionary *ExecuteRequest(NSDictionary *request) {
     NSString *action = request[@"action"];
     if (![action isKindOfClass:NSString.class]) return Failure(@"缺少操作类型。");
 
     if ([action isEqualToString:@"status"]) {
         return @{@"ok": @YES, @"paired": @NO, @"helper": @"Alpha11 Maintenance Helper"};
+    }
+
+    if ([action isEqualToString:@"apply-profile"]) {
+        NSString *bundleID = request[@"bundleID"];
+        BOOL confirm = [request[@"confirm"] isKindOfClass:NSNumber.class] && [request[@"confirm"] boolValue];
+        if (!confirm) return Failure(@"应用 Hook 配置必须明确确认。");
+        NSString *message = nil;
+        if (!ApplyHookProfile(bundleID, request[@"profile"], &message)) return Failure(message ?: @"Hook 配置应用失败。");
+        return @{@"ok": @YES, @"action": action, @"output": message ?: @"Hook 配置已写入。"};
     }
 
     NSString *path = nil;
