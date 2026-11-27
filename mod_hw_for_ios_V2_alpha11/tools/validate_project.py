@@ -108,9 +108,10 @@ check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source 
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
 check("CURRENT_PROJECT_VERSION = 8;" in project, "Manager build number is 8")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
-check("TabView" in manager and "设备总览" in manager and "配置管理" in manager and
+check("TabView" in manager and "homePage" in manager and "recordsPage" in manager and
+      "settingsPage" in manager and "aboutPage" in manager and
       "备份与维护" in manager and "设备诊断" in manager,
-      "Manager exposes the integrated dashboard, profiles, maintenance, and diagnostics navigation")
+      "Manager exposes the restored dashboard, operation history, settings, about, maintenance, and diagnostics navigation")
 profile_view = (ROOT / "manager/ProfileManagerView.swift").read_text()
 profile_store = (ROOT / "manager/ProfileStore.swift").read_text()
 profile_models = (ROOT / "manager/DeviceProfileModels.swift").read_text()
