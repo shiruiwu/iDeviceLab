@@ -97,7 +97,8 @@ static NSArray *InstalledMaintenanceTools(void) {
         @"mod-hw-maintenance-helper",
         @"mod-hw-manager-pair",
         @"mod-hw-keychain-diagnose",
-        @"mod-hw-selftest"
+        @"mod-hw-selftest",
+        @"mod-hw-acceptance-iphone12"
     ];
     NSMutableArray *tools = [NSMutableArray arrayWithCapacity:names.count];
     for (NSString *name in names) {
