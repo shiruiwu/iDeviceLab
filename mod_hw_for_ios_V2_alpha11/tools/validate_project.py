@@ -338,7 +338,8 @@ acceptance_script = ROOT / "scripts/acceptance-iphone12.sh"
 check(acceptance_script.is_file() and "com.idevelab.fullsuite.alpha11" in acceptance_script.read_text() and
       "2.0.0~alpha11|iphoneos-arm64" in acceptance_script.read_text() and
       "APP_COUNT" in acceptance_script.read_text() and "CFBundleVersion" in acceptance_script.read_text() and
-      "CFBundleExecutable" in acceptance_script.read_text() and
+      "NSAllowsLocalNetworking" in acceptance_script.read_text() and "MinimumOSVersion" in acceptance_script.read_text() and
+      "test ! -L" in acceptance_script.read_text() and "CFBundleExecutable" in acceptance_script.read_text() and
       "iPhone13,2" in acceptance_script.read_text() and "16.2" in acceptance_script.read_text() and
       "mod-hw-selftest" in acceptance_script.read_text(),
       "Final acceptance validates exact full-suite package identity, unique Manager install/build, and iPhone 12 / iOS 16.2")

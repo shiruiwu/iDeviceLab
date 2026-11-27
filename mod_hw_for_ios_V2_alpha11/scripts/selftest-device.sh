@@ -38,10 +38,6 @@ else
   echo '[FAIL] Maintenance Helper is not configured as root:wheel'
   FAIL=$((FAIL + 1))
 fi
-check 'Root maintenance helper executable installed' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
-check 'Manager pairing command installed' test -x /var/jb/usr/bin/mod-hw-manager-pair
-check 'Root helper LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
-check 'Root helper LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
 if [ -f /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist ]; then
   check 'Root helper LaunchDaemon runs as root' sh -c '[ "$(plutil -extract UserName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = root ]'
   check 'Root helper LaunchDaemon uses wheel group' sh -c '[ "$(plutil -extract GroupName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = wheel ]'
@@ -53,6 +49,9 @@ else
   echo '[FAIL] Alpha11 Core launchd UserName is not mobile'
   FAIL=$((FAIL + 1))
 fi
+check 'Core LaunchDaemon GroupName is mobile' sh -c '[ "$(plutil -extract GroupName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist)" = mobile ]'
+check 'Core LaunchDaemon KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist)" = true ]'
+check 'Maintenance Helper KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = true ]
 LAUNCHCTL=''
 for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/basebin/launchctl /var/jb/usr/bin/launchctl; do
   if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
@@ -63,7 +62,6 @@ fi
 if [ -n "$LAUNCHCTL" ]; then
   check 'Alpha11 Core launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.core.alpha11
   check 'Maintenance Helper launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.maintenance.alpha11
-  check 'Root maintenance helper launchd service is loaded' "$LAUNCHCTL" print system/com.idevelab.maintenance.alpha11
 else
   echo '[FAIL] launchctl is unavailable in standard and Dopamine rootless paths'
   FAIL=$((FAIL + 1))

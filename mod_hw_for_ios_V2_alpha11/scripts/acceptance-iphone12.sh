@@ -43,9 +43,16 @@ APP_BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw -o - "$APP_INFO" 2>/dev/
 check '管理器 Bundle ID 正确' test "$APP_BUNDLE_ID" = "com.modhw.manager"
 APP_BUILD_VERSION="$(plutil -extract CFBundleVersion raw -o - "$APP_INFO" 2>/dev/null || true)"
 check '管理器 Build 版本为 9' test "$APP_BUILD_VERSION" = "9"
+APP_MARKETING_VERSION="$(plutil -extract CFBundleShortVersionString raw -o - "$APP_INFO" 2>/dev/null || true)"
+check '管理器市场版本为 2.0.0' test "$APP_MARKETING_VERSION" = "2.0.0"
+APP_MINIMUM_OS="$(plutil -extract MinimumOSVersion raw -o - "$APP_INFO" 2>/dev/null || true)"
+check '管理器最低系统版本为 16.0' test "$APP_MINIMUM_OS" = "16.0"
+APP_LOCAL_NETWORKING="$(plutil -extract NSAppTransportSecurity.NSAllowsLocalNetworking raw -o - "$APP_INFO" 2>/dev/null || true)"
+check '管理器允许访问本机 Loopback Core' test "$APP_LOCAL_NETWORKING" = "true"
 APP_EXECUTABLE="$(plutil -extract CFBundleExecutable raw -o - "$APP_INFO" 2>/dev/null || true)"
 APP_BINARY="$(dirname "$APP_INFO")/$APP_EXECUTABLE"
-check '管理器主程序存在且不是符号链接' test -f "$APP_BINARY"
+check '管理器主程序存在' test -f "$APP_BINARY"
+check '管理器主程序不是符号链接' test ! -L "$APP_BINARY"
 check '管理器主程序可执行' test -x "$APP_BINARY"
 
 PIN_PATH='/var/jb/var/root/Library/Preferences/com.idevelab.manager-cdhash'
