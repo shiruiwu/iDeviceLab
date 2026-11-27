@@ -1,6 +1,6 @@
 Package: com.idevelab.core.alpha11
 Name: iDeviceLab Alpha11 Authenticated Core
-Version: 0.3.6~alpha11
+Version: 0.3.7~alpha11
 Architecture: iphoneos-arm64
 Description: Rootless loopback-only diagnostics and Root Helper bridge Core for the Alpha11 manager.
 Maintainer: iDeviceLab
