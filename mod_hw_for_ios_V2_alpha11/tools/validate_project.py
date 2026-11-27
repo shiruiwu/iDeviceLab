@@ -61,6 +61,7 @@ if helper_source.is_file():
     helper_text = helper_source.read_text()
     check("LOCAL_PEERPID" in helper_text and "getpeereid" in helper_text and
           "PeerIsTrustedCore" in helper_text and '"/var/jb/usr/libexec/idevelab-core"' in helper_text and
+          "realpath(executable, actualPath)" in helper_text and "realpath(" in helper_text and
           "CS_OPS_CDHASH" in helper_text and "CS_VALID" in helper_text and
           "com.idevelab.manager-cdhash" in helper_text and "ReadPinnedHash(persistedHash)" in helper_text and
           "posix_spawn" in helper_text and "300.0" in helper_text and "kOutputLimit = 65536" in helper_text,
