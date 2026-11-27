@@ -293,7 +293,7 @@ struct ContentView: View {
             Section("Root 权限助手") {
                 LabeledContent("连接状态", value: helperStatus)
                 Button("重新检测权限助手") { checkMaintenanceHelper() }
-                commandRow("首次配对 / 更新后重新配对", command: "/var/jb/usr/bin/mod-hw-manager-pair \(getpid())")
+                commandRow("首次配对 / 更新后重新配对", command: "su -c '/var/jb/usr/bin/mod-hw-manager-pair \(getpid())'")
                 Text("复制配对命令后，在越狱终端以 root 执行并输入 PAIR 确认。配对绑定当前管理器签名，不接受其他 mobile 进程。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
@@ -368,6 +368,23 @@ struct ContentView: View {
                         .font(.footnote.monospaced()).textSelection(.enabled)
                 }
             }
+            Section("配置备份与诊断") {
+                Button("直接备份配置") { performMaintenance("config-backup") }
+                    .disabled(!helperPaired || maintenanceRunning)
+                Button("还原最近一次有效配置备份") {
+                    pendingMaintenanceAction = "config-restore"
+                    showMaintenanceConfirmation = true
+                }
+                .disabled(!helperPaired || maintenanceRunning)
+                Button("诊断配置文件") { performMaintenance("diagnose-config") }
+                    .disabled(!helperPaired || maintenanceRunning)
+                Button("诊断所选 App 的 Keychain Entitlements") { performMaintenance("keychain-diagnose") }
+                    .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
+                Button("运行只读设备自检") { performMaintenance("selftest") }
+                    .disabled(!helperPaired || maintenanceRunning)
+                Text("配置还原会先保留当前配置快照；Keychain 诊断仅读取签名 Entitlements，不读取或修改 Keychain 项。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
             Section("配置备份") {
                 Button("直接备份当前 Hook 配置") { performMaintenance("config-backup") }
                     .disabled(!helperPaired || maintenanceRunning)
@@ -385,7 +402,10 @@ struct ContentView: View {
                 Button("确认还原", role: .destructive) { performMaintenance("restore") }
             } else if pendingMaintenanceAction == "clean" {
                 Button("确认清理", role: .destructive) { performMaintenance("clean") }
+            }
             } else if pendingMaintenanceAction == "config-restore" {
+                Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
+ else if pendingMaintenanceAction == "config-restore" {
                 Button("确认还原配置", role: .destructive) { performMaintenance("config-restore") }
             }
             Button("取消", role: .cancel) { pendingMaintenanceAction = nil }
@@ -512,7 +532,7 @@ struct ContentView: View {
     private func performMaintenance(_ action: String) {
         let bundleID = maintenanceBundleID.trimmingCharacters(in: .whitespacesAndNewlines)
         let archive = maintenanceArchiveName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if ["backup", "restore", "clean"].contains(action) && bundleID.isEmpty {
+        if ["backup", "restore", "clean", "keychain-diagnose"].contains(action) && bundleID.isEmpty {
             maintenanceResult = "请先选择或填写目标 App 的 Bundle ID。"
             return
         }
