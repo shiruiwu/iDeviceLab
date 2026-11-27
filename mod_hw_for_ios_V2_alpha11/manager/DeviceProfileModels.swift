@@ -22,8 +22,8 @@ struct DeviceProfile: Identifiable, Codable, Equatable {
     var uniqueDeviceID: String? = nil
     var productId: String? = nil
     var uniqueChipId: String? = nil
-    var productType: String? = nil
-    var hwModelStr: String? = nil
+    var productType: String? = "iPhone13,2"
+    var hwModelStr: String? = "D53gAP"
     var idfa: String? = nil
     var idfv: String? = nil
     var uniqueDeviceIDData: Bool? = nil
