@@ -16,9 +16,9 @@ struct AdvancedPlistView: View {
     @State private var addError = ""
 
     var body: some View {
-        IPASheet(title: "Advanced Info.plist", onClose: onClose, sizesToContent: false) {
+        IPASheet(title: "高级 Info.plist 编辑", onClose: onClose, sizesToContent: false) {
             IPAInfoBanner(
-                message: "These values are written directly to Info.plist. Leave them unchanged unless you know the key.",
+                message: "这些值会直接写入 Info.plist。除非你清楚字段用途，否则请保持不变。",
                 color: .orange
             )
 
@@ -33,10 +33,10 @@ struct AdvancedPlistView: View {
 
     private var valuesCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            IPACardHeader(icon: "list.bullet.rectangle", title: "Values")
+            IPACardHeader(icon: "list.bullet.rectangle", title: "字段值")
 
             if keys.isEmpty {
-                Text("No values.")
+                Text("暂无字段值")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 12)
@@ -63,7 +63,7 @@ struct AdvancedPlistView: View {
                         .foregroundColor(removed ? .secondary : .primary)
                         .strikethrough(removed)
 
-                    Text(value?.typeName ?? "Unsupported")
+                    Text(value?.typeName ?? "不支持")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -75,7 +75,7 @@ struct AdvancedPlistView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } else if removed {
-                    Button("Undo") {
+                    Button("撤销") {
                         overrides.reset(key)
                     }
                     .font(.footnote.weight(.semibold))
@@ -112,7 +112,7 @@ struct AdvancedPlistView: View {
             }
 
             if protected {
-                Text("Managed by IPAID.")
+                Text("由 IPAID 管理。")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -124,7 +124,7 @@ struct AdvancedPlistView: View {
             if !protected, !removed, value != nil {
                 HStack {
                     if overrides.values[key] != nil {
-                        Button("Reset") {
+                        Button("重置") {
                             overrides.reset(key)
                             editingKey = nil
                         }
@@ -134,7 +134,7 @@ struct AdvancedPlistView: View {
 
                     Spacer()
 
-                    Button("Remove") {
+                    Button("移除") {
                         if original[key] == nil {
                             overrides.reset(key)
                         } else {
@@ -155,7 +155,7 @@ struct AdvancedPlistView: View {
     private func editingRow(for key: String, value: PlistValue?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             IPAFieldBox {
-                TextField("Value", text: $editingText)
+                TextField("值", text: $editingText)
                     .font(.system(.body, design: .monospaced))
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
@@ -168,14 +168,14 @@ struct AdvancedPlistView: View {
             }
 
             HStack(spacing: 18) {
-                Button("Save") {
+                Button("保存") {
                     saveEdit(for: key, value: value)
                 }
                 .font(.footnote.weight(.semibold))
                 .foregroundColor(.blue)
                 .padding(.vertical, 4)
 
-                Button("Cancel") {
+                Button("取消") {
                     editingKey = nil
                     editError = ""
                 }
@@ -191,16 +191,16 @@ struct AdvancedPlistView: View {
 
     private var addCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            IPACardHeader(icon: "plus.circle", title: "Add Value")
+            IPACardHeader(icon: "plus.circle", title: "添加字段")
 
             IPAFieldBox {
-                TextField("Key", text: $newKey)
+                TextField("键", text: $newKey)
                     .font(.system(.body, design: .monospaced))
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
             }
 
-            Picker("Type", selection: $newType) {
+            Picker("类型", selection: $newType) {
                 ForEach(PlistEditType.allCases, id: \.self) { type in
                     Text(type.title).tag(type)
                 }
@@ -208,11 +208,11 @@ struct AdvancedPlistView: View {
             .pickerStyle(SegmentedPickerStyle())
 
             if newType == .boolean {
-                Toggle("Value", isOn: $newBoolean)
+                Toggle("值", isOn: $newBoolean)
                     .font(.subheadline)
             } else {
                 IPAFieldBox {
-                    TextField("Value", text: $newValue)
+                    TextField("值", text: $newValue)
                         .font(.system(.body, design: .monospaced))
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
@@ -228,7 +228,7 @@ struct AdvancedPlistView: View {
             Button {
                 addValue()
             } label: {
-                Text("Add")
+                Text("添加")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
@@ -250,13 +250,13 @@ struct AdvancedPlistView: View {
         switch value {
         case .integer:
             guard let number = Int(clean) else {
-                editError = "Enter a whole number."
+                editError = "请输入整数。"
                 return
             }
             overrides.set(.integer(number), for: key)
         case .real:
             guard let number = Double(clean) else {
-                editError = "Enter a number."
+                editError = "请输入数字。"
                 return
             }
             overrides.set(.real(number), for: key)
@@ -272,17 +272,17 @@ struct AdvancedPlistView: View {
         let key = newKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !key.isEmpty else {
-            addError = "Enter a key."
+            addError = "请输入字段名。"
             return
         }
 
         guard !ProtectedPlistKeys.isProtected(key) else {
-            addError = "That key is managed by IPAID."
+            addError = "该字段由 IPAID 管理。"
             return
         }
 
         guard original[key] == nil, overrides.values[key] == nil else {
-            addError = "That key already exists."
+            addError = "该字段已存在。"
             return
         }
 
@@ -291,7 +291,7 @@ struct AdvancedPlistView: View {
             overrides.set(.string(newValue), for: key)
         case .integer:
             guard let number = Int(newValue.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-                addError = "Enter a whole number."
+                addError = "请输入整数。"
                 return
             }
             overrides.set(.integer(number), for: key)
@@ -313,9 +313,9 @@ enum PlistEditType: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .string: return "Text"
-        case .integer: return "Number"
-        case .boolean: return "Toggle"
+        case .string: return "文本"
+        case .integer: return "数字"
+        case .boolean: return "开关"
         }
     }
 }
