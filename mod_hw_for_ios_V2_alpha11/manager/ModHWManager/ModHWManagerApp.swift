@@ -102,6 +102,7 @@ struct ContentView: View {
     @State private var showMaintenanceConfirmation = false
     @State private var exportAsPerAppProfile = false
     @State private var operationRecords: [MaintenanceRecord] = []
+    @State private var recordFilter = "全部"
 
     var body: some View {
         TabView {
@@ -145,89 +146,153 @@ struct ContentView: View {
         }
     }
 
-    private var homePage: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                ZStack(alignment: .bottomLeading) {
-                    LinearGradient(colors: [Color(red: 0.08, green: 0.38, blue: 0.88), Color(red: 0.22, green: 0.68, blue: 0.98)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    VStack(alignment: .leading, spacing: 9) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("mod_hw_for_ios V2").font(.system(size: 25, weight: .bold, design: .rounded))
-                                Text("iOS 设备管理中心 · Rootless").font(.subheadline).foregroundStyle(.white.opacity(0.88))
-                            }
-                            Spacer()
-                            Image(systemName: "apple.logo").font(.system(size: 34, weight: .medium)).foregroundStyle(.white.opacity(0.95))
-                        }
-                        HStack(spacing: 8) {
-                            Label(helperPaired ? "权限助手已配对" : "权限助手待配对", systemImage: helperPaired ? "checkmark.shield.fill" : "exclamationmark.shield")
-                            Text("·")
-                            Text(deviceSummary?.osVersion ?? "设备信息待读取")
-                        }
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.white)
-                    }
-                    .padding(20)
-                }
-                .frame(maxWidth: .infinity, minHeight: 148)
+    private var managerBackground: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.025, green: 0.075, blue: 0.19),
+                Color(red: 0.035, green: 0.16, blue: 0.36),
+                Color(red: 0.055, green: 0.29, blue: 0.58)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private func managerCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.96))
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .shadow(color: .black.opacity(0.10), radius: 12, y: 5)
+    }
+
+    private func maintenanceHero(title: String, subtitle: String, symbol: String, accent: Color) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: symbol)
+                .font(.system(size: 38, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 78, height: 78)
+                .background(.white.opacity(0.16))
                 .clipShape(RoundedRectangle(cornerRadius: 24))
-                .shadow(color: Color.blue.opacity(0.16), radius: 12, y: 6)
+            VStack(alignment: .leading, spacing: 7) {
+                Text(title).font(.title2.bold()).foregroundStyle(.white)
+                Text(subtitle).font(.subheadline).foregroundStyle(.white.opacity(0.88))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [accent, accent.opacity(0.62), Color(red: 0.06, green: 0.31, blue: 0.65)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 26))
+        .shadow(color: accent.opacity(0.28), radius: 16, y: 7)
+    }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("设备状态").font(.headline)
-                        Spacer()
-                        Button("刷新") {
-                            checkCore(); fetchInstalledApps(); fetchSystemSummary()
-                            fetchMaintenanceTools(); fetchAppProfiles(); fetchBackups(); checkMaintenanceHelper()
+    private var homePage: some View {
+        ZStack {
+            managerBackground.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 17) {
+                    HStack(alignment: .center, spacing: 12) {
+                        Image(systemName: "gearshape.2.fill")
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 58, height: 58)
+                            .background(.white.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 18))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Device Manager Pro")
+                                .font(.system(size: 23, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                            Text("iOS 设备管理中心")
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.84))
                         }
-                        .font(.subheadline)
+                        Spacer(minLength: 0)
+                        Text("越狱版")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.green.opacity(0.72))
+                            .clipShape(Capsule())
                     }
-                    HStack(spacing: 10) {
-                        statusCard("Core", value: coreStatus, systemImage: "cpu")
-                        statusCard("已安装 App", value: installedApps.isEmpty ? "尚未读取" : "\(installedApps.count) 个", systemImage: "square.grid.2x2")
-                    }
-                    if let summary = deviceSummary {
-                        HStack {
-                            Label(summary.productType, systemImage: "iphone")
-                            Spacer()
-                            Text("iOS \(summary.osVersion)")
-                            Spacer()
-                            Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: summary.diskFreeBytes), countStyle: .file) + " 可用")
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 13))
-                    }
-                }
+                    .padding(.top, 8)
 
-                VStack(alignment: .leading, spacing: 12) {
+                    managerCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "apple.logo")
+                                    .font(.system(size: 29))
+                                    .foregroundStyle(.blue)
+                                    .frame(width: 54, height: 54)
+                                    .background(Color.blue.opacity(0.10))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(deviceSummary?.productType ?? "正在读取设备")
+                                        .font(.headline)
+                                    Text("iOS \(deviceSummary?.osVersion ?? "—")")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button {
+                                    checkCore(); fetchInstalledApps(); fetchSystemSummary()
+                                    fetchMaintenanceTools(); fetchAppProfiles(); fetchBackups(); checkMaintenanceHelper()
+                                } label: {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.headline)
+                                        .foregroundStyle(.blue)
+                                        .padding(10)
+                                        .background(Color.blue.opacity(0.09))
+                                        .clipShape(Circle())
+                                }
+                            }
+                            HStack {
+                                Label("可用空间", systemImage: "internaldrive")
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text(deviceSummary.map { ByteCountFormatter.string(fromByteCount: Int64(clamping: $0.diskFreeBytes), countStyle: .file) } ?? "读取中")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            Divider()
+                            HStack(spacing: 8) {
+                                statusPill(helperPaired ? "权限助手已配对" : "权限助手待配对", ok: helperPaired)
+                                statusPill(coreStatus.contains("已连接") ? "Core 已连接" : "Core 待检测", ok: coreStatus.contains("已连接"))
+                            }
+                            HStack {
+                                Text("已读取 App")
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text(installedApps.isEmpty ? "尚未读取" : "\(installedApps.count) 个")
+                                    .fontWeight(.semibold)
+                            }
+                            .font(.caption)
+                        }
+                    }
+
                     HStack {
-                        Text("功能中心").font(.title3.bold())
+                        Text("功能中心").font(.title3.bold()).foregroundStyle(.white)
                         Spacer()
-                        Text("快捷入口").font(.caption).foregroundStyle(.secondary)
+                        Text("快捷入口").font(.caption).foregroundStyle(.white.opacity(0.72))
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        dashboardTile("备份中心", detail: "App 数据与配置备份", icon: "externaldrive.fill", color: .blue) {
-                            backupCenterPage
-                        }
-                        dashboardTile("还原中心", detail: "校验备份并安全还原", icon: "arrow.counterclockwise.circle.fill", color: .green) {
-                            restoreCenterPage
-                        }
-                        dashboardTile("清理中心", detail: "指定 App 深度清理", icon: "sparkles", color: .purple) {
-                            cleanupPage
-                        }
+                        dashboardTile("备份中心", detail: "App 数据与配置备份", icon: "externaldrive.fill", color: .blue) { backupCenterPage }
+                        dashboardTile("还原中心", detail: "校验备份并安全还原", icon: "arrow.counterclockwise.circle.fill", color: .green) { restoreCenterPage }
+                        dashboardTile("清理中心", detail: "指定 App 本地数据清理", icon: "sparkles", color: .purple) { cleanupPage }
                         dashboardTile("改机管理", detail: "全局设备参数配置", icon: "slider.horizontal.3", color: .orange) {
                             ProfileManagerView(
                                 availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) },
                                 onOperation: { action, success, detail in
                                     recordOperation(action, target: "Hook 配置", success: success, detail: detail)
                                 }
-                            )
-                                .environmentObject(profileStore)
+                            ).environmentObject(profileStore)
                         }
                         dashboardTile("分 App 改机", detail: "按 Bundle ID 独立配置", icon: "square.grid.2x2.fill", color: .teal) {
                             ProfileManagerView(
@@ -235,38 +300,88 @@ struct ContentView: View {
                                 onOperation: { action, success, detail in
                                     recordOperation(action, target: "Hook 配置", success: success, detail: detail)
                                 }
-                            )
-                                .environmentObject(profileStore)
+                            ).environmentObject(profileStore)
                         }
-                        dashboardTile("模板管理", detail: "创建、复制、导入与导出配置模板", icon: "shippingbox.fill", color: .indigo) {
+                        dashboardTile("模板管理", detail: "配置模板与导入导出", icon: "shippingbox.fill", color: .indigo) {
                             ProfileManagerView(
                                 availableApps: installedApps.map { ProfileAppOption(name: $0.name, bundleIdentifier: $0.bundleIdentifier) },
                                 onOperation: { action, success, detail in
                                     recordOperation(action, target: "Hook 配置", success: success, detail: detail)
                                 }
-                            )
-                                .environmentObject(profileStore)
-                        }
-                        dashboardTile("系统诊断", detail: "Core、插件与权限检查", icon: "stethoscope", color: .cyan) {
-                            NavigationStack { diagnosticsPage }
-                        }
-                        dashboardTile("IPA 多开", detail: "打开原作者 IPA 编辑器", icon: "square.stack.3d.up.fill", color: .pink) {
-                            IPAEditorView()
+                            ).environmentObject(profileStore)
                         }
                     }
+
+                    Text("快捷操作").font(.title3.bold()).foregroundStyle(.white)
+                    VStack(spacing: 0) {
+                        NavigationLink { diagnosticsPage } label: {
+                            featureRow("系统诊断", detail: "Core、Hook、权限与维护工具状态", icon: "stethoscope")
+                        }
+                        Divider().padding(.leading, 48)
+                        NavigationLink { IPAEditorView() } label: {
+                            featureRow("IPA 多开", detail: "打开原作者 IPA 编辑器", icon: "square.stack.3d.up.fill")
+                        }
+                        Divider().padding(.leading, 48)
+                        NavigationLink { recordsPage } label: {
+                            featureRow("操作记录", detail: "查看备份、还原、清理和改机记录", icon: "clock.arrow.circlepath")
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .background(Color.white.opacity(0.96))
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+
+                    Text("维护操作由已配对的 Root Helper 执行；Core 仅提供只读设备信息。清理和还原均保留备份或回滚快照。")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(.horizontal, 2)
+                        .padding(.bottom, 16)
                 }
-                Text("维护操作由已配对的 Root Helper 执行；Core 只提供只读设备信息。清理与还原均要求明确确认，并保留备份或回滚快照。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 2)
+                .padding(.horizontal, 16)
             }
-            .padding()
         }
-        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("首页")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    private func statusPill(_ title: String, ok: Bool) -> some View {
+        Label(title, systemImage: ok ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(ok ? Color.green : Color.orange)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background((ok ? Color.green : Color.orange).opacity(0.10))
+            .clipShape(Capsule())
     }
 
     private func dashboardTile<Destination: View>(_ title: String, detail: String, icon: String, color: Color, @ViewBuilder destination: () -> Destination) -> some View {
+        NavigationLink(destination: destination()) {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Image(systemName: icon)
+                        .font(.system(size: 21, weight: .semibold))
+                        .foregroundStyle(color)
+                        .frame(width: 46, height: 46)
+                        .background(color.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 15))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                Text(title).font(.subheadline.weight(.bold)).foregroundStyle(.primary)
+                Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
+            .background(Color.white.opacity(0.97))
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+        }
+        .buttonStyle(.plain)
+    }
+
+        private func dashboardTile<Destination: View>(_ title: String, detail: String, icon: String, color: Color, @ViewBuilder destination: () -> Destination) -> some View {
         NavigationLink(destination: destination()) {
             HStack(spacing: 10) {
                 Image(systemName: icon)
@@ -293,78 +408,159 @@ struct ContentView: View {
     }
 
     private var backupCenterPage: some View {
-        Form {
-            Section {
-                Text("为指定 App 创建本地数据容器备份。备份由 Root Helper 调用原有脚本完成，并生成 SHA-256 清单。")
-                    .font(.footnote).foregroundStyle(.secondary)
-                appTargetPicker
-                Button(maintenanceRunning ? "正在备份…" : "开始备份") { performMaintenance("backup") }
-                    .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
-                Button("备份全局与分 App Hook 配置") { performMaintenance("config-backup") }
-                    .disabled(!helperPaired || maintenanceRunning)
-            }
-            Section("备份记录") {
-                if backups.isEmpty {
-                    Text(backupsStatus).font(.footnote).foregroundStyle(.secondary)
-                } else {
-                    ForEach(backups) { backup in
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(backup.bundleIdentifier).font(.subheadline.weight(.semibold))
-                            Text(backup.archive).font(.caption.monospaced()).textSelection(.enabled)
-                            Text("SHA-256：\(backup.sha256)").font(.caption2.monospaced()).foregroundStyle(.secondary)
-                            Button("选用此备份") {
-                                maintenanceBundleID = backup.bundleIdentifier
-                                maintenanceArchiveName = backup.archive
+        ZStack {
+            managerBackground.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 16) {
+                    maintenanceHero(title: "一键备份", subtitle: "App 本地数据与 Hook 配置备份", symbol: "externaldrive.fill", accent: .blue)
+                    managerCard {
+                        VStack(alignment: .leading, spacing: 13) {
+                            Text("备份内容").font(.headline)
+                            Label("指定 App 本地数据容器", systemImage: "checkmark.circle.fill").foregroundStyle(.blue)
+                            Label("全局与分 App Hook 配置", systemImage: "checkmark.circle.fill").foregroundStyle(.blue)
+                            Text("备份包含 SHA-256 清单。Keychain、App Groups、共享容器和服务端数据不在本备份范围内。")
+                                .font(.footnote).foregroundStyle(.secondary)
+                            Divider()
+                            appTargetPicker
+                            Button(maintenanceRunning ? "正在备份…" : "开始备份") { performMaintenance("backup") }
+                                .buttonStyle(.borderedProminent)
+                                .frame(maxWidth: .infinity)
+                                .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
+                            Button("备份全局与分 App Hook 配置") { performMaintenance("config-backup") }
+                                .buttonStyle(.bordered)
+                                .frame(maxWidth: .infinity)
+                                .disabled(!helperPaired || maintenanceRunning)
+                        }
+                    }
+                    managerCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("备份记录").font(.headline)
+                                Spacer()
+                                Text("共 \(backups.count) 条").font(.caption).foregroundStyle(.secondary)
+                                Button("刷新") { fetchBackups() }.font(.caption)
+                            }
+                            if backups.isEmpty {
+                                Text(backupsStatus).font(.footnote).foregroundStyle(.secondary)
+                            } else {
+                                ForEach(backups) { backup in
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(backup.bundleIdentifier).font(.subheadline.weight(.semibold))
+                                        Text(backup.archive).font(.caption.monospaced()).textSelection(.enabled)
+                                        Text("SHA-256：\(backup.sha256)").font(.caption2.monospaced()).foregroundStyle(.secondary)
+                                        Button("选用此备份") {
+                                            maintenanceBundleID = backup.bundleIdentifier
+                                            maintenanceArchiveName = backup.archive
+                                        }
+                                        .font(.caption)
+                                    }
+                                    .padding(.vertical, 7)
+                                    if backup.id != backups.last?.id { Divider() }
+                                }
+                            }
+                        }
+                    }
+                    if !maintenanceResult.isEmpty {
+                        managerCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("执行结果").font(.headline)
+                                Text(maintenanceResult).font(.footnote.monospaced()).textSelection(.enabled)
                             }
                         }
                     }
                 }
-                Button("刷新备份记录") { fetchBackups() }
+                .padding(16)
             }
-            if !maintenanceResult.isEmpty { Section("执行结果") { Text(maintenanceResult).font(.footnote.monospaced()).textSelection(.enabled) } }
         }
         .navigationTitle("备份中心")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
-    private var restoreCenterPage: some View {
-        Form {
-            Section("还原目标") {
-                appTargetPicker
-                TextField("备份文件名", text: $maintenanceArchiveName).font(.footnote.monospaced())
-                Button("验证备份完整性") { performMaintenance("verify") }
-                    .disabled(!helperPaired || maintenanceRunning || maintenanceArchiveName.isEmpty)
-                Button("开始还原") {
-                    pendingMaintenanceAction = "restore"
-                    showMaintenanceConfirmation = true
-                }
-                .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty || maintenanceArchiveName.isEmpty)
-            }
-            Section("全局与分 App 配置") {
-                Button("还原最近一次 Hook 配置备份") {
-                    pendingMaintenanceAction = "config-restore"
-                    showMaintenanceConfirmation = true
-                }
-                .disabled(!helperPaired || maintenanceRunning)
-                Text("会校验归档 SHA-256 与内部路径，并保留还原前的全局和分 App 配置快照。")
-                    .font(.footnote).foregroundStyle(.secondary)
-            }
-            Section("可用 App 数据备份") {
-                ForEach(backups.filter { maintenanceBundleID.isEmpty || $0.bundleIdentifier == maintenanceBundleID }) { backup in
-                    Button {
-                        maintenanceBundleID = backup.bundleIdentifier
-                        maintenanceArchiveName = backup.archive
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(backup.bundleIdentifier).font(.subheadline.weight(.semibold))
-                            Text(backup.archive).font(.caption.monospaced())
-                            Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: backup.sizeBytes), countStyle: .file))
-                                .font(.caption).foregroundStyle(.secondary)
+        private var restoreCenterPage: some View {
+        ZStack {
+            managerBackground.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 16) {
+                    maintenanceHero(title: "一键还原", subtitle: "先校验备份，再安全恢复 App 数据与配置", symbol: "arrow.counterclockwise", accent: .cyan)
+                    managerCard {
+                        VStack(alignment: .leading, spacing: 13) {
+                            Text("选择备份文件").font(.headline)
+                            appTargetPicker
+                            TextField("备份文件名", text: $maintenanceArchiveName)
+                                .font(.footnote.monospaced())
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                            Button("验证备份完整性") { performMaintenance("verify") }
+                                .buttonStyle(.bordered)
+                                .frame(maxWidth: .infinity)
+                                .disabled(!helperPaired || maintenanceRunning || maintenanceArchiveName.isEmpty)
+                            Button("开始还原") {
+                                pendingMaintenanceAction = "restore"
+                                showMaintenanceConfirmation = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .frame(maxWidth: .infinity)
+                            .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty || maintenanceArchiveName.isEmpty)
+                            Text("还原前会再次验证备份，并创建当前 App 容器回滚快照。")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    managerCard {
+                        VStack(alignment: .leading, spacing: 11) {
+                            Text("全局与分 App 配置").font(.headline)
+                            Text("校验配置归档 SHA-256 与内部路径，并保留还原前快照。")
+                                .font(.footnote).foregroundStyle(.secondary)
+                            Button("还原最近一次 Hook 配置备份") {
+                                pendingMaintenanceAction = "config-restore"
+                                showMaintenanceConfirmation = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .frame(maxWidth: .infinity)
+                            .disabled(!helperPaired || maintenanceRunning)
+                        }
+                    }
+                    managerCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("可用 App 数据备份").font(.headline)
+                            if backups.isEmpty {
+                                Text(backupsStatus).font(.footnote).foregroundStyle(.secondary)
+                            } else {
+                                ForEach(backups.filter { maintenanceBundleID.isEmpty || $0.bundleIdentifier == maintenanceBundleID }) { backup in
+                                    Button {
+                                        maintenanceBundleID = backup.bundleIdentifier
+                                        maintenanceArchiveName = backup.archive
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "externaldrive.fill").foregroundStyle(.blue)
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(backup.bundleIdentifier).font(.subheadline.weight(.semibold))
+                                                Text(backup.archive).font(.caption.monospaced())
+                                                Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: backup.sizeBytes), countStyle: .file))
+                                                    .font(.caption).foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                                        }
+                                        .foregroundStyle(.primary)
+                                    }
+                                    Divider()
+                                }
+                            }
+                            Button("刷新备份列表") { fetchBackups() }.font(.caption)
+                        }
+                    }
+                    if !maintenanceResult.isEmpty {
+                        managerCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("执行结果").font(.headline)
+                                Text(maintenanceResult).font(.footnote.monospaced()).textSelection(.enabled)
+                            }
                         }
                     }
                 }
-                Button("刷新备份列表") { fetchBackups() }
+                .padding(16)
             }
-            if !maintenanceResult.isEmpty { Section("执行结果") { Text(maintenanceResult).font(.footnote.monospaced()).textSelection(.enabled) } }
         }
         .confirmationDialog("确认执行配置还原", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
             if pendingMaintenanceAction == "restore" {
@@ -379,27 +575,47 @@ struct ContentView: View {
                  : "还原前会再次验证备份，并创建当前 App 容器回滚快照。")
         }
         .navigationTitle("还原中心")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
-    private var cleanupPage: some View {
-        Form {
-            Section("清理目标") {
-                appTargetPicker
-                Text("将清空指定 App 的整个本地数据容器，而不只是 Caches/tmp。执行前自动备份并校验，清理时创建回滚快照。")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Button("立即清理") {
-                    pendingMaintenanceAction = "clean"
-                    showMaintenanceConfirmation = true
+        private var cleanupPage: some View {
+        ZStack {
+            managerBackground.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 16) {
+                    maintenanceHero(title: "深度清理", subtitle: "清理指定 App 的本地数据容器", symbol: "sparkles", accent: .purple)
+                    managerCard {
+                        VStack(alignment: .leading, spacing: 13) {
+                            Text("清理目标").font(.headline)
+                            appTargetPicker
+                            Label("清理 Documents、Library、Caches 等容器内容", systemImage: "checkmark.circle.fill").foregroundStyle(.blue)
+                            Label("清理前自动备份并校验 SHA-256", systemImage: "checkmark.shield.fill").foregroundStyle(.blue)
+                            Label("失败时从清理前快照自动回滚", systemImage: "arrow.uturn.backward.circle.fill").foregroundStyle(.blue)
+                            Divider()
+                            Text("Keychain、App Groups、共享容器、系统数据库和服务端数据不在清理范围内。此功能不能等同于刷机或承诺完全无痕。")
+                                .font(.footnote).foregroundStyle(.secondary)
+                            Button(maintenanceRunning ? "正在清理…" : "立即清理") {
+                                pendingMaintenanceAction = "clean"
+                                showMaintenanceConfirmation = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                            .frame(maxWidth: .infinity)
+                            .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
+                        }
+                    }
+                    if !maintenanceResult.isEmpty {
+                        managerCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("执行结果").font(.headline)
+                                Text(maintenanceResult).font(.footnote.monospaced()).textSelection(.enabled)
+                            }
+                        }
+                    }
                 }
-                .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
+                .padding(16)
             }
-            Section("清理范围") {
-                Label("App 本地容器：Documents、Library、Caches 等", systemImage: "checkmark.circle.fill")
-                Label("自动备份、SHA-256 校验与失败回滚", systemImage: "checkmark.shield.fill")
-                Label("Keychain、App Groups、共享容器和云端数据不在范围内", systemImage: "info.circle")
-                    .foregroundStyle(.secondary)
-            }
-            if !maintenanceResult.isEmpty { Section("执行结果") { Text(maintenanceResult).font(.footnote.monospaced()).textSelection(.enabled) } }
         }
         .confirmationDialog("确认深度清理指定 App", isPresented: $showMaintenanceConfirmation, titleVisibility: .visible) {
             Button("确认清理并自动备份", role: .destructive) { performMaintenance("clean") }
@@ -408,9 +624,11 @@ struct ContentView: View {
             Text("此操作将清空所选 App 的整个本地数据容器。请先完全退出目标 App。")
         }
         .navigationTitle("清理中心")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
-    private var appTargetPicker: some View {
+        private var appTargetPicker: some View {
         Group {
             if !installedApps.isEmpty {
                 Picker("选择目标 App", selection: $maintenanceBundleID) {
@@ -426,42 +644,86 @@ struct ContentView: View {
         }
     }
 
-    private var recordsPage: some View {
-        List {
-            Section {
-                HStack {
-                    Text("共 \(operationRecords.count) 条操作记录").foregroundStyle(.secondary)
-                    Spacer()
-                    Button("刷新") { loadOperationRecords() }
-                }
-            }
-            if operationRecords.isEmpty {
-                VStack(spacing: 8) { Image(systemName: "clock.arrow.circlepath").font(.largeTitle).foregroundStyle(.secondary); Text("暂无操作记录").font(.headline); Text("备份、校验、还原、清理和配置应用结果会显示在这里。").font(.caption).foregroundStyle(.secondary) }.frame(maxWidth: .infinity).padding(.vertical, 24)
-            } else {
-                ForEach(operationRecords) { record in
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            Text(record.action).font(.subheadline.weight(.semibold))
-                            Spacer()
-                            Label(record.success ? "成功" : "失败", systemImage: record.success ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .font(.caption).foregroundStyle(record.success ? .green : .red)
-                        }
-                        Text(record.target).font(.caption.monospaced()).foregroundStyle(.secondary)
-                        Text(record.date.formatted(date: .abbreviated, time: .standard)).font(.caption2).foregroundStyle(.tertiary)
-                        if !record.detail.isEmpty { Text(record.detail).font(.caption).lineLimit(3).textSelection(.enabled) }
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            Button("清空操作记录", role: .destructive) {
-                operationRecords = []
-                UserDefaults.standard.removeObject(forKey: "iDeviceLabMaintenanceRecordsV1")
+    private var filteredOperationRecords: [MaintenanceRecord] {
+        operationRecords.filter { record in
+            let action = record.action.lowercased()
+            switch recordFilter {
+            case "备份": return action.contains("backup") || action.contains("备份")
+            case "还原": return action.contains("restore") || action.contains("还原")
+            case "清理": return action.contains("clean") || action.contains("清理")
+            case "改机": return action.contains("profile") || action.contains("配置") || action.contains("改机")
+            default: return true
             }
         }
-        .navigationTitle("操作记录")
     }
 
-    private var settingsPage: some View {
+    private var recordsPage: some View {
+        ZStack {
+            managerBackground.ignoresSafeArea()
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("操作记录").font(.title3.bold())
+                        Text("共 \(operationRecords.count) 条记录").font(.caption).foregroundStyle(.secondary)
+                        Picker("记录类型", selection: $recordFilter) {
+                            ForEach(["全部", "备份", "还原", "清理", "改机"], id: \.self) { item in
+                                Text(item).tag(item)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding(.vertical, 5)
+                }
+                if filteredOperationRecords.isEmpty {
+                    Section {
+                        VStack(spacing: 9) {
+                            Image(systemName: "clock.arrow.circlepath").font(.largeTitle).foregroundStyle(.secondary)
+                            Text("暂无操作记录").font(.headline)
+                            Text("备份、还原、清理和改机操作完成后会显示在这里。")
+                                .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                    }
+                } else {
+                    Section {
+                        ForEach(filteredOperationRecords) { record in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(record.action).font(.subheadline.weight(.semibold))
+                                    Spacer()
+                                    Label(record.success ? "成功" : "失败", systemImage: record.success ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(record.success ? .green : .red)
+                                }
+                                Text(record.target).font(.caption.monospaced()).foregroundStyle(.secondary)
+                                Text(record.date.formatted(date: .abbreviated, time: .standard))
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                                if !record.detail.isEmpty {
+                                    Text(record.detail).font(.caption).lineLimit(4).textSelection(.enabled)
+                                }
+                            }
+                            .padding(.vertical, 6)
+                            .listRowBackground(Color.white.opacity(0.96))
+                        }
+                    }
+                }
+                Section {
+                    Button("刷新记录") { loadOperationRecords() }
+                    Button("清空操作记录", role: .destructive) {
+                        operationRecords = []
+                        UserDefaults.standard.removeObject(forKey: "iDeviceLabMaintenanceRecordsV1")
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+        }
+        .navigationTitle("操作记录")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+        private var settingsPage: some View {
         Form {
             Section("运行状态") {
                 LabeledContent("Alpha11 Core", value: coreStatus)
