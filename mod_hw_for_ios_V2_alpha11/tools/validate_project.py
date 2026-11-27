@@ -63,7 +63,7 @@ check("TabView" in manager and "设备总览" in manager and "配置管理" in m
 profile_view = (ROOT / "manager/ProfileManagerView.swift").read_text()
 profile_store = (ROOT / "manager/ProfileStore.swift").read_text()
 profile_models = (ROOT / "manager/DeviceProfileModels.swift").read_text()
-app_entry = (ROOT / "manager/ModHWManagerApp.swift").read_text()
+app_entry = (ROOT / "manager/ModHWManager/ModHWManagerApp.swift").read_text()
 check("ProfileManagerView()" in manager and "ProfileStore()" in app_entry and
       ".environmentObject(profileStore)" in app_entry and
       "应用选择与配置绑定" in profile_view and "全部参数一键随机" in profile_view and
