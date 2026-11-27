@@ -41,6 +41,7 @@ jobs:
           sh -n core/layout/DEBIAN/postinst
           sh -n core/layout/DEBIAN/prerm
           sh -n core/layout/DEBIAN/postrm
+          python3 tools/validate_project.py
 
       - name: Build Core DEB
         run: bash scripts/build-core-deb.sh
@@ -55,8 +56,26 @@ jobs:
           dpkg-deb -f "$DEB" Version | grep -Fx '0.3.6~alpha11'
           dpkg-deb -f "$DEB" Architecture | grep -Fx 'iphoneos-arm64'
           dpkg-deb -c "$DEB" | grep -F 'var/jb/usr/libexec/idevelab-core'
-          echo "Core signing tool: $(ldid -h 2>&1 | head -n 1)"
+          dpkg-deb -c "$DEB" | grep -F 'var/jb/usr/bin/mod-hw-maintenance-helper'
           dpkg-deb -c "$DEB" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist'
+          dpkg-deb -c "$DEB" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist'
+          dpkg-deb -x "$DEB" build/core-payload
+          CORE_BIN=build/core-payload/var/jb/usr/libexec/idevelab-core
+          HELPER_BIN=build/core-payload/var/jb/usr/bin/mod-hw-maintenance-helper
+          test -x "$CORE_BIN"
+          test -x "$HELPER_BIN"
+          file "$CORE_BIN" | grep -q 'Mach-O'
+          file "$HELPER_BIN" | grep -q 'Mach-O'
+          ldid -e "$CORE_BIN" >/dev/null
+          ldid -e "$HELPER_BIN" >/dev/null
+          CORE_PLIST=build/core-payload/var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
+          HELPER_PLIST=build/core-payload/var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
+          plutil -lint "$CORE_PLIST"
+          plutil -lint "$HELPER_PLIST"
+          grep -F '/var/jb/usr/libexec/idevelab-core' "$CORE_PLIST"
+          grep -F '/var/jb/usr/bin/mod-hw-maintenance-helper' "$HELPER_PLIST"
+          grep -F '<string>root</string>' "$HELPER_PLIST"
+          echo "Core signing tool: $(ldid -h 2>&1 | head -n 1)"
           dpkg-deb -e "$DEB" build/core-control
           sh -n build/core-control/postinst
           grep -F 'Using launchctl:' build/core-control/postinst
