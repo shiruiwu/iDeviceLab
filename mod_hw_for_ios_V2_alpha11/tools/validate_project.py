@@ -17,6 +17,12 @@ gestalt_source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
 project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
+theos_workflow_path = ROOT.parent / ".github/workflows/build-theos-tweak.yml"
+theos_workflow = theos_workflow_path.read_text() if theos_workflow_path.is_file() else ""
+check("bash scripts/build-diagnostics-deb.sh" in theos_workflow and
+      "bash scripts/build-core-deb.sh" in theos_workflow and
+      "release/*.deb" in theos_workflow and "mod-hw-maintenance-helper" in theos_workflow,
+      "Theos workflow builds and uploads the same complete diagnostics and Root Helper Core DEBs as the TrollStore workflow")
 core_package_builder_path = ROOT / "scripts/build-core-deb.sh"
 core_package_builder = core_package_builder_path.read_text() if core_package_builder_path.is_file() else ""
 core_source = ROOT / "core/main.m"
