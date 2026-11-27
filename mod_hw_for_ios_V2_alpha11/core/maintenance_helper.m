@@ -365,8 +365,12 @@ static int RunFixedTool(const char *path, NSArray<NSString *> *arguments, NSStri
 static BOOL PeerIsTrustedCore(int fd, pid_t *peerPID) {
     if (!PeerIsMobile(fd, peerPID)) return NO;
     char executable[4096] = {0};
-    if (!ProcessExecutablePath(*peerPID, executable)) return NO;
-    return strcmp(executable, "/var/jb/usr/libexec/idevelab-core") == 0;
+    char actualPath[PATH_MAX] = {0};
+    char expectedPath[PATH_MAX] = {0};
+    if (!ProcessExecutablePath(*peerPID, executable) ||
+        !realpath(executable, actualPath) ||
+        !realpath("/var/jb/usr/libexec/idevelab-core", expectedPath)) return NO;
+    return strcmp(actualPath, expectedPath) == 0;
 }
 
 static BOOL MatchesCharacterSet(NSString *value, NSUInteger minimum, NSUInteger maximum, NSString *allowedCharacters) {
