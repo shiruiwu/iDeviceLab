@@ -24,7 +24,7 @@ check '系统版本为 iOS 16.2' test "$IOS_VERSION" = "16.2"
 check 'Rootless 越狱目录存在' test -d /var/jb
 check '统一完整套件 DEB 已安装' package_installed com.idevelab.fullsuite.alpha11
 PACKAGE_IDENTITY="$(dpkg-query -W -f='${Version}|${Architecture}' com.idevelab.fullsuite.alpha11 2>/dev/null || true)"
-check '完整套件版本和架构正确（2.0.1~alpha11 / iphoneos-arm64）' test "$PACKAGE_IDENTITY" = '2.0.1~alpha11|iphoneos-arm64'
+check '完整套件版本和架构正确（2.0.2~alpha11 / iphoneos-arm64）' test "$PACKAGE_IDENTITY" = '2.0.2~alpha11|iphoneos-arm64'
 check 'Core 二进制存在' test -x /var/jb/usr/libexec/idevelab-core
 check 'Root Helper 二进制存在' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
 check 'Manager 配对工具存在' test -x /var/jb/usr/bin/mod-hw-manager-pair
