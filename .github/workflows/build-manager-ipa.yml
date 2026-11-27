@@ -133,7 +133,9 @@ jobs:
           ldid -e "$APP/$EXECUTABLE" > "$TMP/sandboxed-entitlements.plist"
           python3 - "$TMP/sandboxed-entitlements.plist" <<'PY'
           import plistlib,sys
-          with open(sys.argv[1],"rb") as f: e=plistlib.load(f)
+          data=open(sys.argv[1],"rb").read()
+          # A normally sandboxed app may have no custom entitlements at all.
+          e=plistlib.loads(data) if data else {}
           assert not e.get("com.apple.private.security.no-sandbox",False),e
           assert not e.get("platform-application",False),e
           print("Sandboxed Build17 entitlements verified")
