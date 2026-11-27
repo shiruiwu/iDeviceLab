@@ -8,9 +8,9 @@
   A10000000000000000000004 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
   A10000000000000000000005 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ModHWManager.app; sourceTree = BUILT_PRODUCTS_DIR;};
   A10000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModHWManagerApp.swift; sourceTree = "<group>";};
-  A10000000000000000000053 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceProfileModels.swift; sourceTree = "<group>";};
-  A10000000000000000000054 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileStore.swift; sourceTree = "<group>";};
-  A10000000000000000000055 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileManagerView.swift; sourceTree = "<group>";};
+  A10000000000000000000053 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../DeviceProfileModels.swift; sourceTree = "<group>";};
+  A10000000000000000000054 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../ProfileStore.swift; sourceTree = "<group>";};
+  A10000000000000000000055 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../ProfileManagerView.swift; sourceTree = "<group>";};
   A10000000000000000000050 = {isa = PBXBuildFile; fileRef = A10000000000000000000053;};
   A10000000000000000000051 = {isa = PBXBuildFile; fileRef = A10000000000000000000054;};
   A10000000000000000000052 = {isa = PBXBuildFile; fileRef = A10000000000000000000055;};
