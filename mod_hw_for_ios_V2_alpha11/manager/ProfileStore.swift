@@ -207,7 +207,7 @@ final class ProfileStore: ObservableObject {
         guard importedProfiles.count <= 100 else { throw ProfileError.tooManyProfiles }
 
         let normalizedProfiles = Self.normalized(importedProfiles)
-        let validProfileIDs = Set(normalizedProfiles.map(\\.id))
+        let validProfileIDs = Set(normalizedProfiles.map(\.id))
         var seenBundleIDs = Set<String>()
         let normalizedApps = importedApps.filter { app in
             let bundle = app.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
