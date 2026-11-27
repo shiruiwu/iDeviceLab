@@ -22,7 +22,7 @@ check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa a
       "CURRENT_PROJECT_VERSION=17" in sandboxed_ipa and
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and
       "NSAllowsLocalNetworking" in sandboxed_ipa,
-      "Known-good sandboxed Manager Build16 keeps its Bundle ID and reaches Core over loopback HTTP")
+      "Sandboxed Manager Build17 keeps its Bundle ID and uses the authenticated Core bridge")
 check('ldid -S "$BINARY"' in sandboxed_ipa and 'ldid -e "$BINARY"' in sandboxed_ipa,
       "Sandboxed Manager is ad-hoc signed without privileged entitlements")
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
