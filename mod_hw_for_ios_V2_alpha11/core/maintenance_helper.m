@@ -656,7 +656,7 @@ static void HandleClient(int fd) {
         return;
     }
     if (!PeerMatchesPinned(peer)) {
-        SendJSON(fd, Failure(@"管理器尚未配对或签名已变化；请在越狱终端重新配对。"));
+        SendJSON(fd, Failure(@"管理器尚未配对或签名已变化；请在管理器设置中点击“直接配对权限助手”。"));
         return;
     }
     SendJSON(fd, ExecuteRequest(request));
