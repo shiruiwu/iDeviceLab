@@ -69,6 +69,7 @@ private struct MaintenanceRecord: Identifiable, Codable {
 }
 
 struct ContentView: View {
+    @EnvironmentObject private var profileStore: ProfileStore
     @State private var importOpen = false
     @State private var exportOpen = false
     @State private var importedData: Data?
