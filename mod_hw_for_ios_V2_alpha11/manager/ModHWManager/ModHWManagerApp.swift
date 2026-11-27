@@ -762,8 +762,9 @@ struct ContentView: View {
                 }
             }
             Section("权限助手配对") {
-                commandRow("复制首次配对命令", command: "su -c '/var/jb/usr/bin/mod-hw-manager-pair \(getpid())'")
-                Text("配对将当前管理器进程的代码签名 CDHash 固定到 Root Helper。管理器更新后若签名变化，需要重新配对。")
+                Button("直接配对权限助手") { pairMaintenanceHelper() }
+                    .disabled(maintenanceRunning)
+                Text("由 Root Helper 验证当前 Manager 的 Bundle ID 和代码签名后自动配对，不需要终端或输入 root 密码。管理器更新后若签名变化，可在此重新配对。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("维护与验收") {
@@ -910,8 +911,9 @@ struct ContentView: View {
             Section("Root 权限助手") {
                 LabeledContent("连接状态", value: helperStatus)
                 Button("重新检测权限助手") { checkMaintenanceHelper() }
-                commandRow("首次配对 / 更新后重新配对", command: "su -c '/var/jb/usr/bin/mod-hw-manager-pair \(getpid())'")
-                Text("复制配对命令后，在越狱终端以 root 执行并输入 PAIR 确认。配对绑定当前管理器签名，不接受其他 mobile 进程。")
+                Button("直接配对 / 更新后重新配对") { pairMaintenanceHelper() }
+                    .disabled(maintenanceRunning)
+                Text("由 Root Helper 验证当前 Manager 的 Bundle ID 和代码签名后自动配对，不需要终端或输入 root 密码。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("目标应用") {
@@ -1158,6 +1160,26 @@ struct ContentView: View {
             }
         }
     }
+
+    private func pairMaintenanceHelper() {
+        maintenanceRunning = true
+        helperStatus = "正在验证 Manager 并配对…"
+        Task {
+            defer { maintenanceRunning = false }
+            do {
+                let result = try await MaintenanceClient.request(action: "pair")
+                helperPaired = result.ok && result.paired == true
+                helperStatus = helperPaired ? "已配对，可直接执行" : (result.error ?? "配对失败")
+                maintenanceResult = result.output ?? result.error ?? (helperPaired ? "权限助手配对成功。" : "权限助手配对失败。")
+            } catch {
+                helperPaired = false
+                helperStatus = "配对失败：\(error.localizedDescription)"
+                maintenanceResult = helperStatus
+            }
+        }
+    }
+
+
 
     private func performMaintenance(_ action: String) {
         let bundleID = maintenanceBundleID.trimmingCharacters(in: .whitespacesAndNewlines)
