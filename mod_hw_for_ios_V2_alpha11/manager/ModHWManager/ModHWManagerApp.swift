@@ -1544,7 +1544,8 @@ enum MaintenanceClient {
             guard result == errSecSuccess else {
                 throw NSError(domain: "MaintenanceHelper", code: 8, userInfo: [NSLocalizedDescriptionKey: "无法生成 Core 通信凭据。"])
             }
-            tokenData = Data(random.map { String(format: "%02x", $0).utf8 }.joined().utf8)
+            let hexToken = random.map { String(format: "%02x", $0) }.joined()
+            tokenData = Data(hexToken.utf8)
             try tokenData.write(to: tokenURL, options: [.atomic])
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tokenURL.path)
         }
