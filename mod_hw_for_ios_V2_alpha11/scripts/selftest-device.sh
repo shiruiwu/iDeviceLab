@@ -51,7 +51,7 @@ else
 fi
 check 'Core LaunchDaemon GroupName is mobile' sh -c '[ "$(plutil -extract GroupName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist)" = mobile ]'
 check 'Core LaunchDaemon KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist)" = true ]'
-check 'Maintenance Helper KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = true ]
+check 'Maintenance Helper KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = true ]'
 LAUNCHCTL=''
 for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/basebin/launchctl /var/jb/usr/bin/launchctl; do
   if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
