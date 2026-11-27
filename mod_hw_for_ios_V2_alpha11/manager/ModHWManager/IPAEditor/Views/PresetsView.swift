@@ -28,7 +28,7 @@ struct PresetsView: View {
 
     var body: some View {
         IPASheet(
-            title: reviewing == nil ? "Export Presets" : "Review Preset",
+            title: reviewing == nil ? "导出预设" : "检查预设",
             onClose: onClose
         ) {
             if let preset = reviewing {
@@ -47,10 +47,10 @@ struct PresetsView: View {
 
     private var saveCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            IPACardHeader(icon: "square.and.arrow.down", title: "Save Current Changes")
+            IPACardHeader(icon: "square.and.arrow.down", title: "保存当前更改")
 
             IPAFieldBox {
-                TextField("Preset name", text: $name)
+                TextField("预设名称", text: $name)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
             }
@@ -58,7 +58,7 @@ struct PresetsView: View {
             Button {
                 save()
             } label: {
-                Text("Save Preset")
+                Text("保存预设")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
@@ -71,10 +71,10 @@ struct PresetsView: View {
 
     private var presetsCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            IPACardHeader(icon: "slider.horizontal.3", title: "Saved Presets")
+            IPACardHeader(icon: "slider.horizontal.3", title: "已保存的预设")
 
             if presets.isEmpty {
-                Text("No presets yet.")
+                Text("暂无预设。")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 12)
@@ -136,7 +136,7 @@ struct PresetsView: View {
             IPACardHeader(icon: "slider.horizontal.3", title: preset.name)
 
             if plan.isEmpty {
-                Text("Nothing in this preset changes the current settings.")
+                Text("此预设不会更改当前设置。")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             } else {
@@ -186,7 +186,7 @@ struct PresetsView: View {
                 onApply(plan)
                 onClose()
             } label: {
-                Text("Apply Preset")
+                Text("应用预设")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
@@ -194,7 +194,7 @@ struct PresetsView: View {
             .ipaidProminentButton()
             .disabled(plan.isEmpty)
 
-            Button("Back to Presets") {
+            Button("返回预设列表") {
                 reviewing = nil
             }
             .font(.footnote.weight(.semibold))
@@ -205,17 +205,17 @@ struct PresetsView: View {
 
     private func detail(for preset: ExportPreset) -> String {
         let count = preset.fieldCount
-        let settings = count == 1 ? "1 setting" : "\(count) settings"
+        let settings = count == 1 ? "1 项设置" : "\(count) 项设置"
         let source = (preset.sourceBundleIdentifier ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
-        return source.isEmpty ? settings : "\(settings) · from \(source)"
+        return source.isEmpty ? settings : "\(settings) · 来源：\(source)"
     }
 
     private func save() {
         let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !clean.isEmpty else {
-            errorMessage = "Enter a preset name."
+            errorMessage = "请输入预设名称。"
             return
         }
 
@@ -227,7 +227,7 @@ struct PresetsView: View {
         )
 
         guard preset.fieldCount > 0 else {
-            errorMessage = "Change a setting before saving a preset."
+            errorMessage = "请先更改至少一项设置，再保存预设。"
             return
         }
 
