@@ -376,7 +376,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSString
         return @{@"ok": @NO, @"error": @"method not allowed"};
     }
     if ([path isEqualToString:@"/status"]) {
-        return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.3.7-alpha11", @"port": @(kPort), @"mode": @"authenticated-manager-bridge"};
+        return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.3.8-alpha11", @"port": @(kPort), @"mode": @"authenticated-manager-bridge"};
     }
     if ([path isEqualToString:@"/system"]) return SystemSummary();
     if ([path isEqualToString:@"/apps"]) return @{@"ok": @YES, @"apps": InstalledApplications()};
@@ -411,7 +411,7 @@ static void Reply(int fd, NSDictionary *payload, int status) {
 int main(void) {
     @autoreleasepool {
         signal(SIGPIPE, SIG_IGN);
-        fprintf(stderr, "[idevelab-core] starting version 0.3.7-alpha11 pid=%d uid=%d\n", getpid(), getuid());
+        fprintf(stderr, "[idevelab-core] starting version 0.3.8-alpha11 pid=%d uid=%d\n", getpid(), getuid());
         fflush(stderr);
         int server = socket(AF_INET, SOCK_STREAM, 0);
         if (server < 0) { fprintf(stderr, "[idevelab-core] socket failed errno=%d (%s)\n", errno, strerror(errno)); return 1; }
