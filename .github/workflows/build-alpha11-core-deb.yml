@@ -52,7 +52,7 @@ jobs:
           test -s "$DEB"
           ar t "$DEB"
           dpkg-deb -f "$DEB" Package | grep -Fx 'com.idevelab.core.alpha11'
-          dpkg-deb -f "$DEB" Version | grep -Fx '0.3.1~alpha11'
+          dpkg-deb -f "$DEB" Version | grep -Fx '0.3.2~alpha11'
           dpkg-deb -f "$DEB" Architecture | grep -Fx 'iphoneos-arm64'
           dpkg-deb -c "$DEB" | grep -F 'var/jb/usr/libexec/idevelab-core'
           dpkg-deb -c "$DEB" | grep -F 'var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist'
