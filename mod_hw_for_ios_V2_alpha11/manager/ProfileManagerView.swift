@@ -185,7 +185,7 @@ struct ProfileManagerView: View {
     }
 
     private func profileManagementSection(profile: DeviceProfile) -> some View {
-        Section("配置管理") {
+        Section {
             Picker("当前配置", selection: Binding(
                 get: { store.selectedID ?? profile.id },
                 set: { store.selectedID = $0 }
@@ -204,10 +204,11 @@ struct ProfileManagerView: View {
             Button(role: .destructive) { store.deleteSelected() } label: {
                 Label("删除当前配置", systemImage: "trash")
             }
+       
+        } header: {
+            Text("配置管理")
         }
-    }
-
-    private func environmentSection(profile: DeviceProfile) -> some View {
+    }private func environmentSection(profile: DeviceProfile) -> some View {
         Section {
             HStack {
                 Picker("设备型号", selection: binding(\.deviceModel, profile: profile)) {
@@ -253,7 +254,7 @@ struct ProfileManagerView: View {
     }
 
     private func testValuesSection(profile: DeviceProfile) -> some View {
-        Section("测试数值") {
+        Section {
             HStack {
                 Stepper("电量测试值：\(profile.batteryPercent)%", value: binding(\.batteryPercent, profile: profile), in: 1...100)
                 randomButton("batteryPercent")
@@ -278,11 +279,12 @@ struct ProfileManagerView: View {
                     .keyboardType(.numbersAndPunctuation).multilineTextAlignment(.trailing)
             }
             Button("随机测试坐标") { store.randomize("location") }
+       
+        } header: {
+            Text("测试数值")
         }
-    }
-
-    private func hookConfigurationSection(profile: DeviceProfile) -> some View {
-        Section("原作者 Hook 硬件参数") {
+    }private func hookConfigurationSection(profile: DeviceProfile) -> some View {
+        Section {
             TextField("SerialNumber", text: optionalBinding(\.serialNumber, profile: profile))
                 .textInputAutocapitalization(.characters).autocorrectionDisabled()
             TextField("IMEI（15 位）", text: optionalBinding(\.imei, profile: profile))
@@ -324,18 +326,22 @@ struct ProfileManagerView: View {
         }
     }
 
-    private var randomizationSection: some View {
-        Section("随机生成") {
+        } header: {
+            Text("原作者 Hook 硬件参数")
+        }
+    }private var randomizationSection: some View {
+        Section {
             Button { store.randomizeAll() } label: {
                 Label("全部参数一键随机", systemImage: "shuffle")
             }
             Text("也可以使用各参数对应的随机按钮单独生成。")
                 .font(.caption).foregroundColor(.secondary)
+       
+        } header: {
+            Text("随机生成")
         }
-    }
-
-    private var backupSection: some View {
-        Section("配置备份") {
+    }private var backupSection: some View {
+        Section {
             Button { prepareExport() } label: {
                 Label("生成配置备份 JSON", systemImage: "square.and.arrow.up")
             }
@@ -347,10 +353,11 @@ struct ProfileManagerView: View {
             Button { showingImporter = true } label: {
                 Label("导入配置 JSON", systemImage: "square.and.arrow.down")
             }
+       
+        } header: {
+            Text("配置备份")
         }
-    }
-
-    private var header: some View {
+    }private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("iDevice Lab").font(.largeTitle.bold())
