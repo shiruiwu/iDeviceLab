@@ -318,7 +318,7 @@ struct ProfileManagerView: View {
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
             Toggle("UDID 返回 NSData", isOn: boolBinding(\.uniqueDeviceIDData, profile: profile))
             Toggle("Wi-Fi MAC 返回 NSData", isOn: boolBinding(\.wifiAddressData, profile: profile))
-            Toggle("Bluetooth MAC 返回 NSData", isOn: boolBinding(\.bluetoothAddressData, profile: profile))
+            Toggle("蓝牙 MAC 地址返回 NSData", isOn: boolBinding(\.bluetoothAddressData, profile: profile))
             Button {
                 store.randomizeHookIdentifiers()
             } label: {
