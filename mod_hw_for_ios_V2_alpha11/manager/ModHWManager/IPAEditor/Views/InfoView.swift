@@ -37,7 +37,7 @@ struct InfoView: View {
                 return Alert(
                     title: Text(alert.title),
                     message: Text(alert.message),
-                    dismissButton: .default(Text("OK"))
+                    dismissButton: .default(Text("确定"))
                 )
             }
     }
