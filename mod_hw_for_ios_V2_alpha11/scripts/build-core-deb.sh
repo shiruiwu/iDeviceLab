@@ -31,9 +31,9 @@ install -m 0755 "$ROOT/core/layout/DEBIAN/postrm" "$PKG/DEBIAN/postrm"
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.idevelab.core.alpha11
 Name: iDeviceLab Alpha11 Core
-Version: 0.3.4~alpha11
+Version: 0.3.5~alpha11
 Architecture: iphoneos-arm64
-Description: Rootless loopback-only read-only diagnostics Core for the Alpha11 manager.
+Description: Rootless diagnostics Core with sandbox-private authenticated Manager maintenance bridge.
 Maintainer: iDeviceLab contributors
 Depends: firmware (>= 15.0), com.modhw.ios.diagnostics
 Section: Utilities
