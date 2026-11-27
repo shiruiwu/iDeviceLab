@@ -226,10 +226,10 @@ static void Reply(int fd, NSDictionary *payload, int status) {
 int main(void) {
     @autoreleasepool {
         signal(SIGPIPE, SIG_IGN);
-        fprintf(stderr, "[idevelab-core] starting version 0.3.2-alpha11 pid=%d uid=%d\\n", getpid(), getuid());
+        fprintf(stderr, "[idevelab-core] starting version 0.3.2-alpha11 pid=%d uid=%d\n", getpid(), getuid());
         fflush(stderr);
         int server = socket(AF_INET, SOCK_STREAM, 0);
-        if (server < 0) { fprintf(stderr, "[idevelab-core] socket failed errno=%d (%s)\\n", errno, strerror(errno)); return 1; }
+        if (server < 0) { fprintf(stderr, "[idevelab-core] socket failed errno=%d (%s)\n", errno, strerror(errno)); return 1; }
         int yes = 1;
         setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
         struct sockaddr_in addr = {0};
@@ -237,9 +237,9 @@ int main(void) {
         addr.sin_family = AF_INET;
         addr.sin_port = htons(kPort);
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        if (bind(server, (struct sockaddr *)&addr, sizeof(addr)) < 0) { int saved = errno; fprintf(stderr, "[idevelab-core] bind 127.0.0.1:%d failed errno=%d (%s)\\n", kPort, saved, strerror(saved)); close(server); return 2; }
-        if (listen(server, 8) < 0) { int saved = errno; fprintf(stderr, "[idevelab-core] listen failed errno=%d (%s)\\n", saved, strerror(saved)); close(server); return 3; }
-        fprintf(stderr, "[idevelab-core] LISTENING 127.0.0.1:%d\\n", kPort);
+        if (bind(server, (struct sockaddr *)&addr, sizeof(addr)) < 0) { int saved = errno; fprintf(stderr, "[idevelab-core] bind 127.0.0.1:%d failed errno=%d (%s)\n", kPort, saved, strerror(saved)); close(server); return 2; }
+        if (listen(server, 8) < 0) { int saved = errno; fprintf(stderr, "[idevelab-core] listen failed errno=%d (%s)\n", saved, strerror(saved)); close(server); return 3; }
+        fprintf(stderr, "[idevelab-core] LISTENING 127.0.0.1:%d\n", kPort);
         fflush(stderr);
         for (;;) {
             int client = accept(server, NULL, NULL);
