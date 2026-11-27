@@ -314,16 +314,16 @@ struct ContentView: View {
                         }
                     }
                 }
-                commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-app-backup \\(safeShellArgument(maintenanceBundleID))")
+                commandRow("备份指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance backup \\(safeShellArgument(maintenanceBundleID))")
                 TextField("备份文件名（用于校验或还原）", text: $maintenanceArchiveName)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(.footnote.monospaced())
-                commandRow("验证备份完整性", command: "/var/jb/usr/bin/mod-hw-app-backup-verify \\(safeShellArgument(maintenanceArchiveName))")
+                commandRow("验证备份完整性", command: "/var/jb/usr/bin/mod-hw-maintenance verify \\(safeShellArgument(maintenanceArchiveName))")
             }
             Section("还原与清理") {
-                commandRow("还原指定 App", command: "/var/jb/usr/bin/mod-hw-app-restore \\(safeShellArgument(maintenanceBundleID)) \\(safeShellArgument(maintenanceArchiveName)) --confirm")
-                commandRow("清理指定 App", command: "/var/jb/usr/bin/mod-hw-app-clean \\(safeShellArgument(maintenanceBundleID)) --confirm")
+                commandRow("还原指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance restore \\(safeShellArgument(maintenanceBundleID)) \\(safeShellArgument(maintenanceArchiveName)) --confirm")
+                commandRow("清理指定 App", command: "/var/jb/usr/bin/mod-hw-maintenance clean \\(safeShellArgument(maintenanceBundleID)) --confirm")
                 Text("还原和清理会改变目标 App 数据。必须先完成备份和完整性校验，再在越狱终端确认执行。")
                     .font(.footnote).foregroundStyle(.orange)
             }

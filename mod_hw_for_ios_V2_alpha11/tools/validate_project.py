@@ -60,6 +60,11 @@ check("fileImporter" in manager and "fileExporter" in manager, "Manager imports 
 check("TabView" in manager and "设备总览" in manager and "配置管理" in manager and
       "备份与维护" in manager and "设备诊断" in manager,
       "Manager exposes the integrated dashboard, profiles, maintenance, and diagnostics navigation")
+check("mod-hw-maintenance" in manager and "maintenance-dispatch.sh" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
+      "必须在越狱终端以 root 身份运行" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
+      "backup|verify|restore|clean" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
+      "未知操作" in (ROOT / "scripts/maintenance-dispatch.sh").read_text(),
+      "Root-only maintenance dispatcher exposes only fixed backup, verify, restore, and clean actions")
 check("mod-hw-app-backup" in manager and "mod-hw-app-backup-verify" in manager and
       "mod-hw-app-restore" in manager and "mod-hw-app-clean" in manager,
       "Manager generates a target-specific maintenance command set without claiming in-app execution")
