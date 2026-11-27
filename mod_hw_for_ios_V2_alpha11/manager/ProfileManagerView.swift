@@ -9,6 +9,9 @@ struct ProfileManagerView: View {
     @State private var alertMessage: String?
     @State private var newAppName = ""
     @State private var newAppBundleID = ""
+    @State private var pendingApplyProfile: DeviceProfile?
+    @State private var pendingApplyBundleID: String?
+    @State private var showApplyConfirmation = false
 
     var body: some View {
         NavigationView {
@@ -68,6 +71,17 @@ struct ProfileManagerView: View {
                                         }
                                         .buttonStyle(.borderedProminent)
                                         Spacer()
+                                        if let boundProfile = store.profiles.first(where: { $0.id == app.profileID }) {
+                                            Button {
+                                                pendingApplyProfile = boundProfile
+                                                pendingApplyBundleID = app.bundleIdentifier
+                                                showApplyConfirmation = true
+                                            } label: {
+                                                Label("应用 Hook", systemImage: "checkmark.shield")
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .disabled(!boundProfile.isHookConfigurationReady)
+                                        }
                                         if let boundProfile = store.profiles.first(where: { $0.id == app.profileID }) {
                                             Text("已绑定：\(boundProfile.name)")
                                                 .font(.caption2)
@@ -157,6 +171,47 @@ struct ProfileManagerView: View {
                             Button("随机测试坐标") { store.randomize("location") }
                         }
 
+                        Section("原作者 Hook 硬件参数") {
+                            TextField("SerialNumber", text: optionalBinding(\.serialNumber, profile: profile))
+                                .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                            TextField("IMEI（15 位）", text: optionalBinding(\.imei, profile: profile))
+                                .keyboardType(.numberPad)
+                            TextField("MEID（14 位十六进制）", text: optionalBinding(\.meid, profile: profile))
+                                .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                            TextField("WifiAddress（MAC）", text: optionalBinding(\.wifiAddress, profile: profile))
+                                .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                            TextField("BluetoothAddress（MAC）", text: optionalBinding(\.bluetoothAddress, profile: profile))
+                                .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                            TextField("UniqueDeviceID（40 位十六进制）", text: optionalBinding(\.uniqueDeviceID, profile: profile))
+                                .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                            TextField("ProductId（12 位十六进制）", text: optionalBinding(\.productId, profile: profile))
+                                .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                            TextField("UniqueChipId（十六进制）", text: optionalBinding(\.uniqueChipId, profile: profile))
+                                .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                            TextField("ProductType（例如 iPhone13,2）", text: optionalBinding(\.productType, profile: profile))
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            TextField("HWModelStr（例如 D53gAP）", text: optionalBinding(\.hwModelStr, profile: profile))
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            TextField("IDFA（UUID）", text: optionalBinding(\.idfa, profile: profile))
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            TextField("IDFV（UUID）", text: optionalBinding(\.idfv, profile: profile))
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            Toggle("UDID 返回 NSData", isOn: boolBinding(\.uniqueDeviceIDData, profile: profile))
+                            Toggle("Wi-Fi MAC 返回 NSData", isOn: boolBinding(\.wifiAddressData, profile: profile))
+                            Toggle("Bluetooth MAC 返回 NSData", isOn: boolBinding(\.bluetoothAddressData, profile: profile))
+                            Button {
+                                store.randomizeHookIdentifiers()
+                            } label: {
+                                Label("生成一组 Hook 测试标识", systemImage: "shuffle")
+                            }
+                            Text(profile.isHookConfigurationReady
+                                 ? "UDID 基本格式已满足；应用前仍会由 Root Helper 校验全部字段。"
+                                 : "填写或生成 40 位十六进制 UDID 后，才可应用到指定 App。")
+                                .font(.caption).foregroundColor(.secondary)
+                        } footer: {
+                            Text("这些值写入原作者 Hook 使用的 per-App plist。它们只影响已注入 Hook 且重新启动的目标 App，不会改变基带或真实硬件。随机值仅用于测试，不保证运营商或第三方服务接受。")
+                        }
+
                         Section("随机生成") {
                             Button { store.randomizeAll() } label: {
                                 Label("全部参数一键随机", systemImage: "shuffle")
@@ -206,6 +261,15 @@ struct ProfileManagerView: View {
             } message: {
                 Text(alertMessage ?? "")
             }
+            .confirmationDialog("应用原作者 Hook 配置", isPresented: $showApplyConfirmation, titleVisibility: .visible) {
+                Button("确认写入并备份旧配置", role: .destructive) { applyPendingProfile() }
+                Button("取消", role: .cancel) {
+                    pendingApplyProfile = nil
+                    pendingApplyBundleID = nil
+                }
+            } message: {
+                Text("将把当前配置写入所选 App 的 per-App Hook plist。旧文件会先备份；强制关闭并重新打开目标 App 后生效。")
+            }
         }
         .accentColor(.cyan)
     }
@@ -242,6 +306,54 @@ struct ProfileManagerView: View {
                 store.update(latest)
             }
         )
+    }
+
+    private func optionalBinding(_ keyPath: WritableKeyPath<DeviceProfile, String?>, profile: DeviceProfile) -> Binding<String> {
+        Binding(
+            get: { store.profiles.first(where: { $0.id == profile.id })?[keyPath: keyPath] ?? "" },
+            set: { value in
+                guard var latest = store.profiles.first(where: { $0.id == profile.id }) else { return }
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                latest[keyPath: keyPath] = trimmed.isEmpty ? nil : trimmed
+                store.update(latest)
+            }
+        )
+    }
+
+    private func boolBinding(_ keyPath: WritableKeyPath<DeviceProfile, Bool?>, profile: DeviceProfile) -> Binding<Bool> {
+        Binding(
+            get: { store.profiles.first(where: { $0.id == profile.id })?[keyPath: keyPath] ?? false },
+            set: { value in
+                guard var latest = store.profiles.first(where: { $0.id == profile.id }) else { return }
+                latest[keyPath: keyPath] = value
+                store.update(latest)
+            }
+        )
+    }
+
+    private func applyPendingProfile() {
+        guard let profile = pendingApplyProfile, let bundleID = pendingApplyBundleID else { return }
+        guard profile.isHookConfigurationReady else {
+            alertMessage = "UniqueDeviceID 必须是 40 位十六进制字符串。"
+            return
+        }
+        Task {
+            do {
+                let result = try await MaintenanceClient.request(
+                    action: "apply-profile",
+                    bundleID: bundleID,
+                    profile: profile.hookConfiguration,
+                    confirm: true
+                )
+                alertMessage = result.ok
+                    ? "\(result.output ?? "Hook 配置已写入。")\n请强制关闭并重新打开目标 App。"
+                    : (result.error ?? result.output ?? "Hook 配置写入失败。")
+            } catch {
+                alertMessage = "Hook 配置写入失败：\(error.localizedDescription)"
+            }
+            pendingApplyProfile = nil
+            pendingApplyBundleID = nil
+        }
     }
 
     private func randomButton(_ field: String) -> some View {
