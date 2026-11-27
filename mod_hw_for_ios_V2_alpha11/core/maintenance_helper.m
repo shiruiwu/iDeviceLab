@@ -198,8 +198,10 @@ static BOOL PairManagerProcess(pid_t pid, NSString **message) {
         return NO;
     }
     NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[appPath stringByAppendingPathComponent:@"Info.plist"]];
-    if (![info[@"CFBundleIdentifier"] isEqualToString:@"com.modhw.manager"]) {
-        if (message) *message = @"Manager Bundle ID 不匹配；请安装正式 TrollStore 版本。";
+    NSString *bundleID = info[@"CFBundleIdentifier"];
+    if (![bundleID isEqualToString:@"com.modhw.manager"] &&
+        ![bundleID isEqualToString:@"com.modhw.manager.sandboxed"]) {
+        if (message) *message = @"Manager Bundle ID 不匹配。";
         return NO;
     }
 
@@ -642,20 +644,26 @@ static void HandleClient(int fd) {
         return;
     }
     NSString *action = request[@"action"];
+    NSNumber *managerPIDValue = request[@"managerPID"];
+    pid_t managerPID = [managerPIDValue isKindOfClass:NSNumber.class] ? (pid_t)managerPIDValue.intValue : peer;
+    if (managerPID <= 1) {
+        SendJSON(fd, Failure(@"Manager 进程标识无效。"));
+        return;
+    }
     if ([action isEqualToString:@"status"]) {
-        BOOL paired = PeerMatchesPinned(peer);
+        BOOL paired = PeerMatchesPinned(managerPID);
         SendJSON(fd, @{@"ok": @YES, @"paired": @(paired), @"helper": @"Alpha11 Maintenance Helper"});
         return;
     }
     if ([action isEqualToString:@"pair"]) {
         NSString *message = nil;
-        BOOL paired = PairManagerProcess(peer, &message);
+        BOOL paired = PairManagerProcess(managerPID, &message);
         SendJSON(fd, paired
             ? @{@"ok": @YES, @"paired": @YES, @"action": @"pair", @"output": message ?: @"配对成功。"}
             : @{@"ok": @NO, @"paired": @NO, @"action": @"pair", @"error": message ?: @"配对失败。"});
         return;
     }
-    if (!PeerMatchesPinned(peer)) {
+    if (!PeerMatchesPinned(managerPID)) {
         SendJSON(fd, Failure(@"管理器尚未配对或签名已变化；请在管理器设置中点击“直接配对权限助手”。"));
         return;
     }
