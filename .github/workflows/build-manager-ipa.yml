@@ -137,7 +137,7 @@ jobs:
       - name: Upload sandboxed full Manager diagnostic IPA
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-sandboxed-build15
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build15.ipa
+          name: mod-hw-manager-sandboxed-build16-core-bridge
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build16.ipa
           if-no-files-found: error
           retention-days: 14
