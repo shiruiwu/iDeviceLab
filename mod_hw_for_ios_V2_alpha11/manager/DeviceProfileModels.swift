@@ -71,6 +71,47 @@ struct DeviceProfile: Identifiable, Codable, Equatable {
     static let regions = ["CN", "US", "JP", "KR", "GB", "HK", "TW"]
     static let timeZones = ["Asia/Shanghai", "Asia/Tokyo", "America/New_York", "Europe/London", "Asia/Seoul"]
     static let networkTypes = ["Wi-Fi", "蜂窝网络", "离线测试", "弱网测试"]
+
+    static func languageDisplay(_ code: String) -> String {
+        let name: String
+        switch code {
+        case "zh-Hans": name = "简体中文"
+        case "zh-Hant": name = "繁体中文"
+        case "en": name = "英语"
+        case "ja": name = "日语"
+        case "ko": name = "韩语"
+        default: return code
+        }
+        return "\(name)（\(code)）"
+    }
+
+    static func regionDisplay(_ code: String) -> String {
+        let name: String
+        switch code {
+        case "CN": name = "中国大陆"
+        case "US": name = "美国"
+        case "JP": name = "日本"
+        case "KR": name = "韩国"
+        case "GB": name = "英国"
+        case "HK": name = "中国香港"
+        case "TW": name = "中国台湾"
+        default: return code
+        }
+        return "\(name)（\(code)）"
+    }
+
+    static func timeZoneDisplay(_ identifier: String) -> String {
+        let name: String
+        switch identifier {
+        case "Asia/Shanghai": name = "中国标准时间 · 上海"
+        case "Asia/Tokyo": name = "日本标准时间 · 东京"
+        case "America/New_York": name = "美国东部时间 · 纽约"
+        case "Europe/London": name = "英国时间 · 伦敦"
+        case "Asia/Seoul": name = "韩国标准时间 · 首尔"
+        default: return identifier
+        }
+        return "\(name)（\(identifier)）"
+    }
 }
 
 struct ProfileArchive: Codable {
