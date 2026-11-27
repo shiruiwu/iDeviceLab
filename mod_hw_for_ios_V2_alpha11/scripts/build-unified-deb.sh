@@ -112,6 +112,13 @@ for hook in postinst prerm postrm; do
   [ -f "$WORK/control-core/$hook" ] || { echo "Core lifecycle hook missing: $hook" >&2; exit 5; }
   install -m 0755 "$WORK/control-core/$hook" "$PKG/DEBIAN/$hook"
 done
+for hook in postinst prerm postrm; do
+  sh -n "$PKG/DEBIAN/$hook" || { echo "Invalid shell syntax in lifecycle hook: $hook" >&2; exit 5; }
+done
+grep -Fq 'Package payload is configured; service startup requires follow-up diagnosis.' "$PKG/DEBIAN/postinst" || {
+  echo "postinst must keep daemon startup failures from interrupting dpkg configuration." >&2
+  exit 5
+}
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.idevelab.fullsuite.alpha11
 Name: mod_hw_for_ios V2 + iDeviceLab Alpha11 Full Suite
