@@ -323,6 +323,15 @@ struct ProfileManagerView: View {
             } label: {
                 Label("生成一组 Hook 测试标识", systemImage: "shuffle")
             }
+
+            Button {
+                pendingApplyProfile = profile
+                pendingApplyBundleID = "__global__"
+                showApplyConfirmation = true
+            } label: {
+                Label("应用为全局 Hook 配置", systemImage: "globe")
+            }
+            .disabled(!profile.isHookConfigurationReady)
             Text(profile.isHookConfigurationReady
                  ? "UDID 基本格式已满足；应用前仍会由 Root Helper 校验全部字段。"
                  : "填写或生成 40 位十六进制 UDID 后，才可应用到指定 App。")
@@ -330,7 +339,7 @@ struct ProfileManagerView: View {
         } header: {
             Text("原作者 Hook 硬件参数")
         } footer: {
-            Text("这些值写入原作者 Hook 使用的 per-App plist。它们只影响已注入 Hook 且重新启动的目标 App，不会改变基带或真实硬件。随机值仅用于测试，不保证运营商或第三方服务接受。")
+            Text("可应用为全局配置（写入 com.modhw.ios.devices.plist），也可按 Bundle ID 单独应用。Per-App 配置优先于全局配置。仅影响已注入 Hook 且重新启动的目标 App，不改变基带或真实硬件。")
         }
     }
 
@@ -367,18 +376,18 @@ struct ProfileManagerView: View {
 private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("iDevice Lab").font(.largeTitle.bold())
-                Text("DEVICE PROFILE MANAGER").font(.caption2).tracking(2).foregroundColor(.cyan)
+                Text("iDevice Lab").font(.largeTitle.bold()).foregroundColor(.white)
+                Text("DEVICE PROFILE MANAGER").font(.caption2).tracking(2).foregroundColor(.white.opacity(0.82))
             }
             Spacer()
             Button { store.addProfile() } label: {
                 Image(systemName: "plus").font(.headline).padding(11)
-                    .background(Color.cyan.opacity(0.18)).clipShape(Circle())
+                    .background(Color.white.opacity(0.20)).clipShape(Circle()).foregroundColor(.white)
             }
             .accessibilityLabel("新增配置")
         }
         .padding()
-        .background(Color.black)
+        .background(LinearGradient(colors: [Color(red: 0.08, green: 0.42, blue: 0.92), Color(red: 0.20, green: 0.70, blue: 0.98)], startPoint: .topLeading, endPoint: .bottomTrailing))
     }
 
     private var footer: some View {
@@ -461,9 +470,10 @@ private var header: some View {
                     alertMessage = "Root Helper 尚未与当前管理器配对。请先到「备份与维护」页复制配对命令并在越狱终端执行。"
                     return
                 }
+                let isGlobal = bundleID == "__global__"
                 let result = try await MaintenanceClient.request(
-                    action: "apply-profile",
-                    bundleID: bundleID,
+                    action: isGlobal ? "apply-global-profile" : "apply-profile",
+                    bundleID: isGlobal ? nil : bundleID,
                     profile: profile.hookConfiguration,
                     confirm: true
                 )

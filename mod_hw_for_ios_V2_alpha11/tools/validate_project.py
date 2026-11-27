@@ -115,7 +115,7 @@ check("hookConfiguration" in profile_models and "UniqueDeviceID" in profile_mode
       "BluetoothAddress" in profile_models and "IDFA" in profile_models and "IDFV" in profile_models and
       "randomizeHookIdentifiers" in profile_store,
       "Persistent profiles include the original Hook hardware fields and valid-format test identifier generation")
-check("apply-profile" in profile_view and "MaintenanceClient.request" in profile_view and
+check("apply-profile" in profile_view and "apply-global-profile" in profile_view and "apply-global-profile" in (ROOT / "core/maintenance_helper.m").read_text() and "com.modhw.ios.devices.plist" in (ROOT / "core/maintenance_helper.m").read_text() and "MaintenanceClient.request" in profile_view and
       "确认写入并备份旧配置" in profile_view and "强制关闭并重新打开目标 App" in profile_view,
       "Profile manager applies a validated per-App Hook plist through Root Helper after explicit confirmation")
 check("ProfileManagerView(availableApps:" in manager and "ProfileAppOption" in profile_models and "availableApps" in profile_view and "ProfileStore()" in app_entry and

@@ -383,9 +383,9 @@ static BOOL WriteSecureFile(NSString *path, NSData *data, gid_t mobileGID) {
            metadata.st_gid == mobileGID && (metadata.st_mode & 07777) == 0640;
 }
 
-static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, NSString **message) {
+static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, BOOL global, NSString **message) {
     NSString *validationError = nil;
-    if (!ValidBundleID(bundleID) || !ValidateHookProfile(profile, &validationError)) {
+    if ((!global && !ValidBundleID(bundleID)) || !ValidateHookProfile(profile, &validationError)) {
         if (message) *message = validationError ?: @"Bundle ID 无效。";
         return NO;
     }
@@ -401,14 +401,14 @@ static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, NSString
         return NO;
     }
     NSString *root = [preferences stringByAppendingPathComponent:@"com.modhw.ios.profiles"];
-    NSString *backupRoot = [root stringByAppendingPathComponent:@"backups"];
+    NSString *backupRoot = [root stringByAppendingPathComponent:(global ? @"global-backups" : @"backups")];
     if (!EnsureRootMobileDirectory(root, 0750, mobile->pw_gid) ||
         !EnsureRootMobileDirectory(backupRoot, 0750, mobile->pw_gid)) {
-        if (message) *message = @"无法安全创建或验证 per-App 配置目录。";
+        if (message) *message = @"无法安全创建或验证 Hook 配置目录。";
         return NO;
     }
 
-    NSString *target = [[root stringByAppendingPathComponent:bundleID] stringByAppendingPathExtension:@"plist"];
+    NSString *target = global ? [preferences stringByAppendingPathComponent:@"com.modhw.ios.devices.plist"] : [[root stringByAppendingPathComponent:bundleID] stringByAppendingPathExtension:@"plist"];
     struct stat existing;
     BOOL hasExisting = lstat(target.fileSystemRepresentation, &existing) == 0;
     if (hasExisting && !S_ISREG(existing.st_mode)) {
@@ -430,7 +430,8 @@ static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, NSString
         NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
         formatter.locale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"];
         formatter.dateFormat = @"yyyyMMdd-HHmmss";
-        NSString *backupName = [NSString stringWithFormat:@"%@-%@-%d.plist", bundleID, [formatter stringFromDate:[NSDate date]], getpid()];
+        NSString *backupLabel = global ? @"global" : bundleID;
+        NSString *backupName = [NSString stringWithFormat:@"%@-%@-%d.plist", backupLabel, [formatter stringFromDate:[NSDate date]], getpid()];
         backupPath = [backupRoot stringByAppendingPathComponent:backupName];
         if (!WriteSecureFile(backupPath, oldData, mobile->pw_gid)) {
             if (message) *message = @"旧配置备份失败，已取消写入。";
@@ -453,8 +454,8 @@ static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, NSString
     }
     if (message) {
         *message = backupPath
-            ? [NSString stringWithFormat:@"已应用到 %@。旧配置备份：%@。请强制关闭并重新打开目标 App。", bundleID, backupPath]
-            : [NSString stringWithFormat:@"已应用到 %@。首次配置，无旧文件需要备份。请强制关闭并重新打开目标 App。", bundleID];
+            ? [NSString stringWithFormat:@"已应用%@ Hook 配置。旧配置备份：%@。请强制关闭并重新打开目标 App。", global ? @"全局" : [NSString stringWithFormat:@"App %@", bundleID], backupPath]
+            : [NSString stringWithFormat:@"已应用%@ Hook 配置。首次配置，无旧文件需要备份。请强制关闭并重新打开目标 App。", global ? @"全局" : [NSString stringWithFormat:@"App %@", bundleID]];
     }
     return YES;
 }
@@ -467,13 +468,21 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
         return @{@"ok": @YES, @"paired": @NO, @"helper": @"Alpha11 Maintenance Helper"};
     }
 
-    if ([action isEqualToString:@"apply-profile"]) {
+    if ([action isEqualToString:@"apply-profile", @"apply-global-profile"]) {
         NSString *bundleID = request[@"bundleID"];
         BOOL confirm = [request[@"confirm"] isKindOfClass:NSNumber.class] && [request[@"confirm"] boolValue];
         if (!confirm) return Failure(@"应用 Hook 配置必须明确确认。");
         NSString *message = nil;
-        if (!ApplyHookProfile(bundleID, request[@"profile"], &message)) return Failure(message ?: @"Hook 配置应用失败。");
+        if (!ApplyHookProfile(bundleID, request[@"profile"], NO, &message)) return Failure(message ?: @"Hook 配置应用失败。");
         return @{@"ok": @YES, @"action": action, @"output": message ?: @"Hook 配置已写入。"};
+    }
+
+    if ([action isEqualToString:@"apply-global-profile"]) {
+        BOOL confirm = [request[@"confirm"] isKindOfClass:NSNumber.class] && [request[@"confirm"] boolValue];
+        if (!confirm) return Failure(@"应用全局 Hook 配置必须明确确认。");
+        NSString *message = nil;
+        if (!ApplyHookProfile(nil, request[@"profile"], YES, &message)) return Failure(message ?: @"全局 Hook 配置应用失败。");
+        return @{@"ok": @YES, @"action": action, @"output": message ?: @"全局 Hook 配置已写入。"};
     }
 
     NSString *path = nil;
