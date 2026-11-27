@@ -13,7 +13,6 @@
 #import <pwd.h>
 #import <stdlib.h>
 #import <limits.h>
-#import <dlfcn.h>
 
 // Alpha11 companion Core: read-only local diagnostics, bound to loopback.
 static const int kPort = 18081;
@@ -223,31 +222,33 @@ static BOOL ManagerBundleIdentifierForPID(pid_t pid, NSString **bundleIdentifier
     return success;
 }
 
-static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSString **matchedBundleIdentifier) {
+static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSString *managerContainerPath, NSString **matchedBundleIdentifier) {
     gManagerBridgeTokenFailureReason = @"invalid-header";
-    if (![candidate isKindOfClass:NSString.class] || candidate.length != 64 || managerPID <= 1) return NO;
+    if (![candidate isKindOfClass:NSString.class] || candidate.length != 64 || managerPID <= 1 ||
+        ![managerContainerPath isKindOfClass:NSString.class] || managerContainerPath.length == 0) return NO;
     NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
     if ([candidate rangeOfCharacterFromSet:invalid].location != NSNotFound) return NO;
 
-    // Resolve this PID's own data container through Apple's sandbox SPI.
-    // Never enumerate the global Application container directory: on iOS 16
-    // the mobile Core may stat it but cannot enumerate it (EACCES).
-    typedef int (*ContainerPathForPID)(pid_t, char *, size_t);
-    static ContainerPathForPID containerPathForPID = NULL;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        void *handle = dlopen("/usr/lib/system/libsystem_sandbox.dylib", RTLD_LAZY | RTLD_LOCAL);
-        if (handle) containerPathForPID = (ContainerPathForPID)dlsym(handle, "sandbox_container_path_for_pid");
-    });
-    if (!containerPathForPID) { gManagerBridgeTokenFailureReason = @"sandbox-container-api-unavailable"; return NO; }
-    char pathBuffer[PATH_MAX] = {0};
-    int pathResult = containerPathForPID(managerPID, pathBuffer, sizeof(pathBuffer));
-    if (pathResult != 0 || pathBuffer[0] == '\0') { gManagerBridgeTokenFailureReason = @"manager-data-container-unavailable"; return NO; }
-
-    NSString *container = [NSString stringWithUTF8String:pathBuffer];
-    NSString *root = @"/var/mobile/Containers/Data/Application/";
-    if (![container hasPrefix:root] || [container containsString:@"/../"]) {
+    // The Manager supplies only its own Application Support container path.
+    // Resolve it canonically and validate the live PID's Bundle ID before
+    // reading the token; never enumerate the protected global container root.
+    char resolved[PATH_MAX] = {0};
+    if (!realpath(managerContainerPath.fileSystemRepresentation, resolved)) {
+        gManagerBridgeTokenFailureReason = @"manager-data-container-unreadable";
+        return NO;
+    }
+    NSString *container = [NSString stringWithUTF8String:resolved];
+    NSString *root = @"/var/mobile/Containers/Data/Application";
+    NSString *rootResolved = [NSString stringWithUTF8String:realpath(root.fileSystemRepresentation, NULL) ?: ""];
+    NSString *prefix = [rootResolved stringByAppendingString:@"/"];
+    if (rootResolved.length == 0 || ![container hasPrefix:prefix]) {
         gManagerBridgeTokenFailureReason = @"manager-data-container-invalid";
+        return NO;
+    }
+
+    NSString *identifier = nil;
+    if (!ManagerBundleIdentifierForPID(managerPID, &identifier)) {
+        gManagerBridgeTokenFailureReason = @"manager-process-identity-invalid";
         return NO;
     }
     struct passwd *mobile = getpwnam("mobile");
@@ -261,9 +262,8 @@ static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSS
 
     NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
     NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
-    NSString *identifier = metadata[@"MCMMetadataIdentifier"];
-    if (![identifier isEqualToString:@"com.modhw.manager.sandboxed"] &&
-        ![identifier isEqualToString:@"com.modhw.manager"]) {
+    NSString *containerIdentifier = metadata[@"MCMMetadataIdentifier"];
+    if (![containerIdentifier isEqualToString:identifier]) {
         gManagerBridgeTokenFailureReason = @"manager-container-bundle-id-mismatch";
         return NO;
     }
@@ -362,7 +362,8 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSString
         if (![pid isKindOfClass:NSNumber.class] || pid.longLongValue <= 1 || pid.longLongValue > INT_MAX)
             return @{@"ok": @NO, @"error": @"缺少有效的 Manager 进程标识。"};
         NSString *authenticatedBundleIdentifier = nil;
-        if (!ManagerBridgeTokenMatches(bridgeToken, (pid_t)pid.intValue, &authenticatedBundleIdentifier)) {
+        NSString *managerContainer = request[@"managerContainer"];
+        if (!ManagerBridgeTokenMatches(bridgeToken, (pid_t)pid.intValue, managerContainer, &authenticatedBundleIdentifier)) {
             return @{@"ok": @NO, @"error": [NSString stringWithFormat:@"Manager 私有通信凭据验证失败（%@），拒绝维护请求。", gManagerBridgeTokenFailureReason]};
         }
         NSString *liveBundleIdentifier = nil;
