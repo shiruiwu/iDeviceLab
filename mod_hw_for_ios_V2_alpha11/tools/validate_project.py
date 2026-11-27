@@ -2,6 +2,7 @@
 """Static checks for the Alpha11 tweak, manager, and config utility package."""
 from pathlib import Path
 import plistlib
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
