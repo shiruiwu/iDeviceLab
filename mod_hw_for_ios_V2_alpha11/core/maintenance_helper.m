@@ -46,7 +46,31 @@ static int QueryCSOps(pid_t pid, unsigned int operation, void *buffer, size_t le
 extern char **environ;
 
 static const char *kSocketPath = "/var/run/com.idevelab.maintenance.sock";
-static const char *kPinPath = "/var/jb/var/root/Library/Preferences/com.idevelab.manager-cdhash";
+
+// Resolve the active rootless bootstrap instead of assuming its physical path.
+// /var/jb is Dopamine's stable alias; realpath follows it to the actual bootstrap.
+static NSString *JailbreakRootPath(void) {
+    const char *environmentRoot = getenv("JBROOT");
+    const char *candidates[] = {environmentRoot, "/var/jb", NULL};
+    for (size_t i = 0; candidates[i] != NULL || i == 0; i++) {
+        if (!candidates[i]) continue;
+        char resolved[PATH_MAX] = {0};
+        if (realpath(candidates[i], resolved) && resolved[0] == '/' &&
+            strcmp(resolved, "/") != 0) {
+            return [NSString stringWithUTF8String:resolved];
+        }
+    }
+    return nil;
+}
+static NSString *JailbreakPath(NSString *relativePath) {
+    NSString *root = JailbreakRootPath();
+    if (!root || ![relativePath isKindOfClass:NSString.class] ||
+        [relativePath hasPrefix:@"/"] || [relativePath containsString:@".."]) return nil;
+    return [root stringByAppendingPathComponent:relativePath];
+}
+static NSString *ManagerPinPath(void) {
+    return JailbreakPath(@"var/root/Library/Preferences/com.idevelab.manager-cdhash");
+}
 static const size_t kRequestLimit = 4096;
 static const size_t kOutputLimit = 65536;
 
@@ -114,10 +138,12 @@ static BOOL ValidArchiveName(NSString *value) {
 }
 
 static BOOL ReadPinnedHash(uint8_t output[CS_CDHASH_LEN]) {
+    NSString *pinPath = ManagerPinPath();
+    if (!pinPath) return NO;
     struct stat st;
-    if (lstat(kPinPath, &st) != 0 || !S_ISREG(st.st_mode) || st.st_uid != 0 ||
+    if (lstat(pinPath.fileSystemRepresentation, &st) != 0 || !S_ISREG(st.st_mode) || st.st_uid != 0 ||
         st.st_gid != 0 || (st.st_mode & 07777) != 0600) return NO;
-    FILE *file = fopen(kPinPath, "r");
+    FILE *file = fopen(pinPath.fileSystemRepresentation, "r");
     if (!file) return NO;
     char text[64] = {0};
     size_t count = fread(text, 1, sizeof(text) - 1, file);
@@ -221,21 +247,27 @@ static BOOL PairManagerProcess(pid_t pid, NSString **message) {
     char hex[CS_CDHASH_LEN * 2 + 1] = {0};
     for (size_t i = 0; i < CS_CDHASH_LEN; i++) snprintf(hex + i * 2, 3, "%02x", hash[i]);
 
+    NSString *pinPath = ManagerPinPath();
+    NSString *pinDirectory = [pinPath stringByDeletingLastPathComponent];
+    if (!pinPath || !pinDirectory) {
+        if (message) *message = @"无法自动识别 Rootless Bootstrap 路径。";
+        return NO;
+    }
     NSError *directoryError = nil;
-    [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/jb/var/root/Library/Preferences"
+    [[NSFileManager defaultManager] createDirectoryAtPath:pinDirectory
                               withIntermediateDirectories:YES
                                                attributes:@{NSFilePosixPermissions: @0700}
                                                     error:&directoryError];
     struct stat directoryStat;
-    if (lstat("/var/jb/var/root/Library/Preferences", &directoryStat) != 0 ||
+    if (lstat(pinDirectory.fileSystemRepresentation, &directoryStat) != 0 ||
         !S_ISDIR(directoryStat.st_mode) || directoryStat.st_uid != 0 ||
-        chmod("/var/jb/var/root/Library/Preferences", 0700) != 0) {
+        chmod(pinDirectory.fileSystemRepresentation, 0700) != 0) {
         if (message) *message = @"无法安全创建 Manager 配对目录。";
         return NO;
     }
 
     char temporary[512];
-    snprintf(temporary, sizeof(temporary), "%s.tmp.%d", kPinPath, getpid());
+    snprintf(temporary, sizeof(temporary), "%s.tmp.%d", pinPath.fileSystemRepresentation, getpid());
     int fd = open(temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
     if (fd < 0) {
         if (message) *message = [NSString stringWithFormat:@"无法创建配对记录：%s", strerror(errno)];
@@ -246,14 +278,14 @@ static BOOL PairManagerProcess(pid_t pid, NSString **message) {
     BOOL saved = written == (ssize_t)length && fsync(fd) == 0 &&
                  fchown(fd, 0, 0) == 0 && fchmod(fd, 0600) == 0;
     close(fd);
-    if (!saved || rename(temporary, kPinPath) != 0) {
+    if (!saved || rename(temporary, pinPath.fileSystemRepresentation) != 0) {
         unlink(temporary);
         if (message) *message = @"写入 Manager 配对记录失败。";
         return NO;
     }
     uint8_t persistedHash[CS_CDHASH_LEN] = {0};
     if (!ReadPinnedHash(persistedHash) || memcmp(hash, persistedHash, sizeof(hash)) != 0) {
-        unlink(kPinPath);
+        unlink(pinPath.fileSystemRepresentation);
         if (message) *message = @"配对记录写入后校验失败，已清除无效记录。";
         return NO;
     }
@@ -299,20 +331,29 @@ static int RunFixedTool(const char *path, NSArray<NSString *> *arguments, NSStri
     posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
 
     // Dopamine/Procursus rootless keeps its shell inside the jailbreak prefix.
-    const char *shellCandidates[] = {"/var/jb/bin/sh", "/var/jb/usr/bin/sh", "/bin/sh", "/usr/bin/sh"};
+    NSString *bootstrapRoot = JailbreakRootPath();
+    NSString *bootstrapBin = [bootstrapRoot stringByAppendingPathComponent:@"bin/sh"];
+    NSString *bootstrapUsrBin = [bootstrapRoot stringByAppendingPathComponent:@"usr/bin/sh"];
+    const char *shellCandidates[] = {
+        bootstrapBin.fileSystemRepresentation,
+        bootstrapUsrBin.fileSystemRepresentation,
+        "/bin/sh", "/usr/bin/sh"
+    };
     const char *shellPath = NULL;
     for (size_t i = 0; i < sizeof(shellCandidates) / sizeof(shellCandidates[0]); i++) {
-        if (access(shellCandidates[i], X_OK) == 0) { shellPath = shellCandidates[i]; break; }
+        if (shellCandidates[i] && access(shellCandidates[i], X_OK) == 0) { shellPath = shellCandidates[i]; break; }
     }
     if (!shellPath) {
         posix_spawn_file_actions_destroy(&actions);
         posix_spawnattr_destroy(&attributes);
         close(pipes[0]);
         close(pipes[1]);
-        if (output) *output = @"未找到可执行 Shell。已检查 /var/jb/bin/sh、/var/jb/usr/bin/sh、/bin/sh、/usr/bin/sh。";
+        if (output) *output = [NSString stringWithFormat:@"未找到可执行 Shell。自动识别的 Bootstrap：%@；同时检查 Bootstrap/bin/sh、Bootstrap/usr/bin/sh、/bin/sh、/usr/bin/sh。", bootstrapRoot ?: @"未识别"];
         return 127;
     }
-    setenv("PATH", "/var/jb/usr/bin:/var/jb/bin:/var/jb/usr/sbin:/var/jb/sbin:/usr/bin:/bin:/usr/sbin:/sbin", 1);
+    NSString *toolPath = [NSString stringWithFormat:@"%@/usr/bin:%@/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+                          bootstrapRoot ?: @"", bootstrapRoot ?: @""];
+    setenv("PATH", toolPath.UTF8String, 1);
     char *argv[6] = {(char *)shellPath, (char *)path, NULL, NULL, NULL, NULL};
     for (NSUInteger i = 0; i < arguments.count && i < 3; i++) argv[i + 2] = (char *)arguments[i].UTF8String;
     pid_t child = 0;
@@ -392,7 +433,7 @@ static BOOL PeerIsTrustedCore(int fd, pid_t *peerPID) {
     char expectedPath[PATH_MAX] = {0};
     if (!ProcessExecutablePath(*peerPID, executable) ||
         !realpath(executable, actualPath) ||
-        !realpath("/var/jb/usr/libexec/idevelab-core", expectedPath)) return NO;
+        !realpath(JailbreakPath(@"usr/libexec/idevelab-core").fileSystemRepresentation, expectedPath)) return NO;
     return strcmp(actualPath, expectedPath) == 0;
 }
 
@@ -532,7 +573,11 @@ static BOOL WriteSecureFile(NSString *path, NSData *data, gid_t mobileGID) {
 }
 
 static BOOL AddBundleToSubstrateFilter(NSString *bundleID, NSString **message) {
-    NSString *path = @"/var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist";
+    NSString *path = JailbreakPath(@"Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist");
+    if (!path) {
+        if (message) *message = @"无法自动识别 Rootless Bootstrap 路径。";
+        return NO;
+    }
     NSDictionary *root = [NSDictionary dictionaryWithContentsOfFile:path];
     if (![root isKindOfClass:NSDictionary.class]) {
         if (message) *message = @"无法读取 Hook 注入过滤配置文件。";
@@ -847,16 +892,16 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
 
     if ([action isEqualToString:@"backup"]) {
         if (!ValidBundleID(bundleID)) return Failure(@"Bundle ID 格式无效。");
-        path = @"/var/jb/usr/bin/mod-hw-app-backup";
+        path = JailbreakPath(@"usr/bin/mod-hw-app-backup");
         [arguments addObject:bundleID];
     } else if ([action isEqualToString:@"verify"]) {
         if (!ValidArchiveName(archive)) return Failure(@"备份文件名无效。");
-        path = @"/var/jb/usr/bin/mod-hw-app-backup-verify";
+        path = JailbreakPath(@"usr/bin/mod-hw-app-backup-verify");
         [arguments addObject:archive];
     } else if ([action isEqualToString:@"restore"]) {
         if (!ValidBundleID(bundleID) || !ValidArchiveName(archive) || !confirm)
             return Failure(@"还原必须提供有效 Bundle ID、备份文件名和明确确认。");
-        path = @"/var/jb/usr/bin/mod-hw-app-restore";
+        path = JailbreakPath(@"usr/bin/mod-hw-app-restore");
         [arguments addObjectsFromArray:@[bundleID, archive, @"--confirm"]];
     } else if ([action isEqualToString:@"clean"]) {
         if (!ValidBundleID(bundleID) || !confirm)
@@ -864,28 +909,30 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
         NSString *filterError = nil;
         if (!AddBundleToSubstrateFilter(bundleID, &filterError))
             return Failure(filterError ?: @"无法将目标 App 加入 Hook 注入名单，未执行清理。");
-        path = @"/var/jb/usr/bin/mod-hw-app-clean";
+        path = JailbreakPath(@"usr/bin/mod-hw-app-clean");
         [arguments addObjectsFromArray:@[bundleID, @"--confirm"]];
     } else if ([action isEqualToString:@"config-backup"]) {
-        path = @"/var/jb/usr/bin/mod-hw-config-backup";
+        path = JailbreakPath(@"usr/bin/mod-hw-config-backup");
     } else if ([action isEqualToString:@"config-restore"]) {
         if (!confirm) return Failure(@"配置还原必须明确确认。");
-        path = @"/var/jb/usr/bin/mod-hw-config-restore";
+        path = JailbreakPath(@"usr/bin/mod-hw-config-restore");
     } else if ([action isEqualToString:@"keychain-diagnose"]) {
         if (!ValidBundleID(bundleID)) return Failure(@"Bundle ID 格式无效。");
-        path = @"/var/jb/usr/bin/mod-hw-keychain-diagnose";
+        path = JailbreakPath(@"usr/bin/mod-hw-keychain-diagnose");
         [arguments addObject:bundleID];
     } else if ([action isEqualToString:@"diagnose-config"]) {
-        path = @"/var/jb/usr/bin/mod-hw-diagnose";
+        path = JailbreakPath(@"usr/bin/mod-hw-diagnose");
     } else if ([action isEqualToString:@"selftest"]) {
-        path = @"/var/jb/usr/bin/mod-hw-selftest";
+        path = JailbreakPath(@"usr/bin/mod-hw-selftest");
     } else if ([action isEqualToString:@"acceptance-iphone12"]) {
-        path = @"/var/jb/usr/bin/mod-hw-acceptance-iphone12";
+        path = JailbreakPath(@"usr/bin/mod-hw-acceptance-iphone12");
     } else {
         return Failure(@"只允许 status、backup、verify、restore、clean、config-backup、config-restore、keychain-diagnose、diagnose-config、selftest、acceptance-iphone12、keychain-clean-status、hook-status。");
     }
 
-    if (access(path.fileSystemRepresentation, X_OK) != 0) return Failure(@"维护脚本未安装或不可执行。");
+    if (!path || access(path.fileSystemRepresentation, X_OK) != 0)
+        return Failure([NSString stringWithFormat:@"维护脚本未安装或不可执行。自动识别的 Bootstrap：%@；脚本：%@",
+                        JailbreakRootPath() ?: @"未识别", path ?: @"路径解析失败"]);
     NSString *output = @"";
     BOOL timedOut = NO, truncated = NO;
     int exitCode = RunFixedTool(path.fileSystemRepresentation, arguments, &output, &timedOut, &truncated);
@@ -949,7 +996,9 @@ int main(void) {
     @autoreleasepool {
         if (geteuid() != 0) return 1;
         signal(SIGPIPE, SIG_IGN);
-        setenv("PATH", "/var/jb/usr/bin:/var/jb/bin:/usr/bin:/bin:/usr/sbin:/sbin", 1);
+        NSString *root = JailbreakRootPath() ?: @"";
+        NSString *pathValue = [NSString stringWithFormat:@"%@/usr/bin:%@/bin:/usr/bin:/bin:/usr/sbin:/sbin", root, root];
+        setenv("PATH", pathValue.UTF8String, 1);
         setenv("HOME", "/var/root", 1);
         struct passwd *mobile = getpwnam("mobile");
         if (!mobile) return 2;

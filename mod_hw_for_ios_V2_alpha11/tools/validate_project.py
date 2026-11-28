@@ -73,12 +73,14 @@ check(helper_source.is_file() and pair_source.is_file(),
 if helper_source.is_file():
     helper_text = helper_source.read_text()
     check("LOCAL_PEERPID" in helper_text and "getpeereid" in helper_text and
-          "PeerIsTrustedCore" in helper_text and '"/var/jb/usr/libexec/idevelab-core"' in helper_text and
+          "PeerIsTrustedCore" in helper_text and 'JailbreakPath(@"usr/libexec/idevelab-core")' in helper_text and
           "realpath(executable, actualPath)" in helper_text and "realpath(" in helper_text and
+          "JailbreakRootPath" in helper_text and 'getenv("JBROOT")' in helper_text and
+          "ManagerPinPath" in helper_text and "JailbreakPath(@" in helper_text and
           "CS_OPS_CDHASH" in helper_text and "CS_VALID" in helper_text and
           "com.idevelab.manager-cdhash" in helper_text and "ReadPinnedHash(persistedHash)" in helper_text and
-          "posix_spawn" in helper_text and '"/var/jb/bin/sh"' in helper_text and
-          '"/var/jb/usr/bin/sh"' in helper_text and "setenv(\"PATH\"" in helper_text and
+          "posix_spawn" in helper_text and 'stringByAppendingPathComponent:@"bin/sh"' in helper_text and
+          'stringByAppendingPathComponent:@"usr/bin/sh"' in helper_text and "setenv(\"PATH\"" in helper_text and
           "strerror(savedError)" in helper_text and "300.0" in helper_text and "kOutputLimit = 65536" in helper_text and
           "FindUniqueAppContainer(NSString *bundleID, NSString **diagnostic)" in helper_text and
           "metadataCount" in helper_text,
@@ -206,8 +208,10 @@ check("\\\\(" not in profile_view,
 check('case "$ACTION" in' in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       "必须在越狱终端以 root 身份运行" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
       all(action in (ROOT / "scripts/maintenance-dispatch.sh").read_text() for action in ("backup)", "verify)", "restore)", "clean)")) and
-      "未知操作" in (ROOT / "scripts/maintenance-dispatch.sh").read_text(),
-      "Root-only maintenance dispatcher exposes only fixed backup, verify, restore, and clean actions")
+      "未知操作" in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
+      'SCRIPT_DIR=' in (ROOT / "scripts/maintenance-dispatch.sh").read_text() and
+      '"$BIN_DIR/mod-hw-app-clean"' in (ROOT / "scripts/maintenance-dispatch.sh").read_text(),
+      "Root-only maintenance dispatcher resolves its own install directory and exposes only fixed maintenance actions")
 check("mod-hw-maintenance" in package_builder and "maintenance-dispatch.sh" in package_builder,
       "Rootless utility DEB packages the fixed-command terminal fallback dispatcher")
 check('acceptance-iphone12' in manager and "运行 iPhone 12 / iOS 16.2 最终验收" in manager,

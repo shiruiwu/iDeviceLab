@@ -1,6 +1,9 @@
 #!/var/jb/bin/sh
 # Final read-only acceptance gate for the requested iPhone 12 / iOS 16.2 target.
 set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P) || exit 1
+BIN_DIR="$SCRIPT_DIR"
+JBROOT=$(CDPATH= cd -- "$BIN_DIR/../.." && pwd -P) || exit 1
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 check() {
@@ -21,15 +24,15 @@ DEVICE_MODEL="$(sysctl -n hw.machine 2>/dev/null || true)"
 IOS_VERSION="$(plutil -extract ProductVersion raw -o - /System/Library/CoreServices/SystemVersion.plist 2>/dev/null || true)"
 check '设备为 iPhone 12（iPhone13,2）' test "$DEVICE_MODEL" = "iPhone13,2"
 check '系统版本为 iOS 16.2' test "$IOS_VERSION" = "16.2"
-check 'Rootless 越狱目录存在' test -d /var/jb
+check 'Rootless 越狱目录存在' test -d "$JBROOT"
 check '统一完整套件 DEB 已安装' package_installed com.idevelab.fullsuite.alpha11
 PACKAGE_IDENTITY="$(dpkg-query -W -f='${Version}|${Architecture}' com.idevelab.fullsuite.alpha11 2>/dev/null || true)"
 check '完整套件版本和架构正确（2.0.3~alpha11 / iphoneos-arm64）' test "$PACKAGE_IDENTITY" = '2.0.3~alpha11|iphoneos-arm64'
-check 'Core 二进制存在' test -x /var/jb/usr/libexec/idevelab-core
-check 'Root Helper 二进制存在' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
-check 'Manager 配对工具存在' test -x /var/jb/usr/bin/mod-hw-manager-pair
-check '原作者 Hook 动态库存在' test -f /var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.dylib
-check '原作者 Hook 过滤 plist 存在' test -f /var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist
+check 'Core 二进制存在' test -x "$JBROOT/usr/libexec/idevelab-core"
+check 'Root Helper 二进制存在' test -x "$BIN_DIR/mod-hw-maintenance-helper"
+check 'Manager 配对工具存在' test -x "$BIN_DIR/mod-hw-manager-pair"
+check '原作者 Hook 动态库存在' test -f "$JBROOT/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.dylib"
+check '原作者 Hook 过滤 plist 存在' test -f "$JBROOT/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist"
 
 APP_INFO=''
 APP_COUNT=0
@@ -55,12 +58,12 @@ check '管理器主程序存在' test -f "$APP_BINARY"
 check '管理器主程序不是符号链接' test ! -L "$APP_BINARY"
 check '管理器主程序可执行' test -x "$APP_BINARY"
 
-PIN_PATH='/var/jb/var/root/Library/Preferences/com.idevelab.manager-cdhash'
+PIN_PATH="$JBROOT/var/root/Library/Preferences/com.idevelab.manager-cdhash"
 check '管理器已完成 Root Helper 配对' test -s "$PIN_PATH"
 PIN_HASH="$(cat "$PIN_PATH" 2>/dev/null || true)"
 check '配对记录是 40 位十六进制 CDHash' sh -c 'printf "%s" "$1" | grep -Eq "^[0-9a-fA-F]{40}$"' sh "$PIN_HASH"
 PIN_META="$(/usr/bin/stat -f '%u:%g:%Lp' "$PIN_PATH" 2>/dev/null || true)"
 check '配对记录权限为 root:root 0600' test "$PIN_META" = "0:0:600"
 
-check '设备只读自检通过' /var/jb/usr/bin/mod-hw-selftest
+check '设备只读自检通过' "$BIN_DIR/mod-hw-selftest"
 echo 'iPhone 12 / iOS 16.2 acceptance: PASS'

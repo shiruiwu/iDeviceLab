@@ -1,6 +1,9 @@
 #!/var/jb/bin/sh
 # Restore one verified app-data archive. Keychain/App Groups/system data are excluded.
 set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P) || exit 1
+BIN_DIR="$SCRIPT_DIR"
+JBROOT=$(CDPATH= cd -- "$BIN_DIR/../.." && pwd -P) || exit 1
 APP_ROOT='/var/mobile/Containers/Data/Application'
 BUNDLE_ROOT='/var/containers/Bundle/Application'
 BACKUP_ROOT='/var/mobile/Library/Application Support/mod_hw_for_ios/app-container-backups'
@@ -19,8 +22,8 @@ ARCHIVE="$BACKUP_ROOT/$NAME"
 MANIFEST="$BACKUP_ROOT/$(basename "$NAME" .tar.gz).txt"
 [ -f "$ARCHIVE" ] && [ ! -L "$ARCHIVE" ] || fail '归档不存在或为符号链接。'
 [ -f "$MANIFEST" ] && [ ! -L "$MANIFEST" ] || fail '清单不存在或为符号链接。'
-[ -x /var/jb/usr/bin/mod-hw-app-backup-verify ] || fail '缺少 mod-hw-app-backup-verify。'
-/var/jb/usr/bin/mod-hw-app-backup-verify "$NAME" >/dev/null || fail '备份完整性校验失败。'
+[ -x "$BIN_DIR/mod-hw-app-backup-verify" ] || fail '缺少 mod-hw-app-backup-verify。'
+"$BIN_DIR/mod-hw-app-backup-verify" "$NAME" >/dev/null || fail '备份完整性校验失败。'
 manifest_value() {
   awk -F= -v key="$1" '$1 == key { count++; value=substr($0, index($0, "=")+1) } END { if (count != 1) exit 1; print value }' "$MANIFEST"
 }
