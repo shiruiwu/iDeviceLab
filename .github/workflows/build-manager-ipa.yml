@@ -113,7 +113,7 @@ jobs:
       - name: Verify sandboxed Manager Build17
         run: |
           set -euo pipefail
-          IPA=release/mod_hw_manager_sandboxed_build17.ipa
+          IPA=release/mod_hw_manager_sandboxed_build18.ipa
           test -s "$IPA"
           unzip -t "$IPA"
           TMP="$(mktemp -d)"
@@ -125,7 +125,7 @@ jobs:
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
           test "$BUNDLE_ID" = "com.modhw.manager.sandboxed"
-          test "$BUILD" = "17"
+          test "$BUILD" = "18"
           test "$MIN_OS" = "16.0"
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
           file "$APP/$EXECUTABLE" | grep -q Mach-O
@@ -138,6 +138,7 @@ jobs:
           e=plistlib.loads(data) if data else {}
           assert not e.get("com.apple.private.security.no-sandbox",False),e
           assert not e.get("platform-application",False),e
+          assert e.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],e
           print("Sandboxed Build17 entitlements verified")
           PY
 
@@ -169,7 +170,7 @@ jobs:
       - name: Upload sandboxed full Manager diagnostic IPA
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-sandboxed-build17-core-bridge
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build17.ipa
+          name: mod-hw-manager-sandboxed-build18-app-group-bridge
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build18.ipa
           if-no-files-found: error
           retention-days: 14
