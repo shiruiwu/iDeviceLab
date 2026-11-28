@@ -49,8 +49,8 @@ jobs:
       - name: Upload production TrollStore Manager IPA for real-device testing
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-trollstore-build20-real-device
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build20.ipa
+          name: mod-hw-manager-trollstore-build21-real-device
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build21.ipa
           if-no-files-found: error
           retention-days: 14
 
