@@ -65,9 +65,19 @@ final class ModHWManagerAppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     @objc private func enterFullManager() {
-        let store = ProfileStore()
-        let manager = ContentView().environmentObject(store)
-        window?.rootViewController = UIHostingController(rootView: manager)
+        // ProfileStore is MainActor-isolated. Enter the SwiftUI manager through an
+        // explicit MainActor task rather than constructing it directly from a
+        // UIKit selector callback; this avoids actor-isolation/runtime ambiguity
+        // on older iOS releases supported by this project.
+        Task { @MainActor [weak self] in
+            guard let self, let window = self.window else { return }
+            let store = ProfileStore()
+            let manager = ContentView().environmentObject(store)
+            let hostingController = UIHostingController(rootView: manager)
+            hostingController.view.backgroundColor = .systemBackground
+            window.rootViewController = hostingController
+            window.makeKeyAndVisible()
+        }
     }
 }
 
