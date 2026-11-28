@@ -172,7 +172,7 @@ for script_name in ("backup-app-container.sh", "cleanup-app-container.sh", "rest
     script_text = (ROOT / "scripts" / script_name).read_text()
     check("/usr/bin/stat -f" in script_text and "stat -f" in script_text,
           f"{script_name} explicitly uses the iOS BSD stat binary despite the Core GNU-first PATH")
-    check(not re.search(r"(?<!/)\\bstat\\s+-f", script_text),
+    check(not re.search(r"(?<!/)\bstat\s+-f", script_text),
           f"{script_name} does not accidentally invoke GNU stat with BSD format flags")
 
 check("MaintenanceClient.request" in manager and "managerPID" in manager and
