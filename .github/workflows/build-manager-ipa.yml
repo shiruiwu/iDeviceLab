@@ -110,7 +110,7 @@ jobs:
           PY
           echo "Verified: bundle=$BUNDLE_ID build=$BUILD minOS=$MIN_OS arch=arm64"
 
-      - name: Verify sandboxed Manager Build17
+      - name: Verify sandboxed Manager Build18
         run: |
           set -euo pipefail
           IPA=release/mod_hw_manager_sandboxed_build18.ipa
