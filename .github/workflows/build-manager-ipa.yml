@@ -71,8 +71,14 @@ jobs:
           sleep 18
           # terminate returns non-zero if the full SwiftUI manager has exited or crashed.
           xcrun simctl terminate "$DEVICE_ID" com.modhw.manager
-          log show --last 3m --style compact --predicate 'process == "ModHWManager"' > build/diagnostics/manager-runtime.log 2>&1 || true
+          # Capture broad simulator diagnostics before filtering: the process may
+          # have exited or been renamed by SpringBoard before the old predicate ran.
+          xcrun simctl spawn "$DEVICE_ID" log show --last 5m --style compact > build/diagnostics/system-runtime.log 2>&1 || true
+          log show --last 5m --style compact --predicate 'process CONTAINS[c] "ModHWManager" OR eventMessage CONTAINS[c] "ModHWManager" OR eventMessage CONTAINS[c] "com.modhw.manager"' > build/diagnostics/manager-runtime.log 2>&1 || true
           xcrun simctl spawn "$DEVICE_ID" launchctl list > build/diagnostics/launchctl-list.txt 2>&1 || true
+          mkdir -p build/diagnostics/crash-reports
+          xcrun simctl get_app_container "$DEVICE_ID" com.modhw.manager data > build/diagnostics/app-data-container.txt 2>&1 || true
+          xcrun simctl spawn "$DEVICE_ID" ls -lt /var/mobile/Library/Logs/CrashReporter > build/diagnostics/crash-reports/list.txt 2>&1 || true
 
       - name: Verify sandboxed Manager Build19
         run: |
