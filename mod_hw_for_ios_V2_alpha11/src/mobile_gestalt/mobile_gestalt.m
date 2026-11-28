@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <string.h>
 #import <sys/stat.h>
+#include <unistd.h>
 #if __arm64e__
 #include <ptrauth.h>
 #endif
@@ -75,6 +76,11 @@ static void *MGSymbolCallable(void *pointer) {
 #include "CoreTelephony.h"
 
 static NSMutableDictionary* cf_device = nil;
+static NSString *gModHWConfigSource = @"none";
+static BOOL gModHWConfigLoaded = NO;
+static BOOL gModHWMGCopyAnswerInstalled = NO;
+static BOOL gModHWMGCopyMultipleAnswersInstalled = NO;
+static BOOL gModHWSysctlByNameInstalled = NO;
 
 OBJC_EXPORT const char *object_getClassName(id obj);
 
@@ -253,6 +259,10 @@ void initPrefFile(){
   }
   NSString *selectedPref = (profilePref && [[NSFileManager defaultManager] fileExistsAtPath:profilePref])
       ? profilePref : ([[NSFileManager defaultManager] fileExistsAtPath:kPref] ? kPref : legacyPref);
+  if (profilePref != nil && [selectedPref isEqualToString:profilePref]) gModHWConfigSource = @"per-app";
+  else if ([selectedPref isEqualToString:kPref]) gModHWConfigSource = @"global";
+  else gModHWConfigSource = @"legacy";
+  gModHWConfigLoaded = NO;
   NSLog(@"[mod_hw] Loading configuration from %@.", [selectedPref isEqualToString:profilePref] ? @"per-app profile" : ([selectedPref isEqualToString:kPref] ? @"global profile" : @"legacy fallback"));
   if (cf_device != nil) {
     [cf_device release];
@@ -318,12 +328,45 @@ void initPrefFile(){
     }
     break;
   }
+  gModHWConfigLoaded = (cf_device != nil && cf_device.count > 0 &&
+                        [cf_device[@"UniqueDeviceID"] isKindOfClass:NSString.class]);
   // if (![cf_device count]) {
   //   NSLog(@"cf_device init failed.");
   // }
   // else{
   //   NSLog(@"cf_device init ok:%@.",cf_device);
   // }
+}
+
+static void WriteModHWRuntimeStatus(NSString *phase) {
+  @autoreleasepool {
+    NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier] ?: @"";
+    NSString *cache = [[NSHomeDirectory() stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Caches"];
+    NSError *directoryError = nil;
+    [[NSFileManager defaultManager] createDirectoryAtPath:cache
+                              withIntermediateDirectories:YES
+                                               attributes:@{NSFilePosixPermissions: @0700}
+                                                    error:&directoryError];
+    if (directoryError != nil) {
+      NSLog(@"[mod_hw] Cannot create Hook status directory: %@.", directoryError.localizedDescription);
+      return;
+    }
+    NSDictionary *status = @{
+      @"bundleIdentifier": bundleID,
+      @"configSource": gModHWConfigSource ?: @"none",
+      @"configLoaded": @(gModHWConfigLoaded),
+      @"phase": phase ?: @"unknown",
+      @"mgCopyAnswerInstalled": @(gModHWMGCopyAnswerInstalled),
+      @"mgCopyMultipleAnswersInstalled": @(gModHWMGCopyMultipleAnswersInstalled),
+      @"sysctlByNameInstalled": @(gModHWSysctlByNameInstalled),
+      @"processID": @(getpid()),
+      @"timestamp": [NSDate date]
+    };
+    NSString *statusPath = [cache stringByAppendingPathComponent:@".modhw-hook-status.plist"];
+    if (![status writeToFile:statusPath atomically:YES] || chmod(statusPath.fileSystemRepresentation, 0600) != 0) {
+      NSLog(@"[mod_hw] Cannot persist Hook runtime status for %@.", bundleID);
+    }
+  }
 }
 //////////////////////////////////////////////////////////
 //IMEI/WifiAddress
@@ -607,6 +650,7 @@ static void MGCopyAnswerHookImpl(const void* mg_copy_answer_addr){
     NSLog(@"[mod_hw] MGCopyAnswer internal target resolved at %p (offset=%ld).",
           internalAddress, (long)branchOffset);
     CallMSHookFunction(MGSymbolCallable(internalAddress), (void *)FN_NextMGCopyAnswer, (void **)&HookNextMGCopyAnswer);
+    gModHWMGCopyAnswerInstalled = (HookNextMGCopyAnswer != NULL);
     if (HookNextMGCopyAnswer == NULL) {
       NSLog(@"[mod_hw] MGCopyAnswer internal hook installation failed.");
     } else {
@@ -614,6 +658,7 @@ static void MGCopyAnswerHookImpl(const void* mg_copy_answer_addr){
     }
   } else {
     CallMSHookFunction((void *)mg_copy_answer_addr, (void *)FN_MGCopyAnswer, (void **)&HookMGCopyAnswer);
+    gModHWMGCopyAnswerInstalled = (HookMGCopyAnswer != NULL);
     if (HookMGCopyAnswer == NULL) NSLog(@"[mod_hw] 32-bit MGCopyAnswer hook installation failed.");
     else NSLog(@"[mod_hw] 32-bit MGCopyAnswer hook installed.");
   }
@@ -686,6 +731,7 @@ static CFPropertyListRef FnMGCopyMultipleAnswers(CFArrayRef questions, int unkno
 static void MGCopyMultipleAnswersImpl(const void* ptr){
   HookMGCopyMultipleAnswers = NULL;
   CallMSHookFunction((void*)((unsigned long)ptr), (void*)FnMGCopyMultipleAnswers, (void**)&HookMGCopyMultipleAnswers);
+  gModHWMGCopyMultipleAnswersInstalled = (HookMGCopyMultipleAnswers != NULL);
   if(HookMGCopyMultipleAnswers!=NULL){
     // NSLog(@"HookMGCopyMultipleAnswers success.");
   }
@@ -789,6 +835,7 @@ static int replace_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, v
 
 static void hook_sysctlbyname() {
   CallMSHookFunction((void*)sysctlbyname, (void*)replace_sysctlbyname, (void**)&orig_sysctlbyname);
+  gModHWSysctlByNameInstalled = (orig_sysctlbyname != NULL);
 }
 //////////////////////////////////////////////////////////
 //sysctl
@@ -1014,6 +1061,7 @@ __attribute__((__constructor__)) static void _MSInitialize(void) {
   initPrefFile();
   if (cf_device == nil || [cf_device count] == 0) {
     NSLog(@"[mod_hw] No valid profile for this process; skipping Hook installation.");
+    WriteModHWRuntimeStatus(@"no-valid-profile");
     return;
   }
   dlopen("/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony", RTLD_NOW);
@@ -1024,6 +1072,7 @@ __attribute__((__constructor__)) static void _MSInitialize(void) {
   CTMobileEquipmentInfo_setMEID();
   HOOK_IDFA();
   HOOK_IDFV();
+  WriteModHWRuntimeStatus(@"hooks-initialized");
 }
 //////////////////////////////////////////////////////////
 //CoreTelephony

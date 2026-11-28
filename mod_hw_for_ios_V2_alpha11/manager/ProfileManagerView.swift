@@ -14,6 +14,8 @@ struct ProfileManagerView: View {
     @State private var pendingApplyProfile: DeviceProfile?
     @State private var pendingApplyBundleID: String?
     @State private var showApplyConfirmation = false
+    @State private var hookStatusLoading: Set<String> = []
+    @State private var hookRuntimeStatus: [String: String] = [:]
 
     var body: some View {
         NavigationView {
@@ -151,6 +153,13 @@ struct ProfileManagerView: View {
                     Label("打开应用", systemImage: "arrow.up.forward.app")
                 }
                 .buttonStyle(.borderedProminent)
+                Button {
+                    checkHookRuntime(app)
+                } label: {
+                    Label(hookStatusLoading.contains(app.bundleIdentifier) ? "检查中…" : "检查 Hook", systemImage: "waveform.path.ecg")
+                }
+                .buttonStyle(.bordered)
+                .disabled(hookStatusLoading.contains(app.bundleIdentifier))
                 Spacer()
                 if let boundProfile = store.profiles.first(where: { $0.id == app.profileID }) {
                     Button {
@@ -165,6 +174,12 @@ struct ProfileManagerView: View {
                     Text("已绑定：\(boundProfile.name)")
                         .font(.caption2).foregroundColor(.secondary)
                 }
+            }
+            if let status = hookRuntimeStatus[app.bundleIdentifier] {
+                Text(status)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
             }
             if let boundProfile = store.profiles.first(where: { $0.id == app.profileID }) {
                 DisclosureGroup("查看绑定的配置") {
@@ -454,6 +469,25 @@ private var header: some View {
         UIApplication.shared.open(url, options: [:]) { success in
             DispatchQueue.main.async {
                 self.alertMessage = success ? "已向 iOS 发出打开\(app.name) 的请求。" : "无法打开\(app.name)。请确认手机已安装对应应用。"
+            }
+        }
+    }
+
+    private func checkHookRuntime(_ app: ManagedApp) {
+        let bundleID = app.bundleIdentifier
+        guard !hookStatusLoading.contains(bundleID) else { return }
+        hookStatusLoading.insert(bundleID)
+        Task {
+            defer { hookStatusLoading.remove(bundleID) }
+            do {
+                let result = try await MaintenanceClient.request(action: "hook-status", bundleID: bundleID)
+                let detail = result.output ?? result.error ?? "Root Helper 未返回 Hook 运行状态。"
+                hookRuntimeStatus[bundleID] = detail
+                onOperation?("Hook 运行状态检查", result.ok, detail)
+            } catch {
+                let detail = "Hook 运行状态检查失败：\(error.localizedDescription)"
+                hookRuntimeStatus[bundleID] = detail
+                onOperation?("Hook 运行状态检查", false, detail)
             }
         }
     }

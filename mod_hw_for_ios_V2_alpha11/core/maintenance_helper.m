@@ -278,8 +278,13 @@ static double MonotonicSeconds(void) {
 }
 
 static int RunFixedTool(const char *path, NSArray<NSString *> *arguments, NSString **output, BOOL *timedOut, BOOL *truncated) {
+    if (output) *output = @"";
     int pipes[2] = {-1, -1};
-    if (pipe(pipes) != 0) return 127;
+    if (pipe(pipes) != 0) {
+        int pipeError = errno;
+        if (output) *output = [NSString stringWithFormat:@"无法创建维护输出管道：errno=%d（%s）", pipeError, strerror(pipeError)];
+        return 125;
+    }
     fcntl(pipes[0], F_SETFL, fcntl(pipes[0], F_GETFL) | O_NONBLOCK);
 
     posix_spawn_file_actions_t actions;
@@ -293,16 +298,20 @@ static int RunFixedTool(const char *path, NSArray<NSString *> *arguments, NSStri
     posix_spawnattr_setpgroup(&attributes, 0);
     posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
 
-    char *argv[5] = {(char *)path, NULL, NULL, NULL, NULL};
-    for (NSUInteger i = 0; i < arguments.count && i < 3; i++) argv[i + 1] = (char *)arguments[i].UTF8String;
+    // Run packaged shell scripts through the system shell explicitly.
+    char *argv[6] = {(char *)"/bin/sh", (char *)path, NULL, NULL, NULL, NULL};
+    for (NSUInteger i = 0; i < arguments.count && i < 3; i++) argv[i + 2] = (char *)arguments[i].UTF8String;
     pid_t child = 0;
-    int spawnError = posix_spawn(&child, path, &actions, &attributes, argv, environ);
+    int spawnError = posix_spawn(&child, "/bin/sh", &actions, &attributes, argv, environ);
     posix_spawn_file_actions_destroy(&actions);
     posix_spawnattr_destroy(&attributes);
     close(pipes[1]);
     if (spawnError != 0) {
+        int savedError = spawnError;
         close(pipes[0]);
-        return 127;
+        if (output) *output = [NSString stringWithFormat:@"Root Helper 无法启动系统 Shell 执行维护脚本。脚本：%s；Shell：/bin/sh；posix_spawn errno=%d（%s）",
+                               path, savedError, strerror(savedError)];
+        return savedError == ENOENT ? 127 : 126;
     }
 
     NSMutableData *captured = [NSMutableData data];
@@ -599,6 +608,54 @@ static NSString *FindUniqueAppContainer(NSString *bundleID) {
     return count == 1 ? match : nil;
 }
 
+static NSDictionary *HookRuntimeStatus(NSString *bundleID) {
+    if (!ValidBundleID(bundleID)) return Failure(@"Bundle ID 格式无效。");
+    NSString *container = FindUniqueAppContainer(bundleID);
+    if (!container) return Failure(@"无法唯一定位目标 App 数据容器；请确认应用已安装。");
+    NSString *cache = [[container stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Caches"];
+    NSString *statusPath = [cache stringByAppendingPathComponent:@".modhw-hook-status.plist"];
+    struct stat cacheStat, statusStat;
+    struct passwd *mobile = getpwnam("mobile");
+    if (!mobile || lstat(cache.fileSystemRepresentation, &cacheStat) != 0 ||
+        !S_ISDIR(cacheStat.st_mode) || lstat(statusPath.fileSystemRepresentation, &statusStat) != 0 ||
+        !S_ISREG(statusStat.st_mode) || statusStat.st_uid != mobile->pw_uid ||
+        (statusStat.st_mode & 0777) != 0600) {
+        return Failure(@"尚未读取到目标 App 的 Hook 启动记录。请在完成 Respring 后强制退出并重新打开目标 App，再检查；若仍无记录，说明该进程尚未写出 Hook 初始化状态。");
+    }
+    NSDictionary *status = [NSDictionary dictionaryWithContentsOfFile:statusPath];
+    if (![status isKindOfClass:NSDictionary.class] ||
+        ![status[@"bundleIdentifier"] isEqualToString:bundleID]) {
+        return Failure(@"Hook 运行状态文件格式无效或 Bundle ID 不匹配。");
+    }
+    BOOL configLoaded = [status[@"configLoaded"] respondsToSelector:@selector(boolValue)] &&
+                        [status[@"configLoaded"] boolValue];
+    BOOL mgAnswer = [status[@"mgCopyAnswerInstalled"] respondsToSelector:@selector(boolValue)] &&
+                    [status[@"mgCopyAnswerInstalled"] boolValue];
+    BOOL mgMultiple = [status[@"mgCopyMultipleAnswersInstalled"] respondsToSelector:@selector(boolValue)] &&
+                      [status[@"mgCopyMultipleAnswersInstalled"] boolValue];
+    BOOL sysctlByName = [status[@"sysctlByNameInstalled"] respondsToSelector:@selector(boolValue)] &&
+                        [status[@"sysctlByNameInstalled"] boolValue];
+    NSString *source = status[@"configSource"] ?: @"unknown";
+    NSString *phase = status[@"phase"] ?: @"unknown";
+    NSNumber *pid = status[@"processID"];
+    NSDate *timestamp = status[@"timestamp"];
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    formatter.locale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"];
+    formatter.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+    NSString *timeText = [timestamp isKindOfClass:NSDate.class] ? [formatter stringFromDate:timestamp] : @"未知";
+    NSString *sourceText = [source isEqualToString:@"per-app"] ? @"分 App 配置" :
+                            ([source isEqualToString:@"global"] ? @"全局配置" :
+                             ([source isEqualToString:@"legacy"] ? @"旧路径配置" : @"无有效配置"));
+    NSString *output = [NSString stringWithFormat:
+        @"目标 App Hook 启动记录：%@\n配置来源：%@\n配置解析：%@\nMGCopyAnswer：%@\nMGCopyMultipleAnswers：%@\nsysctlbyname：%@\n初始化阶段：%@\n进程 PID：%@\n记录时间：%@",
+        bundleID, sourceText, configLoaded ? @"成功" : @"失败/未找到",
+        mgAnswer ? @"已安装" : @"未安装",
+        mgMultiple ? @"已安装" : @"未安装",
+        sysctlByName ? @"已安装" : @"未安装",
+        phase, pid ?: @"未知", timeText];
+    return @{@"ok": @YES, @"action": @"hook-status", @"output": output};
+}
+
 static NSDictionary *KeychainCleanupStatus(NSString *bundleID) {
     if (!ValidBundleID(bundleID)) return Failure(@"Bundle ID 格式无效。");
     NSString *container = FindUniqueAppContainer(bundleID);
@@ -725,6 +782,9 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
     if ([action isEqualToString:@"status"]) {
         return @{@"ok": @YES, @"paired": @NO, @"helper": @"Alpha11 Maintenance Helper"};
     }
+    if ([action isEqualToString:@"hook-status"]) {
+        return HookRuntimeStatus(request[@"bundleID"]);
+    }
     if ([action isEqualToString:@"keychain-clean-status"]) {
         return KeychainCleanupStatus(request[@"bundleID"]);
     }
@@ -783,7 +843,7 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
     } else if ([action isEqualToString:@"acceptance-iphone12"]) {
         path = @"/var/jb/usr/bin/mod-hw-acceptance-iphone12";
     } else {
-        return Failure(@"只允许 status、backup、verify、restore、clean、config-backup、config-restore、keychain-diagnose、diagnose-config、selftest、acceptance-iphone12、keychain-clean-status。");
+        return Failure(@"只允许 status、backup、verify、restore、clean、config-backup、config-restore、keychain-diagnose、diagnose-config、selftest、acceptance-iphone12、keychain-clean-status、hook-status。");
     }
 
     if (access(path.fileSystemRepresentation, X_OK) != 0) return Failure(@"维护脚本未安装或不可执行。");

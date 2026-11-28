@@ -77,12 +77,13 @@ if helper_source.is_file():
           "realpath(executable, actualPath)" in helper_text and "realpath(" in helper_text and
           "CS_OPS_CDHASH" in helper_text and "CS_VALID" in helper_text and
           "com.idevelab.manager-cdhash" in helper_text and "ReadPinnedHash(persistedHash)" in helper_text and
-          "posix_spawn" in helper_text and "300.0" in helper_text and "kOutputLimit = 65536" in helper_text,
+          "posix_spawn" in helper_text and 'posix_spawn(&child, "/bin/sh"' in helper_text and
+          "strerror(savedError)" in helper_text and "300.0" in helper_text and "kOutputLimit = 65536" in helper_text,
           "Root Helper checks peer UID/PID and pinned code signature, runs bounded fixed tools, and caps execution/output")
     check(all(token in helper_text for token in (
           '@"backup"', '@"verify"', '@"restore"', '@"clean"', '@"apply-profile"',
           '@"config-backup"', '@"config-restore"', '@"keychain-diagnose"',
-          '@"diagnose-config"', '@"selftest"', '@"acceptance-iphone12"', '@"apply-global-profile"')),
+          '@"diagnose-config"', '@"selftest"', '@"acceptance-iphone12"', '@"apply-global-profile"', '@"hook-status')),
           "Root Helper exposes only the declared maintenance allowlist")
 if pair_source.is_file():
     pair_text = pair_source.read_text()
@@ -148,6 +149,10 @@ check("HookerForMGCopyMultipleAnswers();" in gestalt_source and
       "CFDictionaryCreateMutableCopy" in gestalt_source and
       "CFArrayGetValueAtIndex" in gestalt_source,
       "MobileGestalt multiple-answer requests apply the same configured overrides as MGCopyAnswer")
+check("WriteModHWRuntimeStatus" in gestalt_source and ".modhw-hook-status.plist" in gestalt_source and
+      "gModHWMGCopyAnswerInstalled" in gestalt_source and "gModHWConfigLoaded" in gestalt_source and
+      "HookRuntimeStatus" in helper_text and ".modhw-hook-status.plist" in helper_text,
+      "Hook startup writes per-app runtime evidence and Root Helper can read it without exposing profile values")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
 check("CURRENT_PROJECT_VERSION = 21;" in project, "Manager project build number is 21")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
@@ -178,7 +183,8 @@ check("apply-profile" in profile_view and "apply-global-profile" in profile_view
       "com.modhw.ios.devices.plist" in helper_source and
       'isEqualToString:@"apply-profile", @"apply-global-profile"' not in helper_source and
       "MaintenanceClient.request" in profile_view and
-      "确认写入并备份旧配置" in profile_view and "强制关闭并重新打开目标 App" in profile_view,
+      "确认写入并备份旧配置" in profile_view and "强制关闭并重新打开目标 App" in profile_view and
+      'action: "hook-status"' in profile_view and "检查 Hook" in profile_view,
       "Profile manager dispatches validated per-App and global Hook profiles through Root Helper after explicit confirmation")
 check("ProfileManagerView(" in manager and "availableApps:" in manager and "ProfileAppOption" in profile_models and "availableApps" in profile_view and "ProfileStore()" in app_entry and
       ".environmentObject(profileStore)" in app_entry and
