@@ -128,10 +128,36 @@ jobs:
           # Use the simulator-provided ps binary to verify that the launched PID remains alive.
           xcrun simctl spawn "$DEVICE_ID" /bin/ps -p "$APP_PID" -o pid= | grep -E "^[[:space:]]*$APP_PID$"
           echo "Manager remained running for at least 30 seconds (pid=$APP_PID)" | tee build/diagnostics/process-survival.txt
-          # Capture runtime diagnostics while the app is still running, then stop it
-          # only after the survival check has completed.
-          xcrun simctl spawn "$DEVICE_ID" log show --last 5m --style compact > build/diagnostics/system-runtime.log 2>&1 || true
-          log show --last 5m --style compact --predicate 'process CONTAINS[c] "ModHWManager" OR eventMessage CONTAINS[c] "ModHWManager" OR eventMessage CONTAINS[c] "com.modhw.manager"' > build/diagnostics/manager-runtime.log 2>&1 || true
+
+          # Verify that the Manager actually created its entitled App Group token.
+          # Core requires this file to be exactly 64 hex characters with mode 0600.
+          SIM_DATA="$HOME/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data"
+          GROUP_ROOT="$SIM_DATA/Containers/Shared/AppGroup"
+          TOKEN_PATH=""
+          if [[ -d "$GROUP_ROOT" ]]; then
+            for metadata in "$GROUP_ROOT"/*/.com.apple.mobile_container_manager.metadata.plist; do
+              [[ -f "$metadata" ]] || continue
+              group_id="$(/usr/libexec/PlistBuddy -c 'Print :MCMMetadataIdentifier' "$metadata" 2>/dev/null || true)"
+              if [[ "$group_id" == "group.com.idevelab.manager" ]]; then
+                candidate="$(dirname "$metadata")/Library/Application Support/idevelab-manager-bridge.token"
+                if [[ -f "$candidate" && ! -L "$candidate" ]]; then TOKEN_PATH="$candidate"; break; fi
+              fi
+            done
+          fi
+          test -n "$TOKEN_PATH"
+          test "$(stat -f '%Lp' "$TOKEN_PATH")" = "600"
+          test "$(stat -f '%z' "$TOKEN_PATH")" = "64"
+          python3 - "$TOKEN_PATH" <<'PY'
+          import pathlib,re,sys
+          token=pathlib.Path(sys.argv[1]).read_bytes()
+          assert re.fullmatch(rb"[0-9a-fA-F]{64}", token), "invalid Manager App Group token"
+          print("Manager App Group token verified: 64 hex characters, mode 0600")
+          PY
+
+          # Keep CI bounded: process survival and the exact bridge token are
+          # the relevant checks here; avoid dumping the Simulator's 100 MB system log.
+          printf '%s\\n' "Full system log capture skipped; Manager process and App Group token checks passed." > build/diagnostics/system-runtime.log
+          printf '%s\\n' "Manager launch and App Group token checks completed." > build/diagnostics/manager-runtime.log
           xcrun simctl terminate "$DEVICE_ID" com.modhw.manager || true
           xcrun simctl spawn "$DEVICE_ID" launchctl list > build/diagnostics/launchctl-list.txt 2>&1 || true
           mkdir -p build/diagnostics/crash-reports
