@@ -87,15 +87,20 @@ jobs:
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
           xcrun simctl launch "$DEVICE_ID" com.modhw.manager --idevelab-ci-full-manager 2>&1 | tee build/diagnostics/launch.txt
+          # simctl launch prints the app PID. Keep the process alive during the
+          # observation window; never use simctl terminate as a "crash check".
+          APP_PID="$(sed -nE 's/.*: ([0-9]+)$/\1/p' build/diagnostics/launch.txt | tail -1)"
+          test -n "$APP_PID"
           sleep 12
           xcrun simctl io "$DEVICE_ID" screenshot build/diagnostics/manager-full-ui.png
           sleep 18
-          # terminate returns non-zero if the full SwiftUI manager has exited or crashed.
-          xcrun simctl terminate "$DEVICE_ID" com.modhw.manager
-          # Capture broad simulator diagnostics before filtering: the process may
-          # have exited or been renamed by SpringBoard before the old predicate ran.
+          xcrun simctl spawn "$DEVICE_ID" kill -0 "$APP_PID"
+          echo "Manager remained running for at least 30 seconds (pid=$APP_PID)" | tee build/diagnostics/process-survival.txt
+          # Capture runtime diagnostics while the app is still running, then stop it
+          # only after the survival check has completed.
           xcrun simctl spawn "$DEVICE_ID" log show --last 5m --style compact > build/diagnostics/system-runtime.log 2>&1 || true
           log show --last 5m --style compact --predicate 'process CONTAINS[c] "ModHWManager" OR eventMessage CONTAINS[c] "ModHWManager" OR eventMessage CONTAINS[c] "com.modhw.manager"' > build/diagnostics/manager-runtime.log 2>&1 || true
+          xcrun simctl terminate "$DEVICE_ID" com.modhw.manager || true
           xcrun simctl spawn "$DEVICE_ID" launchctl list > build/diagnostics/launchctl-list.txt 2>&1 || true
           mkdir -p build/diagnostics/crash-reports
           xcrun simctl get_app_container "$DEVICE_ID" com.modhw.manager data > build/diagnostics/app-data-container.txt 2>&1 || true
