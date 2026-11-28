@@ -92,6 +92,12 @@ if core_daemon.is_file():
 check("Version: 2.0.2~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
 check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
 check("src/captain_hook/hook.mm" in makefile, "Original hook source remains in target")
+hook_util_source = (ROOT / "src/cydia_substrate_hook/HookUtil.m").read_text()
+check('"/var/jb/Library/Frameworks/CydiaSubstrate.framework/CydiaSubstrate"' in hook_util_source and
+      'dlsym(RTLD_DEFAULT, name)' in hook_util_source and
+      'SubstrateSymbol("MSHookFunction")' in hook_util_source and
+      'SubstrateSymbol("MSFindSymbol")' in hook_util_source,
+      "Original function Hook resolves Substrate APIs from Rootless Dopamine paths and the current process symbol table")
 hook_filter_path = ROOT / "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist"
 hook_filter = plistlib.loads(hook_filter_path.read_bytes())
 hook_filter_config = hook_filter.get("Filter", {})
@@ -162,6 +168,13 @@ check("mod-hw-maintenance" in package_builder and "maintenance-dispatch.sh" in p
       "Rootless utility DEB packages the fixed-command terminal fallback dispatcher")
 check('acceptance-iphone12' in manager and "运行 iPhone 12 / iOS 16.2 最终验收" in manager,
       "Manager exposes the final read-only iPhone 12 acceptance gate")
+for script_name in ("backup-app-container.sh", "cleanup-app-container.sh", "restore-app-container.sh", "selftest-device.sh", "acceptance-iphone12.sh"):
+    script_text = (ROOT / "scripts" / script_name).read_text()
+    check("/usr/bin/stat -f" in script_text and "stat -f" in script_text,
+          f"{script_name} explicitly uses the iOS BSD stat binary despite the Core GNU-first PATH")
+    check(not re.search(r"(?<!/)\\bstat\\s+-f", script_text),
+          f"{script_name} does not accidentally invoke GNU stat with BSD format flags")
+
 check("MaintenanceClient.request" in manager and "managerPID" in manager and
       "managerGroupContainer" in manager and "containerURL(forSecurityApplicationGroupIdentifier:" in manager and
       "group.com.idevelab.manager" in manager and "127.0.0.1:18081/maintenance" in manager and
@@ -178,6 +191,9 @@ check('Picker("已安装应用", selection: $maintenanceBundleID)' in manager an
       "Manager sends the selected Bundle ID and backup filename to the Root Helper")
 check("safeShellArgument" in manager and "replacingOccurrences" in manager and "请填写" in manager,
       "Manager safely quotes shell arguments and marks blank placeholders")
+check("detailParts.isEmpty" in manager and "result.exitCode ?? -1" in manager and
+      "recordOperation(action" in manager,
+      "Manager preserves empty-output maintenance failures and exposes helper exit codes in operation history")
 check("\\\\(" not in manager,
       "Manager maintenance command and backup-result strings use live Swift interpolation")
 
