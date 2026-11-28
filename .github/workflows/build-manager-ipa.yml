@@ -55,6 +55,16 @@ jobs:
           xcodebuild -project manager/ModHWManager.xcodeproj -scheme ModHWManager -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build
           test -d build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
 
+      - name: Upload Manager diagnostic IPAs before simulator smoke test
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-hw-manager-real-device-diagnostic-ipas
+          path: |
+            mod_hw_for_ios_V2_alpha11/build/manager-sandboxed-startup-control.ipa
+            mod_hw_for_ios_V2_alpha11/build/manager-sandboxed-full-diagnostic.ipa
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Launch Release app and capture runtime diagnostics
         timeout-minutes: 8
         run: |
