@@ -109,6 +109,11 @@ check(gestalt_source.count("if (data != nil) return CFDataCreate(NULL, [data byt
       "All six IOKit hardware-data conversions preserve the original value when hex parsing fails")
 check("PreferenceBooleanIsTrue" in gestalt_source and "a == NULL" in gestalt_source,
       "Malformed plist booleans and invalid UDID bytes are rejected before use")
+check("branchInstruction & 0xFC000000" in gestalt_source and
+      "internalAddress" in gestalt_source and
+      "Unsupported MGCopyAnswer thunk" in gestalt_source and
+      "mg_copy_answer_addr + 8" not in gestalt_source,
+      "ARM64 MGCopyAnswer hook decodes the real internal branch target and refuses unsupported unsafe thunks")
 check('com.modhw.ios.profiles' in gestalt_source and 'bundleIdentifier' in gestalt_source and
       'rangeOfCharacterFromSet:invalidBundleChars' in gestalt_source and
       'per-app profile' in gestalt_source and 'global profile' in gestalt_source and
@@ -194,6 +199,8 @@ check("safeShellArgument" in manager and "replacingOccurrences" in manager and "
 check("detailParts.isEmpty" in manager and "result.exitCode ?? -1" in manager and
       "recordOperation(action" in manager,
       "Manager preserves empty-output maintenance failures and exposes helper exit codes in operation history")
+check('hookWritePending ? "已写入，待验证"' in manager,
+      "Manager does not present a profile file write as proof of runtime Hook activation")
 check("\\\\(" not in manager,
       "Manager maintenance command and backup-result strings use live Swift interpolation")
 
