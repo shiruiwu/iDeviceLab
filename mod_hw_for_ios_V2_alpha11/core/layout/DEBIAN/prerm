@@ -5,8 +5,8 @@ LAUNCHCTL=""
 for candidate in $JBROOT/usr/bin/launchctl $JBROOT/usr/sbin/launchctl $JBROOT/basebin/launchctl $JBROOT/bin/launchctl $JBROOT/sbin/launchctl /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /usr/libexec/launchctl; do
   if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
 done
-if [ -z "$LAUNCHCTL" ] && [ -d /var/jb ]; then
-  LAUNCHCTL="$(find /var/jb -name launchctl -perm -111 -print -quit 2>/dev/null || true)"
+if [ -z "$LAUNCHCTL" ] && [ -d "$JBROOT" ]; then
+  LAUNCHCTL="$(find "$JBROOT" -name launchctl -perm -111 -print -quit 2>/dev/null || true)"
 fi
 if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then LAUNCHCTL="$(command -v launchctl)"; fi
 if [ -n "$LAUNCHCTL" ]; then

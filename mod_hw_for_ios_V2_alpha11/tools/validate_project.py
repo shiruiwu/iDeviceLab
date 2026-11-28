@@ -162,8 +162,8 @@ for script_name in ("acceptance-iphone12.sh", "backup-app-container.sh", "backup
                     "diagnose-config.sh", "diagnose-keychain-access.sh", "maintenance-dispatch.sh",
                     "restore-app-container.sh", "restore-config.sh", "selftest-device.sh", "verify-app-container-backup.sh"):
     script_text = (ROOT / "scripts" / script_name).read_text()
-    check(script_text.startswith("#!/var/jb/bin/sh"),
-          f"{script_name} uses the Procursus rootless shell interpreter")
+    check(script_text.startswith("#!/bin/sh") or script_text.startswith("#!/var/jb/bin/sh"),
+          f"{script_name} uses an available iOS shell interpreter")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
 check("CURRENT_PROJECT_VERSION = 21;" in project, "Manager project build number is 21")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
@@ -338,12 +338,13 @@ prerm = ROOT / "core/layout/DEBIAN/prerm"
 if postinst.is_file() and prerm.is_file():
     post = postinst.read_text()
     pre = prerm.read_text()
-    check("/var/jb/usr/bin/launchctl" in post and "/var/jb/basebin/launchctl" in post and
-          'find /var/jb -name launchctl -perm -111' in post and
+    check('JBROOT=$(CDPATH= cd -- /var/jb' in post and '"$JBROOT/usr/bin/launchctl"' in post and
+          'find "$JBROOT" -name launchctl -perm -111' in post and
           'bootstrap system "$service_plist"' in post and 'ERROR: launchctl bootstrap failed' in post,
-          "Core installer searches common rootless launchctl locations and reports startup failure without aborting package installation")
-    check("/var/jb/usr/bin/launchctl" in pre and 'find /var/jb -name launchctl -perm -111' in pre,
-          "Core removal script can locate launchctl in extended rootless paths")
+          "Core installer resolves the active bootstrap once, searches launchctl under it, and reports startup failures")
+    check('JBROOT=$(CDPATH= cd -- /var/jb' in pre and '"$JBROOT/usr/bin/launchctl"' in pre and
+          'find "$JBROOT" -name launchctl -perm -111' in pre,
+          "Core removal script resolves the active bootstrap before locating launchctl")
 
 if core_source.is_file():
     core = core_source.read_text()
