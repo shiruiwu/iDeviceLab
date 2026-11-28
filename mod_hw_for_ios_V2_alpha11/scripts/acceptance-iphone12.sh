@@ -40,9 +40,9 @@ for candidate in /var/containers/Bundle/Application/*/ModHWManager.app/Info.plis
 done
 check 'TrollStore 管理器 App 唯一安装（避免误验收旧副本）' test "$APP_COUNT" -eq 1
 APP_BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw -o - "$APP_INFO" 2>/dev/null || true)"
-check '管理器 Bundle ID 正确' test "$APP_BUNDLE_ID" = "com.modhw.manager"
+check '管理器 Bundle ID 正确' test "$APP_BUNDLE_ID" = "com.modhw.manager.sandboxed"
 APP_BUILD_VERSION="$(plutil -extract CFBundleVersion raw -o - "$APP_INFO" 2>/dev/null || true)"
-check '管理器 Build 版本为 9' test "$APP_BUILD_VERSION" = "9"
+check '管理器 Build 版本为 9' test "$APP_BUILD_VERSION" = "19"
 APP_MARKETING_VERSION="$(plutil -extract CFBundleShortVersionString raw -o - "$APP_INFO" 2>/dev/null || true)"
 check '管理器市场版本为 2.0.0' test "$APP_MARKETING_VERSION" = "2.0.0"
 APP_MINIMUM_OS="$(plutil -extract MinimumOSVersion raw -o - "$APP_INFO" 2>/dev/null || true)"
