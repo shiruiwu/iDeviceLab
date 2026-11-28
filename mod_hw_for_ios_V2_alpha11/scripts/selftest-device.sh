@@ -67,7 +67,7 @@ else
   FAIL=$((FAIL + 1))
 fi
 MOBILE_GID_FOR_SOCKET="$(id -g mobile 2>/dev/null || echo unknown)"
-SOCKET_META="$(stat -f '%u:%g:%Lp' /var/run/com.idevelab.maintenance.sock 2>/dev/null || echo missing)"
+SOCKET_META="$(/usr/bin/stat -f '%u:%g:%Lp' /var/run/com.idevelab.maintenance.sock 2>/dev/null || echo missing)"
 check 'Root helper socket is root:mobile with mode 0660' test "$SOCKET_META" = "0:$MOBILE_GID_FOR_SOCKET:660"
 if command -v curl >/dev/null 2>&1; then
   RESPONSE="$(curl --silent --show-error --fail --max-time 3 http://127.0.0.1:18081/status 2>/dev/null || true)"
@@ -107,7 +107,7 @@ check 'App-container backup verifier installed' command -v mod-hw-app-backup-ver
 check 'Guarded App-container restore command installed' command -v mod-hw-app-restore
 check 'Backup-first App-container cleanup command installed' command -v mod-hw-app-clean
 if [ -S /var/run/com.idevelab.maintenance.sock ]; then
-  SOCKET_META="$(stat -f '%u:%g:%Lp' /var/run/com.idevelab.maintenance.sock 2>/dev/null || echo invalid)"
+  SOCKET_META="$(/usr/bin/stat -f '%u:%g:%Lp' /var/run/com.idevelab.maintenance.sock 2>/dev/null || echo invalid)"
   MOBILE_GID="$(id -g mobile 2>/dev/null || echo unknown)"
   check 'Maintenance socket is root:mobile mode 0660' test "$SOCKET_META" = "0:$MOBILE_GID:660"
 else
@@ -130,15 +130,15 @@ fi
 BACKUP_ROOT='/var/mobile/Library/Application Support/mod_hw_for_ios/app-container-backups'
 if [ -d "$BACKUP_ROOT" ]; then
   MOBILE_GID="$(id -g mobile 2>/dev/null || echo unknown)"
-  BACKUP_DIR_META="$(stat -f '%u:%g:%Lp' "$BACKUP_ROOT" 2>/dev/null || echo invalid)"
+  BACKUP_DIR_META="$(/usr/bin/stat -f '%u:%g:%Lp' "$BACKUP_ROOT" 2>/dev/null || echo invalid)"
   check 'Backup directory is root-owned and mobile-group traversable (0750)' test "$BACKUP_DIR_META" = "0:$MOBILE_GID:750"
   for ARCHIVE in "$BACKUP_ROOT"/*.tar.gz; do
     [ -f "$ARCHIVE" ] || continue
-    META="$(stat -f '%u:%g:%Lp' "$ARCHIVE" 2>/dev/null || echo invalid)"
+    META="$(/usr/bin/stat -f '%u:%g:%Lp' "$ARCHIVE" 2>/dev/null || echo invalid)"
     check "Archive is root:mobile read-only (0640): $(basename "$ARCHIVE")" test "$META" = "0:$MOBILE_GID:640"
     MANIFEST="${ARCHIVE%.tar.gz}.txt"
     if [ -f "$MANIFEST" ]; then
-      META="$(stat -f '%u:%g:%Lp' "$MANIFEST" 2>/dev/null || echo invalid)"
+      META="$(/usr/bin/stat -f '%u:%g:%Lp' "$MANIFEST" 2>/dev/null || echo invalid)"
       check "Manifest is root:mobile read-only (0640): $(basename "$MANIFEST")" test "$META" = "0:$MOBILE_GID:640"
     fi
   done
