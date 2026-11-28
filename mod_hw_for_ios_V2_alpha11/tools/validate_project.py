@@ -18,13 +18,18 @@ gestalt_source = (ROOT / "src/mobile_gestalt/mobile_gestalt.m").read_text()
 project = (ROOT / "manager/ModHWManager.xcodeproj/project.pbxproj").read_text()
 ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
 sandboxed_ipa = (ROOT / "scripts/build-manager-sandboxed-ipa.sh").read_text()
+sandboxed_entitlements_path = ROOT / "manager/Sandboxed.entitlements"
+sandboxed_entitlements = plistlib.loads(sandboxed_entitlements_path.read_bytes()) if sandboxed_entitlements_path.is_file() else {}
 check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa and
-      "CURRENT_PROJECT_VERSION=17" in sandboxed_ipa and
+      "CURRENT_PROJECT_VERSION=18" in sandboxed_ipa and
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and
-      "NSAllowsLocalNetworking" in sandboxed_ipa,
-      "Sandboxed Manager Build17 keeps its Bundle ID and uses the authenticated Core bridge")
-check('ldid -S "$BINARY"' in sandboxed_ipa and 'ldid -e "$BINARY"' in sandboxed_ipa,
-      "Sandboxed Manager is ad-hoc signed without privileged entitlements")
+      "NSAllowsLocalNetworking" in sandboxed_ipa and
+      sandboxed_entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],
+      "Sandboxed Manager Build18 carries only its dedicated shared App Group entitlement")
+check('ldid -S"$ENTITLEMENTS" "$BINARY"' in sandboxed_ipa and
+      'ldid -e "$BINARY"' in sandboxed_ipa and
+      'com.apple.private.security.no-sandbox' not in str(sandboxed_entitlements),
+      "Sandboxed Manager is ad-hoc signed with the required App Group and without no-sandbox entitlement")
 package_builder = (ROOT / "scripts/build-diagnostics-deb.sh").read_text()
 theos_workflow_path = ROOT.parent / ".github/workflows/build-theos-tweak.yml"
 theos_workflow = theos_workflow_path.read_text() if theos_workflow_path.is_file() else ""
