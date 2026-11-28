@@ -292,7 +292,7 @@ static BOOL PairManagerProcess(pid_t pid, NSString **message) {
         (finalStatus & CS_VALID) == 0 || (finalStatus & CS_KILLED) != 0 ||
         QueryCSOps(pid, CS_OPS_CDHASH, finalHash, sizeof(finalHash)) != 0 ||
         memcmp(hash, finalHash, sizeof(hash)) != 0) {
-        unlink(kPinPath);
+        unlink(pinPath.fileSystemRepresentation);
         if (message) *message = @"配对期间 Manager 进程已退出或签名发生变化，请重新打开管理器后配对。";
         return NO;
     }
