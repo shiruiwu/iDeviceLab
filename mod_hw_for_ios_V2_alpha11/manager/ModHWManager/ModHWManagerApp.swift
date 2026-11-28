@@ -56,6 +56,11 @@ final class ModHWManagerAppDelegate: UIResponder, UIApplicationDelegate {
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = controller
         window?.makeKeyAndVisible()
+        if ProcessInfo.processInfo.arguments.contains("--idevelab-ci-full-manager") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.enterFullManager()
+            }
+        }
         return true
     }
 

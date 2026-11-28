@@ -65,9 +65,11 @@ jobs:
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
-          xcrun simctl launch "$DEVICE_ID" com.modhw.manager 2>&1 | tee build/diagnostics/launch.txt
-          sleep 30
-          # terminate returns non-zero if the app has already exited or crashed.
+          xcrun simctl launch "$DEVICE_ID" com.modhw.manager --idevelab-ci-full-manager 2>&1 | tee build/diagnostics/launch.txt
+          sleep 12
+          xcrun simctl io "$DEVICE_ID" screenshot build/diagnostics/manager-full-ui.png
+          sleep 18
+          # terminate returns non-zero if the full SwiftUI manager has exited or crashed.
           xcrun simctl terminate "$DEVICE_ID" com.modhw.manager
           log show --last 3m --style compact --predicate 'process == "ModHWManager"' > build/diagnostics/manager-runtime.log 2>&1 || true
           xcrun simctl spawn "$DEVICE_ID" launchctl list > build/diagnostics/launchctl-list.txt 2>&1 || true
