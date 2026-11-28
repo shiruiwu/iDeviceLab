@@ -19,6 +19,8 @@
 // 苹果设备的UDID是由IMEI号（iPad、iPod为ECID）、序列号、WiFi地址、蓝牙地址这四项生成的，所以如果爱思验机里面提示五码匹配为“否”，则说明此设备这五项最少有一项是被修改过的。
 
 #import <dlfcn.h>
+#include <stdint.h>
+#include <string.h>
 #import <stdio.h>
 
 #include <sys/sysctl.h>
@@ -465,12 +467,12 @@ HOOK_IOKIT(CFTypeRef,IORegistryEntryCreateCFProperty,
 //////////////////////////////////////////////////////////
 //DeviceDataFilter
 //////////////////////////////////////////////////////////
-static CFTypeRef (*HookNextMGCopyAnswer)(CFTypeRef prop,unsigned long);
+static CFTypeRef (*HookNextMGCopyAnswer)(CFTypeRef prop,uint32_t *outTypeCode);
 static CFTypeRef (*HookMGCopyAnswer)(CFTypeRef prop);
-static CFTypeRef ChooseCallHookedMGCopyAnswer(CFTypeRef prop,unsigned long value,bool is_show){
+static CFTypeRef ChooseCallHookedMGCopyAnswer(CFTypeRef prop,uint32_t *outTypeCode,bool is_show){
   CFTypeRef result = nil;
   if (IsArm64()) {
-    result = HookNextMGCopyAnswer(prop,value);
+    result = HookNextMGCopyAnswer(prop,outTypeCode);
     if (is_show) {
       NSLog(@"hook_FN_MGCopyAnswer_prop_arm64:%@---value:%@",
             prop,result);
@@ -493,9 +495,9 @@ static CFTypeRef ChooseCallHookedMGCopyAnswer(CFTypeRef prop,unsigned long value
   }
   return result;
 }
-static CFTypeRef DeviceDataFilter(CFTypeRef prop,unsigned long value){
+static CFTypeRef DeviceDataFilter(CFTypeRef prop,uint32_t *outTypeCode){
   CFTypeRef return_value = nil;
-  return_value = ChooseCallHookedMGCopyAnswer(prop, value, false);
+  return_value = ChooseCallHookedMGCopyAnswer(prop, outTypeCode, false);
   // NSLog(@"hook_key_no:%@=%@",prop, return_value);
   if (return_value==nil) {
     return return_value;
@@ -524,14 +526,14 @@ static CFTypeRef DeviceDataFilter(CFTypeRef prop,unsigned long value){
   // NSLog(@"hook_key_to:%@=%@:%s=%s", prop, return_value, object_getClassName(return_value), object_getClassName(CFBridgingRetain(aaaaa)));
   return CFBridgingRetain(aaaaa);
 }
-static CFTypeRef FN_NextMGCopyAnswer(CFTypeRef prop, unsigned long value){
+static CFTypeRef FN_NextMGCopyAnswer(CFTypeRef prop, uint32_t *outTypeCode){
   @autoreleasepool {
     CFTypeRef result;
     if (prop == NULL || prop == nil) {
-      result = HookNextMGCopyAnswer(prop, value);
+      result = HookNextMGCopyAnswer(prop, outTypeCode);
     }
     else{
-      result = DeviceDataFilter(prop, value);
+      result = DeviceDataFilter(prop, outTypeCode);
     }
     return result;
   }
@@ -543,7 +545,7 @@ static CFTypeRef FN_MGCopyAnswer(CFTypeRef prop){
       result = HookMGCopyAnswer(prop);
     }
     else{
-      result = DeviceDataFilter(prop, 0);
+      result = DeviceDataFilter(prop, NULL);
     }
     return result;
   }
@@ -555,23 +557,39 @@ static CFTypeRef FN_MGCopyAnswer(CFTypeRef prop){
 static void MGCopyAnswerHookImpl(const void* mg_copy_answer_addr){
   HookMGCopyAnswer = NULL;
   HookNextMGCopyAnswer = NULL;
-  if (IsArm64()) {
-    CallMSHookFunction(((void*)((unsigned long)mg_copy_answer_addr + 8)), (void*)FN_NextMGCopyAnswer, (void**)&HookNextMGCopyAnswer);
-    if(HookNextMGCopyAnswer!=NULL){
-      // NSLog(@"HookNextMGCopyAnswer success.");
-    }
-    else{
-      // NSLog(@"HookNextMGCopyAnswer failed.");
-    }
+  if (mg_copy_answer_addr == NULL) {
+    NSLog(@"[mod_hw] MGCopyAnswer symbol address is null.");
+    return;
   }
-  else{
-    CallMSHookFunction((void*)((unsigned long)mg_copy_answer_addr), (void*)FN_MGCopyAnswer, (void**)&HookMGCopyAnswer);
-    if(HookMGCopyAnswer!=NULL){
-      // NSLog(@"HookMGCopyAnswer success.");
+  if (IsArm64()) {
+    // On ARM64 the exported MGCopyAnswer entry is a short thunk. Do not
+    // blindly hook +8: newer iOS builds branch to the internal routine at
+    // a branch-relative address. Decode the actual B immediate instead.
+    uint32_t firstInstruction = 0, branchInstruction = 0;
+    memcpy(&firstInstruction, mg_copy_answer_addr, sizeof(firstInstruction));
+    memcpy(&branchInstruction, (const uint8_t *)mg_copy_answer_addr + 4, sizeof(branchInstruction));
+    if (firstInstruction != 0xD2800001 ||
+        (branchInstruction & 0xFC000000) != 0x14000000) {
+      NSLog(@"[mod_hw] Unsupported MGCopyAnswer thunk: first=0x%08x branch=0x%08x; skipping unsafe hook.",
+            firstInstruction, branchInstruction);
+      return;
     }
-    else{
-      // NSLog(@"HookMGCopyAnswer failed.");
+    int64_t immediate26 = (int64_t)(branchInstruction & 0x03FFFFFF);
+    if (immediate26 & 0x02000000) immediate26 -= 0x04000000;
+    intptr_t branchOffset = (intptr_t)(immediate26 * 4);
+    const void *internalAddress = (const uint8_t *)mg_copy_answer_addr + 4 + branchOffset;
+    NSLog(@"[mod_hw] MGCopyAnswer internal target resolved at %p (offset=%ld).",
+          internalAddress, (long)branchOffset);
+    CallMSHookFunction((void *)internalAddress, (void *)FN_NextMGCopyAnswer, (void **)&HookNextMGCopyAnswer);
+    if (HookNextMGCopyAnswer == NULL) {
+      NSLog(@"[mod_hw] MGCopyAnswer internal hook installation failed.");
+    } else {
+      NSLog(@"[mod_hw] MGCopyAnswer internal hook installed.");
     }
+  } else {
+    CallMSHookFunction((void *)mg_copy_answer_addr, (void *)FN_MGCopyAnswer, (void **)&HookMGCopyAnswer);
+    if (HookMGCopyAnswer == NULL) NSLog(@"[mod_hw] 32-bit MGCopyAnswer hook installation failed.");
+    else NSLog(@"[mod_hw] 32-bit MGCopyAnswer hook installed.");
   }
 }
 
