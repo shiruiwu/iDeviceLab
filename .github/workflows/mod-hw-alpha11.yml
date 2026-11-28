@@ -89,10 +89,10 @@ jobs:
           python3 - "$TMP/production-entitlements.plist" <<'PY'
           import plistlib,sys
           with open(sys.argv[1],"rb") as stream: e=plistlib.load(stream)
-          assert e.get("com.apple.private.security.no-sandbox") is True,e
+          assert not e.get("com.apple.private.security.no-sandbox",False),e
           assert e.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],e
           assert not e.get("platform-application",False),e
-          print("TrollStore Build22 bundle, arm64 binary, no-sandbox and Core-shared App Group verified")
+          print("TrollStore Build22 bundle, arm64 binary, standard sandbox and Core-shared App Group verified")
           PY
 
       - name: Build rootless config and app-backup tools DEB

@@ -22,12 +22,12 @@ sandboxed_entitlements_path = ROOT / "manager/Sandboxed.entitlements"
 sandboxed_entitlements = plistlib.loads(sandboxed_entitlements_path.read_bytes()) if sandboxed_entitlements_path.is_file() else {}
 trollstore_entitlements_path = ROOT / "manager/TrollStore.entitlements"
 trollstore_entitlements = plistlib.loads(trollstore_entitlements_path.read_bytes()) if trollstore_entitlements_path.is_file() else {}
-check(trollstore_entitlements.get("com.apple.private.security.no-sandbox") is True and
+check(not trollstore_entitlements.get("com.apple.private.security.no-sandbox", False) and
       trollstore_entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],
-      "Production TrollStore Manager carries both no-sandbox and the Core-shared App Group entitlement")
+      "Production TrollStore Manager retains the standard sandbox and carries the Core-shared App Group entitlement")
 check("mod_hw_manager_trollstore_build22.ipa" in ipa and "CURRENT_PROJECT_VERSION=22" in ipa and
-      "com.apple.security.application-groups" in ipa and "group.com.idevelab.manager" in ipa,
-      "Production TrollStore IPA Build22 is built with the App Group required by Core authentication")
+      "Sandboxed.entitlements" in ipa and "com.apple.security.application-groups" in ipa and "group.com.idevelab.manager" in ipa,
+      "Production TrollStore IPA Build22 keeps the standard sandbox and App Group required by Core authentication")
 check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa and
       "CURRENT_PROJECT_VERSION=19" in sandboxed_ipa and
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and

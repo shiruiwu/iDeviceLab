@@ -25,12 +25,12 @@ INFO="$PAYLOAD/ModHWManager.app/Info.plist"
 # Mark the production TrollStore Manager build 22.
 /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 22' "$INFO"
 BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
-ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
+ENTITLEMENTS="$ROOT/manager/Sandboxed.entitlements"
 if ! command -v ldid >/dev/null 2>&1; then
   if command -v brew >/dev/null 2>&1; then
     brew install ldid
   else
-    echo "错误：构建 TrollStore IPA 需要 ldid，以嵌入并签署受限的 no-sandbox entitlement。" >&2
+    echo "错误：构建 TrollStore IPA 需要 ldid，以嵌入并签署 App Group entitlement。" >&2
     exit 10
   fi
 fi
@@ -46,10 +46,10 @@ python3 - "$BUILD_DIR/embedded-entitlements.plist" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], "rb") as stream:
     entitlements = plistlib.load(stream)
-assert entitlements.get("com.apple.private.security.no-sandbox") is True, entitlements
+assert not entitlements.get("com.apple.private.security.no-sandbox", False), entitlements
 assert entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"], entitlements
 assert not entitlements.get("platform-application", False), entitlements
-print("Manager entitlements verified: no-sandbox and shared App Group enabled; platform-application not granted")
+print("Manager entitlements verified: standard sandbox retained; shared App Group enabled; platform-application not granted")
 PY
 
 EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
