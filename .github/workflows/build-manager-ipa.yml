@@ -46,10 +46,40 @@ jobs:
       - name: Build production TrollStore Manager IPA
         run: bash scripts/build-trollstore-ipa.sh
 
+      - name: Verify the exact production TrollStore IPA artifact
+        run: |
+          set -euo pipefail
+          IPA=release/mod_hw_manager_trollstore_build21.ipa
+          test -s "$IPA"
+          unzip -t "$IPA"
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+          unzip -q "$IPA" -d "$TMP"
+          APP="$TMP/Payload/ModHWManager.app"
+          test -s "$APP/Info.plist"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
+          MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
+          test "$BUNDLE_ID" = "com.modhw.manager"
+          test "$BUILD" = "21"
+          test "$MIN_OS" = "16.0"
+          file "$APP/$EXECUTABLE" | grep -q Mach-O
+          lipo "$APP/$EXECUTABLE" -verify_arch arm64
+          ldid -e "$APP/$EXECUTABLE" > "$TMP/production-entitlements.plist"
+          python3 - "$TMP/production-entitlements.plist" <<'PY'
+          import plistlib,sys
+          with open(sys.argv[1],"rb") as f: e=plistlib.load(f)
+          assert e.get("com.apple.private.security.no-sandbox") is True, e
+          assert e.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"], e
+          assert not e.get("platform-application", False), e
+          print("Production TrollStore IPA bundle, arm64 binary and embedded entitlements verified")
+          PY
+
       - name: Upload production TrollStore Manager IPA for real-device testing
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-trollstore-build21-real-device
+          name: mod-hw-manager-trollstore-build21-static-verified
           path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build21.ipa
           if-no-files-found: error
           retention-days: 14
@@ -76,7 +106,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Launch Release app and capture runtime diagnostics
+      - name: Launch sandboxed diagnostic build in Simulator (not production IPA validation)
         timeout-minutes: 8
         run: |
           set -euo pipefail
