@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: manager-ipa-${{ github.ref }}
+  group: manager-ipa-smoke-${{ github.ref }}
   cancel-in-progress: true
 
 env:
