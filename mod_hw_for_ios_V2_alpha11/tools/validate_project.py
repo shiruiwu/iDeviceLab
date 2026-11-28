@@ -77,8 +77,11 @@ if helper_source.is_file():
           "realpath(executable, actualPath)" in helper_text and "realpath(" in helper_text and
           "CS_OPS_CDHASH" in helper_text and "CS_VALID" in helper_text and
           "com.idevelab.manager-cdhash" in helper_text and "ReadPinnedHash(persistedHash)" in helper_text and
-          "posix_spawn" in helper_text and 'posix_spawn(&child, "/bin/sh"' in helper_text and
-          "strerror(savedError)" in helper_text and "300.0" in helper_text and "kOutputLimit = 65536" in helper_text,
+          "posix_spawn" in helper_text and '"/var/jb/bin/sh"' in helper_text and
+          '"/var/jb/usr/bin/sh"' in helper_text and "setenv(\"PATH\"" in helper_text and
+          "strerror(savedError)" in helper_text and "300.0" in helper_text and "kOutputLimit = 65536" in helper_text and
+          "FindUniqueAppContainer(NSString *bundleID, NSString **diagnostic)" in helper_text and
+          "metadataCount" in helper_text,
           "Root Helper checks peer UID/PID and pinned code signature, runs bounded fixed tools, and caps execution/output")
     check(all(token in helper_text for token in (
           '@"backup"', '@"verify"', '@"restore"', '@"clean"', '@"apply-profile"',
@@ -153,6 +156,12 @@ check("WriteModHWRuntimeStatus" in gestalt_source and ".modhw-hook-status.plist"
       "gModHWMGCopyAnswerInstalled" in gestalt_source and "gModHWConfigLoaded" in gestalt_source and
       "HookRuntimeStatus" in helper_text and ".modhw-hook-status.plist" in helper_text,
       "Hook startup writes per-app runtime evidence and Root Helper can read it without exposing profile values")
+for script_name in ("acceptance-iphone12.sh", "backup-app-container.sh", "backup-config.sh", "cleanup-app-container.sh",
+                    "diagnose-config.sh", "diagnose-keychain-access.sh", "maintenance-dispatch.sh",
+                    "restore-app-container.sh", "restore-config.sh", "selftest-device.sh", "verify-app-container-backup.sh"):
+    script_text = (ROOT / "scripts" / script_name).read_text()
+    check(script_text.startswith("#!/var/jb/bin/sh"),
+          f"{script_name} uses the Procursus rootless shell interpreter")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
 check("CURRENT_PROJECT_VERSION = 21;" in project, "Manager project build number is 21")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
