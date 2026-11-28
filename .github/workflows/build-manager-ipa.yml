@@ -50,7 +50,6 @@ jobs:
         run: bash scripts/build-manager-sandboxed-ipa.sh
 
       - name: Build Release iOS Simulator smoke-test app
-        if: false # Device IPA compilation is the required gate for this delivery.
         run: |
           set -euo pipefail
           xcodebuild -project manager/ModHWManager.xcodeproj -scheme ModHWManager -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build
