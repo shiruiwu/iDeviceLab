@@ -1,7 +1,8 @@
 #!/bin/sh
 set -u
+JBROOT=$(CDPATH= cd -- /var/jb 2>/dev/null && pwd -P) || exit 0
 LAUNCHCTL=""
-for candidate in /var/jb/usr/bin/launchctl /var/jb/usr/sbin/launchctl /var/jb/basebin/launchctl /var/jb/bin/launchctl /var/jb/sbin/launchctl /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /usr/libexec/launchctl; do
+for candidate in $JBROOT/usr/bin/launchctl $JBROOT/usr/sbin/launchctl $JBROOT/basebin/launchctl $JBROOT/bin/launchctl $JBROOT/sbin/launchctl /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /usr/libexec/launchctl; do
   if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
 done
 if [ -z "$LAUNCHCTL" ] && [ -d /var/jb ]; then
@@ -9,7 +10,7 @@ if [ -z "$LAUNCHCTL" ] && [ -d /var/jb ]; then
 fi
 if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then LAUNCHCTL="$(command -v launchctl)"; fi
 if [ -n "$LAUNCHCTL" ]; then
-  "$LAUNCHCTL" bootout system /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist >/dev/null 2>&1 || true
-  "$LAUNCHCTL" bootout system /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist >/dev/null 2>&1 || true
+  "$LAUNCHCTL" bootout system $JBROOT/Library/LaunchDaemons/com.idevelab.core.alpha11.plist >/dev/null 2>&1 || true
+  "$LAUNCHCTL" bootout system $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist >/dev/null 2>&1 || true
 fi
 exit 0

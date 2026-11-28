@@ -1,9 +1,11 @@
 #!/bin/sh
 set -eu
+JBROOT=$(CDPATH= cd -- /var/jb 2>/dev/null && pwd -P) || { echo "ERROR: Rootless bootstrap /var/jb was not found"; exit 1; }
+[ -d "$JBROOT/usr" ] || { echo "ERROR: resolved jailbreak bootstrap is invalid: $JBROOT"; exit 1; }
 
-PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
+PLIST="$JBROOT/Library/LaunchDaemons/com.idevelab.core.alpha11.plist"
 LABEL="system/com.idevelab.core.alpha11"
-HELPER_PLIST="/var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
+HELPER_PLIST="$JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist"
 HELPER_LABEL="system/com.idevelab.maintenance.alpha11"
 LOG_DIR="/var/mobile/Library/Logs"
 LOG_FILE="$LOG_DIR/idevelab-core-install.log"
@@ -19,18 +21,18 @@ exec >>"$LOG_FILE" 2>&1
 
 echo "===== Alpha11 Core configure: $(date) ====="
 [ "$1" = "configure" ] || exit 0
-[ -x /var/jb/usr/libexec/idevelab-core ] || { echo "ERROR: Core executable missing"; exit 1; }
-[ -x /var/jb/usr/bin/mod-hw-maintenance-helper ] || { echo "ERROR: Maintenance Helper executable missing"; exit 1; }
+[ -x $JBROOT/usr/libexec/idevelab-core ] || { echo "ERROR: Core executable missing"; exit 1; }
+[ -x $JBROOT/usr/bin/mod-hw-maintenance-helper ] || { echo "ERROR: Maintenance Helper executable missing"; exit 1; }
 
 # Prefer the jailbreak bootstrap's launchctl. The stock path can exist on
 # rootless devices while not being the launchctl instance used by the bootstrap.
 LAUNCHCTL=""
 for candidate in \
-  /var/jb/usr/bin/launchctl \
-  /var/jb/usr/sbin/launchctl \
-  /var/jb/basebin/launchctl \
-  /var/jb/bin/launchctl \
-  /var/jb/sbin/launchctl \
+  $JBROOT/usr/bin/launchctl \
+  $JBROOT/usr/sbin/launchctl \
+  $JBROOT/basebin/launchctl \
+  $JBROOT/bin/launchctl \
+  $JBROOT/sbin/launchctl \
   /bin/launchctl \
   /sbin/launchctl \
   /usr/bin/launchctl \

@@ -1,6 +1,10 @@
-#!/var/jb/bin/sh
+#!/bin/sh
 # Non-destructive on-device smoke test for Alpha11 on a Rootless jailbreak.
 set -u
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P) || exit 1
+JBROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd -P) || exit 1
+PATH="$SCRIPT_DIR:$JBROOT/bin:$JBROOT/usr/bin:$JBROOT/usr/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH
 PASS=0
 FAIL=0
 SKIP=0
@@ -22,38 +26,38 @@ echo 'mod_hw Alpha11 device self-test (read-only)'
 check 'Run as root' test "$(id -u)" -eq 0
 echo "Model: $(sysctl -n hw.machine 2>/dev/null || echo unknown)"
 echo "OS build: $(sysctl -n kern.osversion 2>/dev/null || echo unknown)"
-check 'Rootless jailbreak path exists' test -d /var/jb
-check 'Alpha11 Core executable installed' test -x /var/jb/usr/libexec/idevelab-core
-check 'Alpha11 Core LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
-check 'Alpha11 Core LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
-check 'Root maintenance helper executable installed' test -x /var/jb/usr/bin/mod-hw-maintenance-helper
-check 'Manager pairing utility installed' test -x /var/jb/usr/bin/mod-hw-manager-pair
-check 'Maintenance Helper LaunchDaemon plist exists' test -f /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
-check 'Maintenance Helper LaunchDaemon plist is valid' plutil -lint /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
-if plutil -extract UserName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist 2>/dev/null | grep -qx root &&
-   plutil -extract GroupName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist 2>/dev/null | grep -qx wheel; then
+check 'Rootless jailbreak path exists' test -d "$JBROOT"
+check 'Alpha11 Core executable installed' test -x $JBROOT/usr/libexec/idevelab-core
+check 'Alpha11 Core LaunchDaemon plist exists' test -f $JBROOT/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
+check 'Alpha11 Core LaunchDaemon plist is valid' plutil -lint $JBROOT/Library/LaunchDaemons/com.idevelab.core.alpha11.plist
+check 'Root maintenance helper executable installed' test -x $JBROOT/usr/bin/mod-hw-maintenance-helper
+check 'Manager pairing utility installed' test -x $JBROOT/usr/bin/mod-hw-manager-pair
+check 'Maintenance Helper LaunchDaemon plist exists' test -f $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
+check 'Maintenance Helper LaunchDaemon plist is valid' plutil -lint $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist
+if plutil -extract UserName raw -o - $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist 2>/dev/null | grep -qx root &&
+   plutil -extract GroupName raw -o - $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist 2>/dev/null | grep -qx wheel; then
   echo '[PASS] Maintenance Helper runs as root:wheel'
   PASS=$((PASS + 1))
 else
   echo '[FAIL] Maintenance Helper is not configured as root:wheel'
   FAIL=$((FAIL + 1))
 fi
-if [ -f /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist ]; then
-  check 'Root helper LaunchDaemon runs as root' sh -c '[ "$(plutil -extract UserName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = root ]'
-  check 'Root helper LaunchDaemon uses wheel group' sh -c '[ "$(plutil -extract GroupName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = wheel ]'
+if [ -f $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist ]; then
+  check 'Root helper LaunchDaemon runs as root' sh -c '[ "$(plutil -extract UserName raw -o - $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = root ]'
+  check 'Root helper LaunchDaemon uses wheel group' sh -c '[ "$(plutil -extract GroupName raw -o - $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = wheel ]'
 fi
-if plutil -extract UserName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist 2>/dev/null | grep -qx mobile; then
+if plutil -extract UserName raw -o - $JBROOT/Library/LaunchDaemons/com.idevelab.core.alpha11.plist 2>/dev/null | grep -qx mobile; then
   echo '[PASS] Alpha11 Core runs as mobile (unprivileged)'
   PASS=$((PASS + 1))
 else
   echo '[FAIL] Alpha11 Core launchd UserName is not mobile'
   FAIL=$((FAIL + 1))
 fi
-check 'Core LaunchDaemon GroupName is mobile' sh -c '[ "$(plutil -extract GroupName raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist)" = mobile ]'
-check 'Core LaunchDaemon KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.core.alpha11.plist)" = true ]'
-check 'Maintenance Helper KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - /var/jb/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = true ]'
+check 'Core LaunchDaemon GroupName is mobile' sh -c '[ "$(plutil -extract GroupName raw -o - $JBROOT/Library/LaunchDaemons/com.idevelab.core.alpha11.plist)" = mobile ]'
+check 'Core LaunchDaemon KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - $JBROOT/Library/LaunchDaemons/com.idevelab.core.alpha11.plist)" = true ]'
+check 'Maintenance Helper KeepAlive is enabled' sh -c '[ "$(plutil -extract KeepAlive raw -o - $JBROOT/Library/LaunchDaemons/com.idevelab.maintenance.alpha11.plist)" = true ]'
 LAUNCHCTL=''
-for candidate in /bin/launchctl /usr/bin/launchctl /var/jb/bin/launchctl /var/jb/basebin/launchctl /var/jb/usr/bin/launchctl; do
+for candidate in "$JBROOT/usr/bin/launchctl" "$JBROOT/usr/sbin/launchctl" "$JBROOT/basebin/launchctl" "$JBROOT/bin/launchctl" "$JBROOT/sbin/launchctl" /bin/launchctl /sbin/launchctl /usr/bin/launchctl /usr/sbin/launchctl /usr/libexec/launchctl; do
   if [ -x "$candidate" ]; then LAUNCHCTL="$candidate"; break; fi
 done
 if [ -z "$LAUNCHCTL" ] && command -v launchctl >/dev/null 2>&1; then
