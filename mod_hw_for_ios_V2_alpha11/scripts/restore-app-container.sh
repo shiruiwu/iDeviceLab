@@ -12,7 +12,7 @@ BUNDLE_ID="$1"; NAME="$2"
 case "$BUNDLE_ID" in ''|*[!A-Za-z0-9._-]*|.*|*..*|*.) fail 'Bundle ID 格式无效。' ;; esac
 case "$NAME" in ''|*/*|*..*|*.tmp*|*.tar.gz.tar.gz) fail '归档文件名无效。' ;; *.tar.gz) ;; *) fail '归档必须以 .tar.gz 结尾。' ;; esac
 [ -d "$BACKUP_ROOT" ] && [ ! -L "$BACKUP_ROOT" ] || fail '备份目录不存在或不安全。'
-[ "$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '备份目录必须由 root 拥有。'
+[ "$(/usr/bin/stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '备份目录必须由 root 拥有。'
 chown root:mobile "$BACKUP_ROOT"
 chmod 0750 "$BACKUP_ROOT"
 ARCHIVE="$BACKUP_ROOT/$NAME"
@@ -86,7 +86,7 @@ STAGED_ID="$(plutil -extract MCMMetadataIdentifier raw -o - "$STAGE/.com.apple.m
 [ ! -L "$ROLLBACK_ROOT" ] || fail '还原快照目录不能是符号链接。'
 mkdir -p "$ROLLBACK_ROOT"
 [ -d "$ROLLBACK_ROOT" ] && [ ! -L "$ROLLBACK_ROOT" ] || fail '还原快照目录不安全。'
-[ "$(stat -f '%u' "$ROLLBACK_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '还原快照目录必须由 root 拥有。'
+[ "$(/usr/bin/stat -f '%u' "$ROLLBACK_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '还原快照目录必须由 root 拥有。'
 chmod 0700 "$ROLLBACK_ROOT"
 SNAPSHOT="$ROLLBACK_ROOT/$BUNDLE_ID.$STAMP.$SAVED_CONTAINER.pid-$$"
 mkdir "$SNAPSHOT" || fail '无法创建唯一的还原前快照目录。'
