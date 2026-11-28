@@ -94,11 +94,9 @@ SERVICE_FAILURE=0
 start_service "$LABEL" "$PLIST" || SERVICE_FAILURE=1
 start_service "$HELPER_LABEL" "$HELPER_PLIST" || SERVICE_FAILURE=1
 if [ "$SERVICE_FAILURE" -ne 0 ]; then
-  echo "WARNING: one or more services did not report a running PID."
-  echo "Package payload is configured; service startup requires follow-up diagnosis."
-else
-  echo "Alpha11 Core and Maintenance Helper are running."
+  echo "ERROR: Core or Maintenance Helper failed to start; see $LOG_FILE and service logs."
+  echo "Package files are installed, but service readiness is NOT confirmed."
+  exit 1
 fi
-# A daemon startup failure must not leave dpkg in an interrupted configure state.
-# Preserve diagnostics and let the package transaction complete successfully.
+echo "Alpha11 Core and Maintenance Helper are running."
 exit 0
