@@ -573,22 +573,6 @@ static CFTypeRef FN_MGCopyAnswer(CFTypeRef prop){
 //////////////////////////////////////////////////////////
 //MGCopyAnswer
 //////////////////////////////////////////////////////////
-static const void *MGSymbolReadable(const void *symbol) {
-#if __has_feature(ptrauth_calls)
-  return ptrauth_strip(symbol, ptrauth_key_function_pointer);
-#else
-  return symbol;
-#endif
-}
-
-static void *MGSymbolCallable(const void *symbol) {
-#if __has_feature(ptrauth_calls)
-  return ptrauth_sign_unauthenticated((void *)symbol, ptrauth_key_function_pointer, 0);
-#else
-  return (void *)symbol;
-#endif
-}
-
 static void MGCopyAnswerHookImpl(const void* mg_copy_answer_addr){
   HookMGCopyAnswer = NULL;
   HookNextMGCopyAnswer = NULL;
