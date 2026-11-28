@@ -135,6 +135,7 @@ check('if (cf_device == nil || [cf_device count] == 0)' in gestalt_source and
 check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source and "index / 2" in gestalt_source,
       "Generic hex decoder rejects null, odd-length, invalid, and oversized input")
 check("#import <Security/SecTask.h>" not in gestalt_source and
+      "#include <sys/stat.h>" in gestalt_source and
       "CurrentApplicationIdentifier" in gestalt_source and
       "SecTaskCreateFromSelf" in gestalt_source and "SecTaskCopyValueForEntitlement" in gestalt_source and
       "dlsym" in gestalt_source,

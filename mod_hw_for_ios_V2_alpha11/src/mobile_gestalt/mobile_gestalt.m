@@ -22,6 +22,7 @@
 #import <Security/Security.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/stat.h>
 #if __arm64e__
 #include <ptrauth.h>
 #endif
