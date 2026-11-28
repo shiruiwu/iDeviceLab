@@ -65,10 +65,10 @@ jobs:
       - name: Build unsigned TrollStore IPA
         run: bash scripts/build-trollstore-ipa.sh
 
-      - name: Verify production TrollStore IPA Build20 and App Group bridge
+      - name: Verify production TrollStore IPA Build21 and App Group bridge
         run: |
           set -euo pipefail
-          IPA=release/mod_hw_manager_trollstore_build20.ipa
+          IPA=release/mod_hw_manager_trollstore_build21.ipa
           test -s "$IPA"
           unzip -t "$IPA"
           TMP="$(mktemp -d)"
@@ -80,7 +80,7 @@ jobs:
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
           test "$BUNDLE_ID" = "com.modhw.manager"
-          test "$BUILD" = "20"
+          test "$BUILD" = "21"
           test "$MIN_OS" = "16.0"
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
           file "$APP/$EXECUTABLE" | grep -q Mach-O
@@ -92,7 +92,7 @@ jobs:
           assert e.get("com.apple.private.security.no-sandbox") is True,e
           assert e.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],e
           assert not e.get("platform-application",False),e
-          print("TrollStore Build20 bundle, arm64 binary, no-sandbox and Core-shared App Group verified")
+          print("TrollStore Build21 bundle, arm64 binary, no-sandbox and Core-shared App Group verified")
           PY
 
       - name: Build rootless config and app-backup tools DEB
@@ -200,7 +200,7 @@ jobs:
         with:
           name: mod-hw-v2-final-safe-builds-build20-app-group
           path: |
-            mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build20.ipa
+            mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build21.ipa
             mod_hw_for_ios_V2_alpha11/release/idevelab-core-alpha11.deb
             mod_hw_for_ios_V2_alpha11/release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
           if-no-files-found: error
