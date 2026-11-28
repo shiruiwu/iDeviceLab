@@ -25,7 +25,7 @@ check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa a
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and
       "NSAllowsLocalNetworking" in sandboxed_ipa and
       sandboxed_entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],
-      "Sandboxed Manager Build18 carries only its dedicated shared App Group entitlement")
+      "Sandboxed Manager Build19 carries only its dedicated shared App Group entitlement")
 check('ldid -S"$ENTITLEMENTS" "$BINARY"' in sandboxed_ipa and
       'ldid -e "$BINARY"' in sandboxed_ipa and
       'com.apple.private.security.no-sandbox' not in str(sandboxed_entitlements),
