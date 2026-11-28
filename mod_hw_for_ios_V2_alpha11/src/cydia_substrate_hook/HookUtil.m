@@ -1,4 +1,5 @@
 #import <dlfcn.h>
+#include <string.h>
 #import <Foundation/Foundation.h>
 #import "HookUtil.h"
 
