@@ -204,13 +204,24 @@ struct ContentView: View {
         }
         .task {
             loadOperationRecords()
+            // Start the UI immediately. Probe Core first; do not fan out seven
+            // localhost requests while the jailbreak service may still be starting.
             checkCore()
+            checkMaintenanceHelper()
+            try? await Task.sleep(nanoseconds: 3_500_000_000)
+            guard coreStatus.contains("已连接") else {
+                appInventoryStatus = "Core 未连接，暂不读取应用清单"
+                systemStatus = "Core 未连接，设备信息暂不可用"
+                toolsStatus = "Core 未连接，维护工具暂不可用"
+                profilesStatus = "Core 未连接，配置清单暂不可用"
+                backupsStatus = "Core 未连接，备份清单暂不可用"
+                return
+            }
             fetchInstalledApps()
             fetchSystemSummary()
             fetchMaintenanceTools()
             fetchAppProfiles()
             fetchBackups()
-            checkMaintenanceHelper()
         }
     }
 
