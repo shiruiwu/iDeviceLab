@@ -23,7 +23,7 @@ mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
 # Mark the production TrollStore Manager build 21.
-/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 20' "$INFO"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 21' "$INFO"
 BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
 if ! command -v ldid >/dev/null 2>&1; then
