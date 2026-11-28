@@ -50,15 +50,12 @@ static const char *kSocketPath = "/var/run/com.idevelab.maintenance.sock";
 // Resolve the active rootless bootstrap instead of assuming its physical path.
 // /var/jb is Dopamine's stable alias; realpath follows it to the actual bootstrap.
 static NSString *JailbreakRootPath(void) {
-    const char *environmentRoot = getenv("JBROOT");
-    const char *candidates[] = {environmentRoot, "/var/jb", NULL};
-    for (size_t i = 0; candidates[i] != NULL || i == 0; i++) {
-        if (!candidates[i]) continue;
-        char resolved[PATH_MAX] = {0};
-        if (realpath(candidates[i], resolved) && resolved[0] == '/' &&
-            strcmp(resolved, "/") != 0) {
-            return [NSString stringWithUTF8String:resolved];
-        }
+    char resolved[PATH_MAX] = {0};
+    // Dopamine exposes a stable /var/jb alias; resolve the symlink to the
+    // actual preboot bootstrap directory and build every tool path from it.
+    if (realpath("/var/jb", resolved) && resolved[0] == '/' &&
+        strcmp(resolved, "/") != 0) {
+        return [NSString stringWithUTF8String:resolved];
     }
     return nil;
 }
@@ -431,9 +428,10 @@ static BOOL PeerIsTrustedCore(int fd, pid_t *peerPID) {
     char executable[4096] = {0};
     char actualPath[PATH_MAX] = {0};
     char expectedPath[PATH_MAX] = {0};
-    if (!ProcessExecutablePath(*peerPID, executable) ||
+    NSString *corePath = JailbreakPath(@"usr/libexec/idevelab-core");
+    if (!corePath || !ProcessExecutablePath(*peerPID, executable) ||
         !realpath(executable, actualPath) ||
-        !realpath(JailbreakPath(@"usr/libexec/idevelab-core").fileSystemRepresentation, expectedPath)) return NO;
+        !realpath(corePath.fileSystemRepresentation, expectedPath)) return NO;
     return strcmp(actualPath, expectedPath) == 0;
 }
 

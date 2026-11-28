@@ -75,7 +75,7 @@ if helper_source.is_file():
     check("LOCAL_PEERPID" in helper_text and "getpeereid" in helper_text and
           "PeerIsTrustedCore" in helper_text and 'JailbreakPath(@"usr/libexec/idevelab-core")' in helper_text and
           "realpath(executable, actualPath)" in helper_text and "realpath(" in helper_text and
-          "JailbreakRootPath" in helper_text and 'getenv("JBROOT")' in helper_text and
+          "JailbreakRootPath" in helper_text and 'realpath("/var/jb", resolved)' in helper_text and
           "ManagerPinPath" in helper_text and "JailbreakPath(@" in helper_text and
           "CS_OPS_CDHASH" in helper_text and "CS_VALID" in helper_text and
           "com.idevelab.manager-cdhash" in helper_text and "ReadPinnedHash(persistedHash)" in helper_text and
