@@ -1607,32 +1607,70 @@ enum MaintenanceClient {
         return container.standardizedFileURL
     }
 
+    private static func isValidBridgeToken(_ data: Data) -> Bool {
+        guard data.count == 64,
+              let value = String(data: data, encoding: .ascii) else { return false }
+        return value.unicodeScalars.allSatisfy {
+            CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0)
+        }
+    }
+
     private static func bridgeToken() throws -> String {
         let fileManager = FileManager.default
-        let support = try managerGroupContainerURL().appendingPathComponent("Library/Application Support", isDirectory: true)
-        try fileManager.createDirectory(at: support, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let support = try managerGroupContainerURL()
+            .appendingPathComponent("Library/Application Support", isDirectory: true)
+        try fileManager.createDirectory(
+            at: support,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        // Re-apply permissions on every request. App Group data can survive
+        // Manager reinstalls/upgrades, so an old token file may have inherited
+        // a permissive mode and otherwise be rejected by the Core's lstat check.
+        try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: support.path)
+
         let tokenURL = support.appendingPathComponent(bridgeTokenName, isDirectory: false)
-        var tokenData: Data
-        if fileManager.fileExists(atPath: tokenURL.path) {
-            tokenData = try Data(contentsOf: tokenURL, options: [.mappedIfSafe])
-        } else {
-            var random = Data(count: 32)
-            let result = random.withUnsafeMutableBytes { bytes in
-                SecRandomCopyBytes(kSecRandomDefault, 32, bytes.baseAddress!)
-            }
-            guard result == errSecSuccess else {
-                throw NSError(domain: "MaintenanceHelper", code: 8, userInfo: [NSLocalizedDescriptionKey: "无法生成 Core 通信凭据。"])
-            }
-            let hexToken = random.map { String(format: "%02x", $0) }.joined()
-            tokenData = Data(hexToken.utf8)
-            try tokenData.write(to: tokenURL, options: [.atomic])
+        if fileManager.fileExists(atPath: tokenURL.path),
+           let existing = try? Data(contentsOf: tokenURL, options: [.mappedIfSafe]),
+           isValidBridgeToken(existing) {
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tokenURL.path)
+            let attributes = try fileManager.attributesOfItem(atPath: tokenURL.path)
+            let permissions = (attributes[.posixPermissions] as? NSNumber)?.intValue
+            guard permissions == 0o600,
+                  isValidBridgeToken(try Data(contentsOf: tokenURL, options: [.mappedIfSafe])) else {
+                throw NSError(domain: "MaintenanceHelper", code: 12, userInfo: [
+                    NSLocalizedDescriptionKey: "无法将 Manager 通信凭据修复为 Core 要求的 0600 权限。"
+                ])
+            }
+            return String(decoding: existing, as: UTF8.self)
         }
-        guard tokenData.count == 64,
-              String(data: tokenData, encoding: .ascii)?.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0) }) == true else {
-            throw NSError(domain: "MaintenanceHelper", code: 9, userInfo: [NSLocalizedDescriptionKey: "Manager 通信凭据文件无效，请重新启动管理器。"])
+
+        // Discard stale/corrupt token content and create a fresh 256-bit value.
+        if fileManager.fileExists(atPath: tokenURL.path) {
+            try fileManager.removeItem(at: tokenURL)
         }
-        return String(decoding: tokenData, as: UTF8.self)
+        var random = Data(count: 32)
+        let result = random.withUnsafeMutableBytes { bytes in
+            SecRandomCopyBytes(kSecRandomDefault, 32, bytes.baseAddress!)
+        }
+        guard result == errSecSuccess else {
+            throw NSError(domain: "MaintenanceHelper", code: 8, userInfo: [
+                NSLocalizedDescriptionKey: "无法生成 Core 通信凭据。"
+            ])
+        }
+        let tokenData = Data(random.map { String(format: "%02x", $0) }.joined().utf8)
+        try tokenData.write(to: tokenURL, options: [.atomic])
+        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tokenURL.path)
+        let attributes = try fileManager.attributesOfItem(atPath: tokenURL.path)
+        let permissions = (attributes[.posixPermissions] as? NSNumber)?.intValue
+        let stored = try Data(contentsOf: tokenURL, options: [.mappedIfSafe])
+        guard permissions == 0o600, isValidBridgeToken(stored), stored == tokenData else {
+            try? fileManager.removeItem(at: tokenURL)
+            throw NSError(domain: "MaintenanceHelper", code: 9, userInfo: [
+                NSLocalizedDescriptionKey: "Manager 通信凭据写入后校验失败，已清除无效文件。"
+            ])
+        }
+        return String(decoding: stored, as: UTF8.self)
     }
 
     static func request(action: String, bundleID: String? = nil, archive: String? = nil, profile: [String: Any]? = nil, confirm: Bool = false) async throws -> MaintenanceOperationResult {
