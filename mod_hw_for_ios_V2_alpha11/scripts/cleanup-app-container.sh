@@ -21,7 +21,7 @@ BUNDLE_ID="$1"
 case "$BUNDLE_ID" in ''|*[!A-Za-z0-9._-]*|.*|*..*|*.) fail 'Bundle ID 格式无效。' ;; esac
 command -v killall >/dev/null 2>&1 || fail '缺少系统 killall，无法确认 App 已退出。'
 [ -x "$BIN_DIR/mod-hw-app-backup" ] || fail '缺少 mod-hw-app-backup。'
-[ -x ""$BIN_DIR/mod-hw-app-backup"-verify" ] || fail '缺少 mod-hw-app-backup-verify。'
+[ -x "$BIN_DIR/mod-hw-app-backup-verify" ] || fail '缺少 mod-hw-app-backup-verify。'
 
 APP_MATCH=''
 APP_COUNT=0
@@ -51,11 +51,11 @@ done
 [ -d "$MATCH" ] && [ ! -L "$MATCH" ] || fail '目标数据容器路径不安全。'
 
 # Create and verify an archive before changing anything.
-BACKUP_OUTPUT="$(""$BIN_DIR/mod-hw-app-backup"" "$BUNDLE_ID")" || fail '自动备份失败；未清理数据。'
+BACKUP_OUTPUT="$("$BIN_DIR/mod-hw-app-backup" "$BUNDLE_ID")" || fail '自动备份失败；未清理数据。'
 ARCHIVE_PATH="$(printf '%s\n' "$BACKUP_OUTPUT" | sed -n 's/^应用数据容器备份完成：//p' | tail -n 1)"
 [ -n "$ARCHIVE_PATH" ] || fail '无法从备份工具结果中定位归档；未清理数据。'
 ARCHIVE_NAME="$(basename "$ARCHIVE_PATH")"
-"""$BIN_DIR/mod-hw-app-backup"-verify"" "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
+"$BIN_DIR/mod-hw-app-backup-verify" "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
 
 [ -d "$BACKUP_ROOT" ] && [ ! -L "$BACKUP_ROOT" ] || fail '备份目录不存在或不安全。'
 [ "$(/usr/bin/stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '备份目录必须由 root 拥有。'
