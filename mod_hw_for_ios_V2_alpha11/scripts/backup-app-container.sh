@@ -51,7 +51,7 @@ mkdir -p "$BACKUP_ROOT"
   echo '备份目录不是安全的普通目录。' >&2
   exit 7
 }
-BACKUP_OWNER="$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)"
+BACKUP_OWNER="$(/usr/bin/stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)"
 [ "$BACKUP_OWNER" = 0 ] || {
   echo '备份目录必须由 root 拥有。' >&2
   exit 7
