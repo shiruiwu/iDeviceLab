@@ -112,8 +112,10 @@ check("PreferenceBooleanIsTrue" in gestalt_source and "a == NULL" in gestalt_sou
 check("branchInstruction & 0xFC000000" in gestalt_source and
       "internalAddress" in gestalt_source and
       "Unsupported MGCopyAnswer thunk" in gestalt_source and
+      "MGSymbolReadable" in gestalt_source and "MGSymbolCallable" in gestalt_source and
+      "ptrauth_strip" in gestalt_source and "ptrauth_sign_unauthenticated" in gestalt_source and
       "mg_copy_answer_addr + 8" not in gestalt_source,
-      "ARM64 MGCopyAnswer hook decodes the real internal branch target and refuses unsupported unsafe thunks")
+      "ARM64e MGCopyAnswer hook decodes the internal branch target and handles PAC on readable/callable pointers")
 check('com.modhw.ios.profiles' in gestalt_source and 'bundleIdentifier' in gestalt_source and
       'rangeOfCharacterFromSet:invalidBundleChars' in gestalt_source and
       'per-app profile' in gestalt_source and 'global profile' in gestalt_source and
