@@ -222,32 +222,31 @@ static BOOL ManagerBundleIdentifierForPID(pid_t pid, NSString **bundleIdentifier
     return success;
 }
 
-static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSString *managerContainerPath, NSString **matchedBundleIdentifier) {
+static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSString *managerGroupContainerPath, NSString **matchedBundleIdentifier) {
     gManagerBridgeTokenFailureReason = @"invalid-header";
     if (![candidate isKindOfClass:NSString.class] || candidate.length != 64 || managerPID <= 1 ||
-        ![managerContainerPath isKindOfClass:NSString.class] || managerContainerPath.length == 0) return NO;
+        ![managerGroupContainerPath isKindOfClass:NSString.class] || managerGroupContainerPath.length == 0) return NO;
     NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
     if ([candidate rangeOfCharacterFromSet:invalid].location != NSNotFound) return NO;
 
-    // The Manager supplies only its own Application Support container path.
-    // Resolve it canonically and validate the live PID's Bundle ID before
-    // reading the token; never enumerate the protected global container root.
+    // The sandboxed Manager and mobile Core share this explicitly entitled
+    // App Group. Do not traverse another app's private data container.
     char resolved[PATH_MAX] = {0};
-    if (!realpath(managerContainerPath.fileSystemRepresentation, resolved)) {
-        gManagerBridgeTokenFailureReason = @"manager-data-container-unreadable";
+    if (!realpath(managerGroupContainerPath.fileSystemRepresentation, resolved)) {
+        gManagerBridgeTokenFailureReason = @"manager-app-group-unreadable";
         return NO;
     }
     NSString *container = [NSString stringWithUTF8String:resolved];
-    NSString *root = @"/var/mobile/Containers/Data/Application";
+    NSString *root = @"/var/mobile/Containers/Shared/AppGroup";
     char rootBuffer[PATH_MAX] = {0};
     if (!realpath(root.fileSystemRepresentation, rootBuffer)) {
-        gManagerBridgeTokenFailureReason = @"application-containers-unavailable";
+        gManagerBridgeTokenFailureReason = @"app-group-containers-unavailable";
         return NO;
     }
     NSString *rootResolved = [NSString stringWithUTF8String:rootBuffer];
     NSString *prefix = [rootResolved stringByAppendingString:@"/"];
     if (rootResolved.length == 0 || ![container hasPrefix:prefix]) {
-        gManagerBridgeTokenFailureReason = @"manager-data-container-invalid";
+        gManagerBridgeTokenFailureReason = @"manager-app-group-path-invalid";
         return NO;
     }
 
@@ -261,15 +260,14 @@ static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSS
     struct stat containerStat;
     if (stat(container.fileSystemRepresentation, &containerStat) != 0 ||
         !S_ISDIR(containerStat.st_mode) || containerStat.st_uid != mobile->pw_uid) {
-        gManagerBridgeTokenFailureReason = @"manager-data-container-unreadable";
+        gManagerBridgeTokenFailureReason = @"manager-app-group-unreadable";
         return NO;
     }
 
     NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
     NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
-    NSString *containerIdentifier = metadata[@"MCMMetadataIdentifier"];
-    if (![containerIdentifier isEqualToString:identifier]) {
-        gManagerBridgeTokenFailureReason = @"manager-container-bundle-id-mismatch";
+    if (![metadata[@"MCMMetadataIdentifier"] isEqualToString:@"group.com.idevelab.manager"]) {
+        gManagerBridgeTokenFailureReason = @"manager-app-group-identifier-mismatch";
         return NO;
     }
     NSString *tokenPath = [[container stringByAppendingPathComponent:@"Library/Application Support"] stringByAppendingPathComponent:@"idevelab-manager-bridge.token"];
@@ -297,7 +295,6 @@ static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSS
     if (matchedBundleIdentifier) *matchedBundleIdentifier = identifier;
     return YES;
 }
-
 static NSString *HTTPHeaderValue(NSArray<NSString *> *lines, NSString *headerName) {
     for (NSString *line in lines) {
         NSRange separator = [line rangeOfString:@":"];
@@ -367,9 +364,9 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSString
         if (![pid isKindOfClass:NSNumber.class] || pid.longLongValue <= 1 || pid.longLongValue > INT_MAX)
             return @{@"ok": @NO, @"error": @"缺少有效的 Manager 进程标识。"};
         NSString *authenticatedBundleIdentifier = nil;
-        NSString *managerContainer = request[@"managerContainer"];
-        if (!ManagerBridgeTokenMatches(bridgeToken, (pid_t)pid.intValue, managerContainer, &authenticatedBundleIdentifier)) {
-            return @{@"ok": @NO, @"error": [NSString stringWithFormat:@"Manager 私有通信凭据验证失败（%@），拒绝维护请求。", gManagerBridgeTokenFailureReason]};
+        NSString *managerGroupContainer = request[@"managerGroupContainer"];
+        if (!ManagerBridgeTokenMatches(bridgeToken, (pid_t)pid.intValue, managerGroupContainer, &authenticatedBundleIdentifier)) {
+            return @{@"ok": @NO, @"error": [NSString stringWithFormat:@"Manager 共享通信凭据验证失败（%@），拒绝维护请求。", gManagerBridgeTokenFailureReason]};
         }
         NSString *liveBundleIdentifier = nil;
         if (!ManagerBundleIdentifierForPID((pid_t)pid.intValue, &liveBundleIdentifier) ||
@@ -382,7 +379,7 @@ static NSDictionary *ProcessRequest(NSString *method, NSString *target, NSString
         return @{@"ok": @NO, @"error": @"method not allowed"};
     }
     if ([path isEqualToString:@"/status"]) {
-        return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.3.8-alpha11", @"port": @(kPort), @"mode": @"authenticated-manager-bridge"};
+        return @{@"ok": @YES, @"service": @"iDeviceLab Rootless Core", @"version": @"0.3.9-alpha11", @"port": @(kPort), @"mode": @"sandboxed-app-group-bridge"};
     }
     if ([path isEqualToString:@"/system"]) return SystemSummary();
     if ([path isEqualToString:@"/apps"]) return @{@"ok": @YES, @"apps": InstalledApplications()};
@@ -417,7 +414,7 @@ static void Reply(int fd, NSDictionary *payload, int status) {
 int main(void) {
     @autoreleasepool {
         signal(SIGPIPE, SIG_IGN);
-        fprintf(stderr, "[idevelab-core] starting version 0.3.8-alpha11 pid=%d uid=%d\n", getpid(), getuid());
+        fprintf(stderr, "[idevelab-core] starting version 0.3.9-alpha11 pid=%d uid=%d\n", getpid(), getuid());
         fflush(stderr);
         int server = socket(AF_INET, SOCK_STREAM, 0);
         if (server < 0) { fprintf(stderr, "[idevelab-core] socket failed errno=%d (%s)\n", errno, strerror(errno)); return 1; }
