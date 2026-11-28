@@ -94,7 +94,9 @@ jobs:
           sleep 12
           xcrun simctl io "$DEVICE_ID" screenshot build/diagnostics/manager-full-ui.png
           sleep 18
-          xcrun simctl spawn "$DEVICE_ID" kill -0 "$APP_PID"
+          # iOS Simulator runtimes may not expose the shell builtin `kill` as a spawnable executable.
+          # Use the simulator-provided ps binary to verify that the launched PID remains alive.
+          xcrun simctl spawn "$DEVICE_ID" /bin/ps -p "$APP_PID" -o pid= | grep -E "^[[:space:]]*$APP_PID$"
           echo "Manager remained running for at least 30 seconds (pid=$APP_PID)" | tee build/diagnostics/process-survival.txt
           # Capture runtime diagnostics while the app is still running, then stop it
           # only after the survival check has completed.
