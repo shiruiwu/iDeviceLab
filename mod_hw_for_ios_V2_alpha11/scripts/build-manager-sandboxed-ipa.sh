@@ -6,7 +6,7 @@ BUILD_DIR="$ROOT/build/manager-sandboxed"
 DERIVED="$BUILD_DIR/DerivedData"
 APP="$DERIVED/Build/Products/Release-iphoneos/ModHWManager.app"
 OUT="$ROOT/release"
-IPA="$OUT/mod_hw_manager_sandboxed_build17.ipa"
+IPA="$OUT/mod_hw_manager_sandboxed_build18.ipa"
 
 command -v xcodebuild >/dev/null 2>&1 || { echo "需要 macOS + Xcode。" >&2; exit 2; }
 command -v ldid >/dev/null 2>&1 || { echo "需要 ldid。" >&2; exit 3; }
@@ -15,7 +15,7 @@ rm -rf "$DERIVED" "$BUILD_DIR/Payload"
 rm -f "$IPA"
 
 xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme ModHWManager
-xcodebuild -project "$PROJECT" -scheme ModHWManager -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed CURRENT_PROJECT_VERSION=17 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ENABLE_BITCODE=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO build
+xcodebuild -project "$PROJECT" -scheme ModHWManager -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed CURRENT_PROJECT_VERSION=18 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ENABLE_BITCODE=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO build
 
 [[ -d "$APP" ]] || { echo "找不到 Manager.app。" >&2; exit 4; }
 PAYLOAD="$BUILD_DIR/Payload"
@@ -28,7 +28,9 @@ BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")"
 [[ "$BUNDLE_ID" == "com.modhw.manager.sandboxed" ]] || { echo "Bundle ID 不匹配：$BUNDLE_ID" >&2; exit 5; }
 file "$BINARY" | grep -q Mach-O
 lipo "$BINARY" -verify_arch arm64
-ldid -S "$BINARY"
+ENTITLEMENTS="$ROOT/manager/Sandboxed.entitlements"
+[[ -s "$ENTITLEMENTS" ]] || { echo "缺少 Manager App Group entitlements。" >&2; exit 6; }
+ldid -S"$ENTITLEMENTS" "$BINARY"
 ldid -e "$BINARY" > "$BUILD_DIR/embedded-entitlements.plist"
 if [[ -s "$BUILD_DIR/embedded-entitlements.plist" ]]; then
   python3 - "$BUILD_DIR/embedded-entitlements.plist" <<'PY'
