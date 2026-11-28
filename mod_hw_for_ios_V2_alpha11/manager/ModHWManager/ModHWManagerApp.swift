@@ -1213,10 +1213,17 @@ struct ContentView: View {
                     archive: archive.isEmpty ? nil : archive,
                     confirm: ["restore", "clean", "config-restore"].contains(action)
                 )
-                maintenanceResult = result.ok
-                    ? (result.output ?? "操作完成。")
-                    : (result.error ?? result.output ?? "操作失败，退出码：\(result.exitCode ?? -1)")
-                recordOperation(action, target: bundleID.isEmpty ? archive : bundleID, success: result.ok, detail: result.output ?? result.error ?? "")
+                let outputText = (result.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let errorText = (result.error ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                var detailParts: [String] = []
+                if !errorText.isEmpty { detailParts.append(errorText) }
+                if !outputText.isEmpty { detailParts.append(outputText) }
+                if detailParts.isEmpty {
+                    detailParts.append("Root Helper 返回退出码：\(result.exitCode ?? -1)，但没有提供标准输出或错误输出。")
+                }
+                let detail = detailParts.joined(separator: "\n")
+                maintenanceResult = result.ok ? detail : "操作失败：\n\(detail)"
+                recordOperation(action, target: bundleID.isEmpty ? archive : bundleID, success: result.ok, detail: detail)
                 if result.ok && ["backup", "restore", "clean"].contains(action) {
                     fetchBackups()
                 }
