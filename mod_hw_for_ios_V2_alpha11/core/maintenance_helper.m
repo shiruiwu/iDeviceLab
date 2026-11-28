@@ -508,6 +508,73 @@ static BOOL WriteSecureFile(NSString *path, NSData *data, gid_t mobileGID) {
            metadata.st_gid == mobileGID && (metadata.st_mode & 07777) == 0640;
 }
 
+static BOOL AddBundleToSubstrateFilter(NSString *bundleID, NSString **message) {
+    NSString *path = @"/var/jb/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist";
+    NSDictionary *root = [NSDictionary dictionaryWithContentsOfFile:path];
+    if (![root isKindOfClass:NSDictionary.class]) {
+        if (message) *message = @"无法读取 Hook 注入过滤配置文件。";
+        return NO;
+    }
+    NSMutableDictionary *updated = [root mutableCopy];
+    NSDictionary *filter = root[@"Filter"];
+    if (![filter isKindOfClass:NSDictionary.class]) {
+        if (message) *message = @"Hook 注入过滤配置缺少 Filter 字典。";
+        return NO;
+    }
+    NSMutableDictionary *updatedFilter = [filter mutableCopy];
+    NSArray *existing = filter[@"Bundles"];
+    if (![existing isKindOfClass:NSArray.class]) existing = @[];
+    NSMutableArray *bundles = [existing mutableCopy];
+    if (![bundles containsObject:bundleID]) [bundles addObject:bundleID];
+    updatedFilter[@"Bundles"] = bundles;
+    updated[@"Filter"] = updatedFilter;
+
+    NSError *error = nil;
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:updated
+                                                              format:NSPropertyListXMLFormat_v1_0
+                                                             options:0
+                                                               error:&error];
+    if (!data) {
+        if (message) *message = [NSString stringWithFormat:@"Hook 注入过滤配置序列化失败：%@", error.localizedDescription ?: @"未知错误"];
+        return NO;
+    }
+    struct stat oldStat;
+    if (lstat(path.fileSystemRepresentation, &oldStat) != 0 ||
+        !S_ISREG(oldStat.st_mode) || oldStat.st_uid != 0) {
+        if (message) *message = @"Hook 注入过滤配置文件权限或类型不安全。";
+        return NO;
+    }
+    NSString *temporary = [path stringByAppendingFormat:@".tmp.%d", getpid()];
+    int fd = open(temporary.fileSystemRepresentation, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0644);
+    if (fd < 0) {
+        if (message) *message = [NSString stringWithFormat:@"无法创建 Hook 过滤配置临时文件：%s", strerror(errno)];
+        return NO;
+    }
+    const uint8_t *bytes = data.bytes;
+    size_t offset = 0;
+    BOOL okay = YES;
+    while (offset < data.length) {
+        ssize_t count = write(fd, bytes + offset, data.length - offset);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) { okay = NO; break; }
+        offset += (size_t)count;
+    }
+    if (okay) okay = fchown(fd, 0, oldStat.st_gid) == 0 && fchmod(fd, oldStat.st_mode & 0777) == 0 && fsync(fd) == 0;
+    close(fd);
+    if (!okay || rename(temporary.fileSystemRepresentation, path.fileSystemRepresentation) != 0) {
+        unlink(temporary.fileSystemRepresentation);
+        if (message) *message = @"Hook 过滤配置原子写入失败。";
+        return NO;
+    }
+    NSDictionary *verified = [NSDictionary dictionaryWithContentsOfFile:path];
+    NSArray *verifiedBundles = [verified[@"Filter"] isKindOfClass:NSDictionary.class] ? verified[@"Filter"][@"Bundles"] : nil;
+    if (![verifiedBundles isKindOfClass:NSArray.class] || ![verifiedBundles containsObject:bundleID]) {
+        if (message) *message = @"Hook 过滤配置写入后回读校验失败。";
+        return NO;
+    }
+    return YES;
+}
+
 static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, BOOL global, NSString **message) {
     NSString *validationError = nil;
     if ((!global && !ValidBundleID(bundleID)) || !ValidateHookProfile(profile, &validationError)) {
@@ -577,14 +644,17 @@ static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, BOOL glo
         if (message) *message = @"Hook 配置原子写入失败；旧文件保持不变。";
         return NO;
     }
+    if (!global && !AddBundleToSubstrateFilter(bundleID, &validationError)) {
+        if (message) *message = validationError ?: @"Hook 注入目标登记失败。配置已保存，但尚未启用注入。";
+        return NO;
+    }
     if (message) {
         *message = backupPath
-            ? [NSString stringWithFormat:@"已应用%@ Hook 配置。旧配置备份：%@。请强制关闭并重新打开目标 App。", global ? @"全局" : [NSString stringWithFormat:@"App %@", bundleID], backupPath]
-            : [NSString stringWithFormat:@"已应用%@ Hook 配置。首次配置，无旧文件需要备份。请强制关闭并重新打开目标 App。", global ? @"全局" : [NSString stringWithFormat:@"App %@", bundleID]];
+            ? [NSString stringWithFormat:@"已应用%@ Hook 配置。目标已加入注入白名单；请强制关闭并重新打开目标 App。旧配置备份：%@。", global ? @"全局" : [NSString stringWithFormat:@"App %@", bundleID], backupPath]
+            : [NSString stringWithFormat:@"已应用%@ Hook 配置。目标已加入注入白名单；请强制关闭并重新打开目标 App。", global ? @"全局" : [NSString stringWithFormat:@"App %@", bundleID]];
     }
     return YES;
 }
-
 static NSDictionary *ExecuteRequest(NSDictionary *request) {
     NSString *action = request[@"action"];
     if (![action isKindOfClass:NSString.class]) return Failure(@"缺少操作类型。");
