@@ -405,7 +405,7 @@ if app_backup.is_file():
           "App-container backup selects one bundle ID, archives data, and records SHA-256")
     check("Keychain" in src and "App Groups" in src,
           "App-container backup documents excluded system-managed stores")
-    check('[ ! -L "$BACKUP_ROOT" ]' in src and 'BACKUP_OWNER="$(stat -f' in src and
+    check('[ ! -L "$BACKUP_ROOT" ]' in src and 'BACKUP_OWNER="$(/usr/bin/stat -f' in src and
           'chown root:mobile "$BACKUP_ROOT"' in src and 'chmod 0750 "$BACKUP_ROOT"' in src and
           'chmod 0640 "$TMP"' in src and 'chmod 0640 "$MANIFEST_TMP"' in src,
           "App-container backup keeps root-only writes while granting the mobile Core read-only inventory access")
