@@ -1587,7 +1587,39 @@ enum MaintenanceClient {
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw NSError(domain: "MaintenanceHelper", code: 6, userInfo: [NSLocalizedDescriptionKey: "Core 通信桥返回异常响应。"])
         }
-        return try JSONDecoder().decode(MaintenanceOperationResult.self, from: data)
+        let object: Any
+        do {
+            object = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+        } catch {
+            let body = String(data: data.prefix(512), encoding: .utf8) ?? "<non-UTF8 response>"
+            throw NSError(domain: "MaintenanceHelper", code: 10, userInfo: [
+                NSLocalizedDescriptionKey: "Core 返回内容不是有效 JSON：\(error.localizedDescription)。响应片段：\(body)"
+            ])
+        }
+        guard let payload = object as? [String: Any], let ok = payload["ok"] as? Bool else {
+            let body = String(data: data.prefix(512), encoding: .utf8) ?? "<non-UTF8 response>"
+            throw NSError(domain: "MaintenanceHelper", code: 11, userInfo: [
+                NSLocalizedDescriptionKey: "Core 响应缺少有效的 ok 字段或不是对象。响应片段：\(body)"
+            ])
+        }
+        func stringValue(_ key: String) -> String? {
+            guard let value = payload[key], !(value is NSNull) else { return nil }
+            return value as? String
+        }
+        func intValue(_ key: String) -> Int? {
+            guard let number = payload[key] as? NSNumber else { return nil }
+            return number.intValue
+        }
+        func boolValue(_ key: String) -> Bool? {
+            guard let number = payload[key] as? NSNumber else { return nil }
+            return number.boolValue
+        }
+        return MaintenanceOperationResult(
+            ok: ok, paired: boolValue("paired"), helper: stringValue("helper"),
+            action: stringValue("action"), exitCode: intValue("exitCode"),
+            output: stringValue("output"), error: stringValue("error"),
+            outputTruncated: boolValue("outputTruncated")
+        )
     }
 }
 
