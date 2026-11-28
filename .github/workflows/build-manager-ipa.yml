@@ -90,7 +90,7 @@ jobs:
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
           test "$BUNDLE_ID" = "com.modhw.manager.sandboxed"
-          test "$BUILD" = "18"
+          test "$BUILD" = "19"
           test "$MIN_OS" = "16.0"
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
           file "$APP/$EXECUTABLE" | grep -q Mach-O
@@ -104,7 +104,7 @@ jobs:
           assert not e.get("com.apple.private.security.no-sandbox",False),e
           assert not e.get("platform-application",False),e
           assert e.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],e
-          print("Sandboxed Build17 entitlements verified")
+          print("Sandboxed Build19 entitlements verified")
           PY
 
       - name: Upload runtime diagnostics
