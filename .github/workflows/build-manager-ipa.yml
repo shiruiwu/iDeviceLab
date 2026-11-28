@@ -57,9 +57,7 @@ jobs:
           test -d build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
 
       - name: Launch Release app and capture runtime diagnostics
-        if: false # Simulator smoke test is deferred; verify the sandboxed IPA and test on device.
         timeout-minutes: 8
-        continue-on-error: true
         run: |
           set -euo pipefail
           mkdir -p build/diagnostics
