@@ -20,6 +20,14 @@ ipa = (ROOT / "scripts/build-trollstore-ipa.sh").read_text()
 sandboxed_ipa = (ROOT / "scripts/build-manager-sandboxed-ipa.sh").read_text()
 sandboxed_entitlements_path = ROOT / "manager/Sandboxed.entitlements"
 sandboxed_entitlements = plistlib.loads(sandboxed_entitlements_path.read_bytes()) if sandboxed_entitlements_path.is_file() else {}
+trollstore_entitlements_path = ROOT / "manager/TrollStore.entitlements"
+trollstore_entitlements = plistlib.loads(trollstore_entitlements_path.read_bytes()) if trollstore_entitlements_path.is_file() else {}
+check(trollstore_entitlements.get("com.apple.private.security.no-sandbox") is True and
+      trollstore_entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],
+      "Production TrollStore Manager carries both no-sandbox and the Core-shared App Group entitlement")
+check("mod_hw_manager_trollstore_build20.ipa" in ipa and "CURRENT_PROJECT_VERSION=20" in ipa and
+      "com.apple.security.application-groups" in ipa and "group.com.idevelab.manager" in ipa,
+      "Production TrollStore IPA Build20 is built with the App Group required by Core authentication")
 check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa and
       "CURRENT_PROJECT_VERSION=19" in sandboxed_ipa and
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and
@@ -126,8 +134,21 @@ check('if (cf_device == nil || [cf_device count] == 0)' in gestalt_source and
       "Hook installation is skipped when the current process has no valid profile")
 check("length == 0" in gestalt_source and "(length % 2) != 0" in gestalt_source and "index / 2" in gestalt_source,
       "Generic hex decoder rejects null, odd-length, invalid, and oversized input")
+check("#import <Security/SecTask.h>" not in gestalt_source and
+      "CurrentApplicationIdentifier" in gestalt_source and
+      "SecTaskCreateFromSelf" in gestalt_source and "SecTaskCopyValueForEntitlement" in gestalt_source and
+      "dlsym" in gestalt_source,
+      "Keychain cleanup resolves SecTask entitlement APIs dynamically without an unavailable private SDK header")
+check("CFStringGetCStringPtr" not in gestalt_source and
+      "initWithUUIDString" in gestalt_source and
+      "advertisingIdentifier" in gestalt_source and "identifierForVendor" in gestalt_source,
+      "IDFA and IDFV overrides validate UUID strings without relying on nullable CFStringGetCStringPtr")
+check("HookerForMGCopyMultipleAnswers();" in gestalt_source and
+      "CFDictionaryCreateMutableCopy" in gestalt_source and
+      "CFArrayGetValueAtIndex" in gestalt_source,
+      "MobileGestalt multiple-answer requests apply the same configured overrides as MGCopyAnswer")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
-check("CURRENT_PROJECT_VERSION = 9;" in project, "Manager build number is 9")
+check("CURRENT_PROJECT_VERSION = 20;" in project, "Manager project build number is 20")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
 check("TabView" in manager and "homePage" in manager and "recordsPage" in manager and
       "settingsPage" in manager and "aboutPage" in manager and

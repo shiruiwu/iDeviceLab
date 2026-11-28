@@ -65,12 +65,35 @@ jobs:
       - name: Build unsigned TrollStore IPA
         run: bash scripts/build-trollstore-ipa.sh
 
-      - name: Verify IPA package
+      - name: Verify production TrollStore IPA Build20 and App Group bridge
         run: |
-          test -s release/mod_hw_manager_trollstore_build16.ipa
-          unzip -t release/mod_hw_manager_trollstore_build16.ipa
-          unzip -l release/mod_hw_manager_trollstore_build16.ipa | grep -E 'Payload/ModHWManager.app/Info.plist$'
-          unzip -l release/mod_hw_manager_trollstore_build16.ipa | grep -E 'Payload/ModHWManager.app/[^/]+$'
+          set -euo pipefail
+          IPA=release/mod_hw_manager_trollstore_build20.ipa
+          test -s "$IPA"
+          unzip -t "$IPA"
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+          unzip -q "$IPA" -d "$TMP"
+          APP="$TMP/Payload/ModHWManager.app"
+          test -s "$APP/Info.plist"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
+          MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
+          test "$BUNDLE_ID" = "com.modhw.manager"
+          test "$BUILD" = "20"
+          test "$MIN_OS" = "16.0"
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
+          file "$APP/$EXECUTABLE" | grep -q Mach-O
+          lipo "$APP/$EXECUTABLE" -verify_arch arm64
+          ldid -e "$APP/$EXECUTABLE" > "$TMP/production-entitlements.plist"
+          python3 - "$TMP/production-entitlements.plist" <<'PY'
+          import plistlib,sys
+          with open(sys.argv[1],"rb") as stream: e=plistlib.load(stream)
+          assert e.get("com.apple.private.security.no-sandbox") is True,e
+          assert e.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],e
+          assert not e.get("platform-application",False),e
+          print("TrollStore Build20 bundle, arm64 binary, no-sandbox and Core-shared App Group verified")
+          PY
 
       - name: Build rootless config and app-backup tools DEB
         run: bash scripts/build-diagnostics-deb.sh
@@ -175,9 +198,9 @@ jobs:
       - name: Upload IPA, Core, and diagnostics DEB artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-v2-final-safe-builds
+          name: mod-hw-v2-final-safe-builds-build20-app-group
           path: |
-            mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build16.ipa
+            mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build20.ipa
             mod_hw_for_ios_V2_alpha11/release/idevelab-core-alpha11.deb
             mod_hw_for_ios_V2_alpha11/release/mod_hw_for_ios_V2_diagnostics_FINAL.deb
           if-no-files-found: error

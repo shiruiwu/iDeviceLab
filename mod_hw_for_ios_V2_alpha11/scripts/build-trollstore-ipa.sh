@@ -8,7 +8,7 @@ DERIVED="$BUILD_DIR/DerivedData"
 PAYLOAD="$BUILD_DIR/Payload"
 APP="$DERIVED/Build/Products/Release-iphoneos/ModHWManager.app"
 OUT="$ROOT/release"
-IPA="$OUT/mod_hw_manager_trollstore_build16.ipa"
+IPA="$OUT/mod_hw_manager_trollstore_build20.ipa"
 if ! command -v xcodebuild >/dev/null 2>&1; then
   echo "错误：需要 macOS + Xcode（包含 iOS SDK）才能编译 IPA。" >&2
   exit 2
@@ -17,13 +17,13 @@ mkdir -p "$BUILD_DIR" "$OUT"
 rm -rf "$DERIVED" "$PAYLOAD"
 rm -f "$IPA"
 xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme "$SCHEME" -configuration Release
-xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ENABLE_BITCODE=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO build
+xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager CURRENT_PROJECT_VERSION=20 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ENABLE_BITCODE=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO build
 if [[ ! -d "$APP" ]]; then echo "找不到构建产物：$APP" >&2; exit 3; fi
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
-# Mark the UIKit-only startup isolation build 16.
-/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 16' "$INFO"
+# Mark the production TrollStore Manager build 20.
+/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 20' "$INFO"
 BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
 if ! command -v ldid >/dev/null 2>&1; then
@@ -42,8 +42,9 @@ import plistlib, sys
 with open(sys.argv[1], "rb") as stream:
     entitlements = plistlib.load(stream)
 assert entitlements.get("com.apple.private.security.no-sandbox") is True, entitlements
+assert entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"], entitlements
 assert not entitlements.get("platform-application", False), entitlements
-print("Manager entitlement verified: no-sandbox enabled; platform-application not granted")
+print("Manager entitlements verified: no-sandbox and shared App Group enabled; platform-application not granted")
 PY
 # Allow the manager to reach the jailbreak helper over loopback HTTP only.
 # NSAllowsLocalNetworking is narrower than allowing arbitrary cleartext traffic.

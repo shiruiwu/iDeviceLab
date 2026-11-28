@@ -229,7 +229,7 @@ static BOOL ManagerBridgeTokenMatches(NSString *candidate, pid_t managerPID, NSS
     NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
     if ([candidate rangeOfCharacterFromSet:invalid].location != NSNotFound) return NO;
 
-    // The sandboxed Manager and mobile Core share this explicitly entitled
+    // The Manager and mobile Core share this explicitly entitled
     // App Group. Do not traverse another app's private data container.
     char resolved[PATH_MAX] = {0};
     if (!realpath(managerGroupContainerPath.fileSystemRepresentation, resolved)) {

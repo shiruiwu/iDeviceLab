@@ -20,7 +20,6 @@
 
 #import <dlfcn.h>
 #import <Security/Security.h>
-#import <Security/SecTask.h>
 #include <stdint.h>
 #include <string.h>
 #if __arm64e__
@@ -648,9 +647,39 @@ static void HookerForMGCopyAnswer(){
 //////////////////////////////////////////////////////////
 static CFPropertyListRef (*HookMGCopyMultipleAnswers)(CFArrayRef questions, int unknown0);
 static CFPropertyListRef FnMGCopyMultipleAnswers(CFArrayRef questions, int unknown0){
-  CFTypeRef return_val = HookMGCopyMultipleAnswers(questions,unknown0);
-  NSLog(@"FnMGCopyMultipleAnswers:%@,%d return:%@",questions,unknown0,return_val);
-  return return_val;
+  CFPropertyListRef original = HookMGCopyMultipleAnswers(questions, unknown0);
+  if (original == NULL || questions == NULL ||
+      CFGetTypeID(original) != CFDictionaryGetTypeID() ||
+      CFGetTypeID(questions) != CFArrayGetTypeID()) {
+    return original;
+  }
+
+  CFMutableDictionaryRef modified = CFDictionaryCreateMutableCopy(
+      kCFAllocatorDefault, 0, (CFDictionaryRef)original);
+  if (modified == NULL) return original;
+
+  BOOL changed = NO;
+  CFIndex count = CFArrayGetCount(questions);
+  for (CFIndex index = 0; index < count; index++) {
+    CFTypeRef key = CFArrayGetValueAtIndex(questions, index);
+    if (key == NULL || CFGetTypeID(key) != CFStringGetTypeID()) continue;
+
+    CFTypeRef replacement = DeviceDataFilter(key, NULL);
+    if (replacement == NULL) continue;
+    CFTypeRef previous = CFDictionaryGetValue((CFDictionaryRef)original, key);
+    if (previous == NULL || !CFEqual(previous, replacement)) {
+      CFDictionarySetValue(modified, key, replacement);
+      changed = YES;
+    }
+    CFRelease(replacement);
+  }
+
+  if (!changed) {
+    CFRelease(modified);
+    return original;
+  }
+  CFRelease(original);
+  return modified;
 }
 
 static void MGCopyMultipleAnswersImpl(const void* ptr){
@@ -665,13 +694,17 @@ static void MGCopyMultipleAnswersImpl(const void* ptr){
 }
 
 static void HookerForMGCopyMultipleAnswers(){
-  // NSLog(@"%s-%d",__PRETTY_FUNCTION__,__LINE__);
-  const char* name = "_MGCopyMultipleAnswers";
-  const void* ptr = CallMSFindSymbol(NULL, name);
-  if (ptr!=NULL) {
-    // NSLog(@"_MGCopyMultipleAnswers found:%p",ptr);
+  const char *name = "_MGCopyMultipleAnswers";
+  MSImageRef image = CallMSGetImageByName("/usr/lib/libMobileGestalt.dylib");
+  void *library = dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_NOW);
+  const void *ptr = CallMSFindSymbol(image, name);
+  if (ptr == NULL && library != NULL) ptr = dlsym(library, name);
+  if (ptr == NULL) ptr = CallMSFindSymbol(NULL, name);
+  if (ptr == NULL && library != NULL) ptr = dlsym(library, "MGCopyMultipleAnswers");
+  if (ptr != NULL) {
     MGCopyMultipleAnswersImpl(ptr);
-    return;
+  } else {
+    NSLog(@"[mod_hw] MGCopyMultipleAnswers symbol unavailable; single-answer Hook remains active.");
   }
 }
 //////////////////////////////////////////////////////////
@@ -680,7 +713,7 @@ static void HookerForMGCopyMultipleAnswers(){
 void MobileGestaltHooker(){
   @autoreleasepool {
     HookerForMGCopyAnswer();
-    // HookerForMGCopyMultipleAnswers();
+    HookerForMGCopyMultipleAnswers();
   }
 }
 static char* MachineData = NULL;
@@ -818,16 +851,13 @@ void CTMobileEquipmentInfo_setMEID() {
 //////////////////////////////////////////////////////////
 CHDeclareClass(ASIdentifierManager);
 CHOptimizedMethod0(self, NSUUID*, ASIdentifierManager, advertisingIdentifier) {
-  static NSString* idfa = nil;
-  if (!idfa) {
-    CFStringRef idfa_s = (CFStringRef)[cf_device objectForKey:@"IDFA"];
-    if ((idfa_s==nil)||(CFStringGetLength(idfa_s)==0)) {
-      return CHSuper0(ASIdentifierManager, advertisingIdentifier);
-    }
-    idfa = @(CFStringGetCStringPtr(idfa_s, kCFStringEncodingUTF8));
+  NSString *configuredIDFA = [cf_device objectForKey:@"IDFA"];
+  if (![configuredIDFA isKindOfClass:[NSString class]] || configuredIDFA.length == 0) {
+    return CHSuper0(ASIdentifierManager, advertisingIdentifier);
   }
-  // NSLog(@"hook_idfa");
-  return [[NSUUID alloc] initWithUUIDString:[idfa copy]];
+  NSUUID *replacement = [[NSUUID alloc] initWithUUIDString:configuredIDFA];
+  if (replacement == nil) return CHSuper0(ASIdentifierManager, advertisingIdentifier);
+  return [replacement autorelease];
 }
 void HOOK_IDFA() {
   CHLoadLateClass(ASIdentifierManager);
@@ -838,16 +868,13 @@ void HOOK_IDFA() {
 //////////////////////////////////////////////////////////
 CHDeclareClass(UIDevice);
 CHOptimizedMethod0(self, NSUUID*, UIDevice, identifierForVendor) {
-  static NSString* idfv = nil;
-  if (!idfv) {
-    CFStringRef idfv_s = (CFStringRef)[cf_device objectForKey:@"IDFV"];
-    if ((idfv_s==nil)||(CFStringGetLength(idfv_s)==0)) {
-      return CHSuper0(UIDevice, identifierForVendor);
-    }
-    idfv = @(CFStringGetCStringPtr(idfv_s, kCFStringEncodingUTF8));
+  NSString *configuredIDFV = [cf_device objectForKey:@"IDFV"];
+  if (![configuredIDFV isKindOfClass:[NSString class]] || configuredIDFV.length == 0) {
+    return CHSuper0(UIDevice, identifierForVendor);
   }
-  // NSLog(@"hook_idfv");
-  return [[NSUUID alloc] initWithUUIDString:[idfv copy]];
+  NSUUID *replacement = [[NSUUID alloc] initWithUUIDString:configuredIDFV];
+  if (replacement == nil) return CHSuper0(UIDevice, identifierForVendor);
+  return [replacement autorelease];
 }
 void HOOK_IDFV() {
   CHLoadLateClass(UIDevice);
@@ -864,6 +891,37 @@ static BOOL IsValidKeychainCleanupRequestID(NSString *value) {
   if (![value isKindOfClass:NSString.class] || value.length != 32) return NO;
   NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
   return [value rangeOfCharacterFromSet:invalid].location == NSNotFound;
+}
+
+typedef CFTypeRef (*ModHWSecTaskCreateFromSelfFn)(CFAllocatorRef allocator);
+typedef CFTypeRef (*ModHWSecTaskCopyValueForEntitlementFn)(CFTypeRef task, CFStringRef entitlement, CFErrorRef *error);
+
+static NSString *CurrentApplicationIdentifier(void) {
+  static void *securityHandle = NULL;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    securityHandle = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_NOW | RTLD_LOCAL);
+  });
+
+  void *createAddress = securityHandle ? dlsym(securityHandle, "SecTaskCreateFromSelf") : NULL;
+  void *copyAddress = securityHandle ? dlsym(securityHandle, "SecTaskCopyValueForEntitlement") : NULL;
+  if (createAddress == NULL) createAddress = dlsym(RTLD_DEFAULT, "SecTaskCreateFromSelf");
+  if (copyAddress == NULL) copyAddress = dlsym(RTLD_DEFAULT, "SecTaskCopyValueForEntitlement");
+  if (createAddress == NULL || copyAddress == NULL) {
+    NSLog(@"[mod_hw] SecTask entitlement APIs are unavailable in this OS build.");
+    return nil;
+  }
+
+  ModHWSecTaskCreateFromSelfFn createTask = (ModHWSecTaskCreateFromSelfFn)createAddress;
+  ModHWSecTaskCopyValueForEntitlementFn copyEntitlement = (ModHWSecTaskCopyValueForEntitlementFn)copyAddress;
+  CFTypeRef task = createTask(kCFAllocatorDefault);
+  if (task == NULL) return nil;
+  CFTypeRef entitlement = copyEntitlement(task, CFSTR("application-identifier"), NULL);
+  CFRelease(task);
+  if (entitlement == NULL) return nil;
+
+  id value = CFBridgingRelease(entitlement);
+  return [value isKindOfClass:[NSString class]] ? value : nil;
 }
 
 static void ProcessPendingKeychainCleanup(void) {
@@ -890,12 +948,7 @@ static void ProcessPendingKeychainCleanup(void) {
     NSString *applicationIdentifier = nil;
     NSString *failureReason = nil;
 
-    SecTaskRef task = SecTaskCreateFromSelf(kCFAllocatorDefault);
-    if (task != NULL) {
-      CFTypeRef entitlement = SecTaskCopyValueForEntitlement(task, CFSTR("application-identifier"), NULL);
-      if (entitlement != NULL) applicationIdentifier = CFBridgingRelease(entitlement);
-      CFRelease(task);
-    }
+    applicationIdentifier = CurrentApplicationIdentifier();
     NSString *requiredSuffix = [@"." stringByAppendingString:bundleID];
     if (![applicationIdentifier isKindOfClass:NSString.class] ||
         applicationIdentifier.length <= requiredSuffix.length ||
