@@ -34,13 +34,13 @@ assert_package_field() {
   fi
 }
 assert_package_field "$TWEAK_PACKAGE" Package com.modhw.ios
-assert_package_field "$TWEAK_PACKAGE" Version '2.0.2~alpha11'
+assert_package_field "$TWEAK_PACKAGE" Version '2.0.3~alpha11'
 assert_package_field "$TWEAK_PACKAGE" Architecture iphoneos-arm64
 assert_package_field "$DIAGNOSTICS_PACKAGE" Package com.modhw.ios.diagnostics
 assert_package_field "$DIAGNOSTICS_PACKAGE" Version '2.0.0~final6'
 assert_package_field "$DIAGNOSTICS_PACKAGE" Architecture iphoneos-arm64
 assert_package_field "$CORE_PACKAGE" Package com.idevelab.core.alpha11
-assert_package_field "$CORE_PACKAGE" Version '0.3.9~alpha11'
+assert_package_field "$CORE_PACKAGE" Version '0.3.10~alpha11'
 assert_package_field "$CORE_PACKAGE" Architecture iphoneos-arm64
 
 rm -rf "$WORK"
@@ -122,7 +122,7 @@ grep -Fq 'Package payload is configured; service startup requires follow-up diag
 cat > "$PKG/DEBIAN/control" <<'EOF'
 Package: com.idevelab.fullsuite.alpha11
 Name: mod_hw_for_ios V2 + iDeviceLab Alpha11 Full Suite
-Version: 2.0.2~alpha11
+Version: 2.0.3~alpha11
 Architecture: iphoneos-arm64
 Description: Unified Rootless package containing the original mod_hw Hook, configuration and app-container maintenance tools, read-only Core, and authenticated Manager Root Helper.
 Maintainer: iDeviceLab contributors
@@ -136,7 +136,7 @@ EOF
 FULL_PACKAGE="$OUT/mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb"
 dpkg-deb --build --root-owner-group "$PKG" "$FULL_PACKAGE"
 assert_package_field "$FULL_PACKAGE" Package com.idevelab.fullsuite.alpha11
-assert_package_field "$FULL_PACKAGE" Version '2.0.2~alpha11'
+assert_package_field "$FULL_PACKAGE" Version '2.0.3~alpha11'
 assert_package_field "$FULL_PACKAGE" Architecture iphoneos-arm64
 assert_package_field "$FULL_PACKAGE" Depends 'firmware (>= 15.0), mobilesubstrate, coreutils'
 assert_package_field "$FULL_PACKAGE" Replaces 'com.modhw.ios, com.modhw.ios.diagnostics, com.idevelab.core.alpha11'
