@@ -163,7 +163,7 @@ check("mod-hw-maintenance" in package_builder and "maintenance-dispatch.sh" in p
 check('acceptance-iphone12' in manager and "运行 iPhone 12 / iOS 16.2 最终验收" in manager,
       "Manager exposes the final read-only iPhone 12 acceptance gate")
 check("MaintenanceClient.request" in manager and "managerPID" in manager and
-      "managerGroupContainer" in manager and "containerURL(forSecurityApplicationGroupIdentifier:)" in manager and
+      "managerGroupContainer" in manager and "containerURL(forSecurityApplicationGroupIdentifier:" in manager and
       "group.com.idevelab.manager" in manager and "127.0.0.1:18081/maintenance" in manager and
       "X-iDeviceLab-Manager-Token" in manager and "bridgeTokenName" in manager and
       "SecRandomCopyBytes" in manager and 'MaintenanceClient.request(action: "pair")' in manager and "func pairMaintenanceHelper()" in manager and
