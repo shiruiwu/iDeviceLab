@@ -407,6 +407,19 @@ if selftest.is_file():
           "Backup directory is root-owned and mobile-group traversable (0750)" in src and "Archive is root:mobile read-only (0640)" in src and "Manifest is root:mobile read-only (0640)" in src and
           "Core runs as mobile (unprivileged)" in src,
           "On-device self-test covers backup inventory endpoint and mobile-readable private backup storage")
+hook_filter = ROOT / "layout/Library/MobileSubstrate/DynamicLibraries/mod_hw_for_ios.plist"
+if hook_filter.is_file():
+    filter_plist = plistlib.loads(hook_filter.read_bytes())
+    filter_bundles = filter_plist.get("Filter", {}).get("Bundles", [])
+    helper_source = (ROOT / "core/maintenance_helper.m").read_text()
+    check("AddBundleToSubstrateFilter" in helper_source and
+          "mod_hw_for_ios.plist" in helper_source and
+          "updatedFilter[@\"Bundles\"] = bundles" in helper_source and
+          "verifiedBundles containsObject:bundleID" in helper_source,
+          "Per-app Hook application registers and verifies the target Bundle ID in the Substrate injection filter")
+    check("com.apple.UIKit" in filter_bundles and "com.apple.AuthKit" in filter_bundles,
+          "Substrate injection filter retains the original system targets")
+
 if app_cleanup.is_file():
     src = app_cleanup.read_text()
     check("mod-hw-app-backup" in src and "mod-hw-app-backup-verify" in src and "cleanup-snapshots" in src and "--confirm" in src and "tar -tvzf" in src,
