@@ -21,7 +21,7 @@ sandboxed_ipa = (ROOT / "scripts/build-manager-sandboxed-ipa.sh").read_text()
 sandboxed_entitlements_path = ROOT / "manager/Sandboxed.entitlements"
 sandboxed_entitlements = plistlib.loads(sandboxed_entitlements_path.read_bytes()) if sandboxed_entitlements_path.is_file() else {}
 check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa and
-      "CURRENT_PROJECT_VERSION=18" in sandboxed_ipa and
+      "CURRENT_PROJECT_VERSION=19" in sandboxed_ipa and
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and
       "NSAllowsLocalNetworking" in sandboxed_ipa and
       sandboxed_entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],
@@ -89,7 +89,7 @@ if core_daemon.is_file():
     check(daemon.get("ProgramArguments") == ["/var/jb/usr/libexec/idevelab-core"], "Alpha11 launchd starts the packaged Rootless Core binary")
     check(daemon.get("UserName") == "mobile" and daemon.get("GroupName") == "mobile", "Alpha11 Core runs as the unprivileged mobile user")
 
-check("Version: 2.0.2~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
+check("Version: 2.0.3~alpha11" in control, "Existing Alpha11 tweak package metadata retained")
 check("THEOS_PACKAGE_SCHEME = rootless" in makefile, "Rootless Theos package scheme")
 check("src/captain_hook/hook.mm" in makefile, "Original hook source remains in target")
 hook_util_source = (ROOT / "src/cydia_substrate_hook/HookUtil.m").read_text()
@@ -273,7 +273,7 @@ check((ROOT / "core/layout/DEBIAN/postrm").is_file() and
       "Core package has a helper shutdown and IPC cleanup post-removal hook")
 unified_builder_path = ROOT / "scripts/build-unified-deb.sh"
 unified_builder = unified_builder_path.read_text() if unified_builder_path.is_file() else ""
-check(unified_builder_path.is_file() and "dpkg-deb --build --root-owner-group" in unified_builder and "com.idevelab.fullsuite.alpha11" in unified_builder and "mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb" in unified_builder and 'Version \'0.3.9~alpha11\'' in unified_builder,
+check(unified_builder_path.is_file() and "dpkg-deb --build --root-owner-group" in unified_builder and "com.idevelab.fullsuite.alpha11" in unified_builder and "mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb" in unified_builder and 'Version \'0.3.10~alpha11\'' in unified_builder,
       "A self-contained unified Rootless DEB combines original tweak, diagnostics, Core, and Helper payloads")
 check("bash scripts/build-unified-deb.sh" in theos_workflow and "FULL_PACKAGE" in theos_workflow,
       "Theos workflow builds and verifies the unified full-suite DEB")
@@ -328,7 +328,7 @@ if core_source.is_file():
           "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
 
 
-    check('@"version": @"0.3.9-alpha11"' in core and 'version 0.3.9-alpha11 pid=' in core,
+    check('@"version": @"0.3.10-alpha11"' in core and 'version 0.3.10-alpha11 pid=' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
           'HasSecureBackupMetadata' in core and
@@ -382,7 +382,7 @@ check("com.idevelab.maintenance.alpha11" in selftest.read_text() and
 
 acceptance_script = ROOT / "scripts/acceptance-iphone12.sh"
 check(acceptance_script.is_file() and "com.idevelab.fullsuite.alpha11" in acceptance_script.read_text() and
-      "2.0.2~alpha11|iphoneos-arm64" in acceptance_script.read_text() and
+      "2.0.3~alpha11|iphoneos-arm64" in acceptance_script.read_text() and
       "APP_COUNT" in acceptance_script.read_text() and "CFBundleVersion" in acceptance_script.read_text() and
       "NSAllowsLocalNetworking" in acceptance_script.read_text() and "MinimumOSVersion" in acceptance_script.read_text() and
       "test ! -L" in acceptance_script.read_text() and "CFBundleExecutable" in acceptance_script.read_text() and
