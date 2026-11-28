@@ -35,6 +35,11 @@ if ! command -v ldid >/dev/null 2>&1; then
   fi
 fi
 [[ -f "$ENTITLEMENTS" ]] || { echo "缺少 TrollStore entitlements 文件。" >&2; exit 11; }
+# Allow the manager to reach the jailbreak helper over loopback HTTP only.
+# NSAllowsLocalNetworking is narrower than allowing arbitrary cleartext traffic.
+/usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' "$INFO" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true' "$INFO" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Set :NSAppTransportSecurity:NSAllowsLocalNetworking true' "$INFO"
+/usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsLocalNetworking' "$INFO" | grep -q true
 ldid -S"$ENTITLEMENTS" "$BINARY"
 ldid -e "$BINARY" > "$BUILD_DIR/embedded-entitlements.plist"
 python3 - "$BUILD_DIR/embedded-entitlements.plist" <<'PY'
