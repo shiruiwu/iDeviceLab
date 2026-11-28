@@ -715,6 +715,7 @@ static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, BOOL glo
             ? [NSString stringWithFormat:@"%@ Hook 配置文件已写入并通过回读校验，目标 Bundle ID 已加入 Substrate 过滤名单。此状态仅代表配置写入成功，不代表运行时 Hook 已加载；请先执行一次 Respring，再强制关闭并重新打开目标 App。旧配置备份：%@。", scopeLabel, backupPath]
             : [NSString stringWithFormat:@"%@ Hook 配置文件已写入并通过回读校验，目标 Bundle ID 已加入 Substrate 过滤名单。此状态仅代表配置写入成功，不代表运行时 Hook 已加载；请先执行一次 Respring，再强制关闭并重新打开目标 App。", scopeLabel];
     }
+    }
     return YES;
 }
 static NSDictionary *ExecuteRequest(NSDictionary *request) {
