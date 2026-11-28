@@ -49,7 +49,7 @@ jobs:
       - name: Verify the exact production TrollStore IPA artifact
         run: |
           set -euo pipefail
-          IPA=release/mod_hw_manager_trollstore_build21.ipa
+          IPA=release/mod_hw_manager_trollstore_build22.ipa
           test -s "$IPA"
           unzip -t "$IPA"
           TMP="$(mktemp -d)"
@@ -79,8 +79,8 @@ jobs:
       - name: Upload production TrollStore Manager IPA for real-device testing
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-trollstore-build21-static-verified
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build21.ipa
+          name: mod-hw-manager-trollstore-build22-static-verified
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build22.ipa
           if-no-files-found: error
           retention-days: 14
 
