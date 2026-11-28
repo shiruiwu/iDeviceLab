@@ -158,12 +158,13 @@ check("mod-hw-maintenance" in package_builder and "maintenance-dispatch.sh" in p
 check('acceptance-iphone12' in manager and "运行 iPhone 12 / iOS 16.2 最终验收" in manager,
       "Manager exposes the final read-only iPhone 12 acceptance gate")
 check("MaintenanceClient.request" in manager and "managerPID" in manager and
-      "127.0.0.1:18081/maintenance" in manager and
+      "managerGroupContainer" in manager and "containerURL(forSecurityApplicationGroupIdentifier:)" in manager and
+      "group.com.idevelab.manager" in manager and "127.0.0.1:18081/maintenance" in manager and
       "X-iDeviceLab-Manager-Token" in manager and "bridgeTokenName" in manager and
       "SecRandomCopyBytes" in manager and 'MaintenanceClient.request(action: "pair")' in manager and "func pairMaintenanceHelper()" in manager and
       "config-backup" in manager and "keychain-diagnose" in manager and "confirmationDialog" in manager and
-      "helperPaired" in manager and "performMaintenance" in manager,
-      "Manager authenticates to the Core bridge with a sandbox-private token and gates destructive actions behind explicit confirmation")
+      "helperPaired" in manager and "performMaintenance" in manager and "managerContainer" not in manager,
+      "Sandboxed Manager uses the explicitly entitled shared App Group token and gates destructive actions behind explicit confirmation")
 check("UIPasteboard.general.string = command" in manager,
       "Manager maintenance commands can be copied for execution in the jailbreak terminal")
 check('Picker("已安装应用", selection: $maintenanceBundleID)' in manager and
@@ -244,7 +245,7 @@ check((ROOT / "core/layout/DEBIAN/postrm").is_file() and
       "Core package has a helper shutdown and IPC cleanup post-removal hook")
 unified_builder_path = ROOT / "scripts/build-unified-deb.sh"
 unified_builder = unified_builder_path.read_text() if unified_builder_path.is_file() else ""
-check(unified_builder_path.is_file() and "dpkg-deb --build --root-owner-group" in unified_builder and "com.idevelab.fullsuite.alpha11" in unified_builder and "mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb" in unified_builder and 'Version \'0.3.8~alpha11\'' in unified_builder,
+check(unified_builder_path.is_file() and "dpkg-deb --build --root-owner-group" in unified_builder and "com.idevelab.fullsuite.alpha11" in unified_builder and "mod_hw_for_ios_V2_FULL_SUITE_ALPHA11.deb" in unified_builder and 'Version \'0.3.9~alpha11\'' in unified_builder,
       "A self-contained unified Rootless DEB combines original tweak, diagnostics, Core, and Helper payloads")
 check("bash scripts/build-unified-deb.sh" in theos_workflow and "FULL_PACKAGE" in theos_workflow,
       "Theos workflow builds and verifies the unified full-suite DEB")
@@ -277,12 +278,14 @@ if core_source.is_file():
     check('@"GET"' in core and 'ForwardMaintenanceRequest' in core and
           'com.idevelab.maintenance.sock' in core and '[path isEqualToString:@"/maintenance"]' in core and
           'ManagerBridgeTokenMatches' in core and 'MCMMetadataIdentifier' in core and
-          'managerContainer' in core and 'realpath(' in core and 'ManagerBundleIdentifierForPID' in core and
+          'managerGroupContainer' in core and 'Shared/AppGroup' in core and
+          'group.com.idevelab.manager' in core and 'realpath(' in core and 'ManagerBundleIdentifierForPID' in core and
           'authenticatedBundleIdentifier' in core and
-          '通信凭据与当前 Manager 进程不匹配' in core and
-          'X-iDeviceLab-Manager-Token' in core and
-          'application-containers-unreadable' not in core,
-          "Alpha11 Core validates only the requesting Manager PID's supplied own data container and verifies its private token before proxying to Root Helper")
+          '共享通信凭据验证失败' in core and
+          'X-iDeviceLab-Manager-Token' in core and 'managerContainer' not in core,
+          "Alpha11 Core validates the Manager App Group metadata and shared token before proxying to Root Helper")
+    check('@"mode": @"sandboxed-app-group-bridge"' in core,
+          "Core reports the sandbox-compatible shared App Group bridge mode")
     check("INADDR_LOOPBACK" in core and "kPort = 18081" in core,
           "Alpha11 Core binds only to loopback port 18081")
     check('@"tools"' in core and 'InstalledMaintenanceTools' in core and
@@ -297,7 +300,7 @@ if core_source.is_file():
           "Alpha11 Core reports only filenames and plist validity for installed per-app profiles")
 
 
-    check('@"version": @"0.3.8-alpha11"' in core and 'version 0.3.8-alpha11 pid=' in core,
+    check('@"version": @"0.3.9-alpha11"' in core and 'version 0.3.9-alpha11 pid=' in core,
           "Alpha11 Core status reports its own version")
     check('validHash' in core and 'invalidIdentity' in core and
           'HasSecureBackupMetadata' in core and
