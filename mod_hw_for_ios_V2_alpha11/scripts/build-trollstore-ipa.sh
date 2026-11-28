@@ -51,11 +51,7 @@ assert entitlements.get("com.apple.security.application-groups") == ["group.com.
 assert not entitlements.get("platform-application", False), entitlements
 print("Manager entitlements verified: no-sandbox and shared App Group enabled; platform-application not granted")
 PY
-# Allow the manager to reach the jailbreak helper over loopback HTTP only.
-# NSAllowsLocalNetworking is narrower than allowing arbitrary cleartext traffic.
-/usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity dict' "$INFO" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c 'Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true' "$INFO" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Set :NSAppTransportSecurity:NSAllowsLocalNetworking true' "$INFO"
-/usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsLocalNetworking' "$INFO" | grep -q true
+
 EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")"
 [[ "$BUNDLE_ID" == "com.modhw.manager" ]] || { echo "Bundle ID 不匹配：$BUNDLE_ID" >&2; exit 4; }
