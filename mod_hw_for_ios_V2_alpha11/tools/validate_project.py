@@ -25,9 +25,9 @@ trollstore_entitlements = plistlib.loads(trollstore_entitlements_path.read_bytes
 check(trollstore_entitlements.get("com.apple.private.security.no-sandbox") is True and
       trollstore_entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],
       "Production TrollStore Manager carries both no-sandbox and the Core-shared App Group entitlement")
-check("mod_hw_manager_trollstore_build21.ipa" in ipa and "CURRENT_PROJECT_VERSION=21" in ipa and
+check("mod_hw_manager_trollstore_build22.ipa" in ipa and "CURRENT_PROJECT_VERSION=22" in ipa and
       "com.apple.security.application-groups" in ipa and "group.com.idevelab.manager" in ipa,
-      "Production TrollStore IPA Build21 is built with the App Group required by Core authentication")
+      "Production TrollStore IPA Build22 is built with the App Group required by Core authentication")
 check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa and
       "CURRENT_PROJECT_VERSION=19" in sandboxed_ipa and
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and
