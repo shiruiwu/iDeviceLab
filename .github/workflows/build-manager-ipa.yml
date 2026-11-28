@@ -62,7 +62,7 @@ jobs:
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
           test "$BUNDLE_ID" = "com.modhw.manager"
-          test "$BUILD" = "21"
+          test "$BUILD" = "22"
           test "$MIN_OS" = "16.0"
           file "$APP/$EXECUTABLE" | grep -q Mach-O
           lipo "$APP/$EXECUTABLE" -verify_arch arm64

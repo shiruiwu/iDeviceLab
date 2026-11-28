@@ -115,8 +115,9 @@ done
 for hook in postinst prerm postrm; do
   sh -n "$PKG/DEBIAN/$hook" || { echo "Invalid shell syntax in lifecycle hook: $hook" >&2; exit 5; }
 done
-grep -Fq 'Package payload is configured; service startup requires follow-up diagnosis.' "$PKG/DEBIAN/postinst" || {
-  echo "postinst must keep daemon startup failures from interrupting dpkg configuration." >&2
+grep -Fq 'Package configuration completed, but service readiness is NOT confirmed.' "$PKG/DEBIAN/postinst" &&
+grep -Fq 'com.idevelab.core-readiness' "$PKG/DEBIAN/postinst" || {
+  echo "postinst must preserve dpkg configuration and persist an explicit service-readiness state." >&2
   exit 5
 }
 cat > "$PKG/DEBIAN/control" <<'EOF'

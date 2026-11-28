@@ -22,7 +22,7 @@ if [[ ! -d "$APP" ]]; then echo "找不到构建产物：$APP" >&2; exit 3; fi
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
-# Mark the production TrollStore Manager build 21.
+# Mark the production TrollStore Manager build 22.
 /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 22' "$INFO"
 BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 ENTITLEMENTS="$ROOT/manager/TrollStore.entitlements"
