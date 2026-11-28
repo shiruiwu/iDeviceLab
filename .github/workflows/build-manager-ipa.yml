@@ -75,10 +75,10 @@ jobs:
           log show --last 3m --style compact --predicate 'process == "ModHWManager"' > build/diagnostics/manager-runtime.log 2>&1 || true
           xcrun simctl spawn "$DEVICE_ID" launchctl list > build/diagnostics/launchctl-list.txt 2>&1 || true
 
-      - name: Verify sandboxed Manager Build18
+      - name: Verify sandboxed Manager Build19
         run: |
           set -euo pipefail
-          IPA=release/mod_hw_manager_sandboxed_build18.ipa
+          IPA=release/mod_hw_manager_sandboxed_build19.ipa
           test -s "$IPA"
           unzip -t "$IPA"
           TMP="$(mktemp -d)"
@@ -127,7 +127,7 @@ jobs:
       - name: Upload sandboxed full Manager diagnostic IPA
         uses: actions/upload-artifact@v4
         with:
-          name: mod-hw-manager-sandboxed-build18-app-group-bridge
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build18.ipa
+          name: mod-hw-manager-sandboxed-build19-app-group-bridge
+          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_sandboxed_build19.ipa
           if-no-files-found: error
           retention-days: 14
