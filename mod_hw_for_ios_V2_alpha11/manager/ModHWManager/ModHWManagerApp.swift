@@ -1539,7 +1539,7 @@ enum MaintenanceClient {
 
     private static func managerGroupContainerURL() throws -> URL {
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: managerAppGroupIdentifier) else {
-            throw NSError(domain: "MaintenanceHelper", code: 7, userInfo: [NSLocalizedDescriptionKey: "无法定位 Manager 共享通信目录，请通过 TrollStore 重新安装 Build18。"])
+            throw NSError(domain: "MaintenanceHelper", code: 7, userInfo: [NSLocalizedDescriptionKey: "无法定位 Manager 共享通信目录，请通过 TrollStore 重新安装 Build19。"])
         }
         return container.standardizedFileURL
     }
