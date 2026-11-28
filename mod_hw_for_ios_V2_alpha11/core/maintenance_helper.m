@@ -722,7 +722,7 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
     BOOL timedOut = NO, truncated = NO;
     int exitCode = RunFixedTool(path.fileSystemRepresentation, arguments, &output, &timedOut, &truncated);
     NSMutableDictionary *response = [@{
-        @"ok": @(exitCode == 0),
+        @"ok": (exitCode == 0 ? @YES : @NO),
         @"action": action,
         @"exitCode": @(exitCode),
         @"output": output
