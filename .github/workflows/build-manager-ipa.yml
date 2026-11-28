@@ -93,7 +93,7 @@ jobs:
       - name: Build Release iOS Simulator smoke-test app
         run: |
           set -euo pipefail
-          xcodebuild -project manager/ModHWManager.xcodeproj -scheme ModHWManager -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -project manager/ModHWManager.xcodeproj -scheme ModHWManager -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_ENTITLEMENTS=Sandboxed.entitlements build
           test -d build/simulator/Build/Products/Release-iphonesimulator/ModHWManager.app
 
       - name: Upload Manager diagnostic IPAs before simulator smoke test
@@ -156,8 +156,8 @@ jobs:
 
           # Keep CI bounded: process survival and the exact bridge token are
           # the relevant checks here; avoid dumping the Simulator's 100 MB system log.
-          printf '%s\\n' "Full system log capture skipped; Manager process and App Group token checks passed." > build/diagnostics/system-runtime.log
-          printf '%s\\n' "Manager launch and App Group token checks completed." > build/diagnostics/manager-runtime.log
+          echo "Full system log capture skipped; Manager process and App Group token checks passed." > build/diagnostics/system-runtime.log
+          echo "Manager launch and App Group token checks completed." > build/diagnostics/manager-runtime.log
           xcrun simctl terminate "$DEVICE_ID" com.modhw.manager || true
           xcrun simctl spawn "$DEVICE_ID" launchctl list > build/diagnostics/launchctl-list.txt 2>&1 || true
           mkdir -p build/diagnostics/crash-reports
