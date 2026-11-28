@@ -189,7 +189,7 @@ check("canExportPerAppProfile" in manager and '"UniqueDeviceID"' in manager and
       "Manager validates the Hook-required UDID and enabled MAC address fields before per-app export")
 check("PropertyListSerialization.propertyList" in manager, "Manager parses plist structure")
 check("字段值未展示" in manager, "Manager does not display plist values")
-check('http://127.0.0.1:18081/status' in manager and 'http://127.0.0.1:18081/apps' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "authenticated-manager-bridge"' in manager,
+check('http://127.0.0.1:18081/status' in manager and 'http://127.0.0.1:18081/apps' in manager and 'request.httpMethod = "GET"' in manager and 'payload["mode"] as? String == "sandboxed-app-group-bridge"' in manager,
       "Manager validates the authenticated Alpha11 Core bridge status response")
 check("POST to Core is rejected with HTTP 405" in (ROOT / "scripts/selftest-device.sh").read_text() and
       "for endpoint in system apps tools profiles backups" in (ROOT / "scripts/selftest-device.sh").read_text(),
