@@ -55,7 +55,7 @@ ARCHIVE_NAME="$(basename "$ARCHIVE_PATH")"
 "/var/jb/usr/bin/mod-hw-app-backup-verify" "$ARCHIVE_NAME" >/dev/null || fail '自动备份校验失败；未清理数据。'
 
 [ -d "$BACKUP_ROOT" ] && [ ! -L "$BACKUP_ROOT" ] || fail '备份目录不存在或不安全。'
-[ "$(stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '备份目录必须由 root 拥有。'
+[ "$(/usr/bin/stat -f '%u' "$BACKUP_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '备份目录必须由 root 拥有。'
 chown root:mobile "$BACKUP_ROOT"
 chmod 0750 "$BACKUP_ROOT"
 DETAIL_LIST="$(mktemp "$BACKUP_ROOT/.cleanup-archive-list.XXXXXX")" || fail '无法创建归档检查临时文件。'
@@ -105,7 +105,7 @@ STAMP="$(date '+%Y%m%d-%H%M%S')"
 if [ -L "$SNAPSHOT_ROOT" ]; then fail '清理快照目录不能是符号链接。'; fi
 mkdir -p "$SNAPSHOT_ROOT"
 [ -d "$SNAPSHOT_ROOT" ] && [ ! -L "$SNAPSHOT_ROOT" ] || fail '清理快照目录不安全。'
-[ "$(stat -f '%u' "$SNAPSHOT_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '清理快照目录必须由 root 拥有。'
+[ "$(/usr/bin/stat -f '%u' "$SNAPSHOT_ROOT" 2>/dev/null || echo invalid)" = 0 ] || fail '清理快照目录必须由 root 拥有。'
 chmod 0700 "$SNAPSHOT_ROOT"
 SNAPSHOT="$SNAPSHOT_ROOT/$BUNDLE_ID.$STAMP.pid-$$"
 mkdir "$SNAPSHOT" || fail '无法创建唯一的清理前快照目录。'
