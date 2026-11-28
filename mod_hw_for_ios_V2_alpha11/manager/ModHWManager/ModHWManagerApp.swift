@@ -1669,7 +1669,7 @@ enum MaintenanceClient {
             ok: ok, paired: boolValue("paired"), helper: stringValue("helper"),
             action: stringValue("action"), exitCode: intValue("exitCode"),
             output: stringValue("output"), error: stringValue("error"),
-            outputTruncated: boolValue("outputTruncated")
+            outputTruncated: boolValue("outputTruncated"), pending: boolValue("pending")
         )
     }
 }

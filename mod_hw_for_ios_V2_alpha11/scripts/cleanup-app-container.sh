@@ -132,7 +132,7 @@ mkdir -p "$CACHE_DIR" || fail '无法创建目标 App 的 Keychain 清理任务�
 chown mobile:mobile "$MATCH/Library" "$CACHE_DIR" || fail '无法设置 Keychain 清理任务目录权限；已触发自动回滚。'
 chmod 0700 "$MATCH/Library" "$CACHE_DIR" || fail '无法设置 Keychain 清理任务目录模式；已触发自动回滚。'
 REQUEST_ID="$(/usr/bin/od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
-[ "\${#REQUEST_ID}" -eq 32 ] || fail '无法生成 Keychain 清理任务编号；已触发自动回滚。'
+[ "${#REQUEST_ID}" -eq 32 ] || fail '无法生成 Keychain 清理任务编号；已触发自动回滚。'
 REQUEST_PATH="$CACHE_DIR/.modhw-keychain-clean.request.plist"
 RESULT_PATH="$CACHE_DIR/.modhw-keychain-clean.result.plist"
 REQUEST_TMP="$REQUEST_PATH.tmp.$"
