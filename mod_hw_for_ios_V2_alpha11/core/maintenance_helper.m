@@ -575,6 +575,62 @@ static BOOL AddBundleToSubstrateFilter(NSString *bundleID, NSString **message) {
     return YES;
 }
 
+static NSString *FindUniqueAppContainer(NSString *bundleID) {
+    NSString *root = @"/var/mobile/Containers/Data/Application";
+    NSArray *entries = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    NSString *match = nil;
+    NSUInteger count = 0;
+    for (NSString *entry in entries) {
+        if ([entry hasPrefix:@"."] || [entry containsString:@"/"] || [entry containsString:@".."]) continue;
+        NSString *container = [root stringByAppendingPathComponent:entry];
+        struct stat containerStat;
+        if (lstat(container.fileSystemRepresentation, &containerStat) != 0 ||
+            !S_ISDIR(containerStat.st_mode)) continue;
+        NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
+        struct stat metadataStat;
+        if (lstat(metadataPath.fileSystemRepresentation, &metadataStat) != 0 ||
+            !S_ISREG(metadataStat.st_mode)) continue;
+        NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
+        if ([metadata[@"MCMMetadataIdentifier"] isEqualToString:bundleID]) {
+            match = container;
+            count++;
+        }
+    }
+    return count == 1 ? match : nil;
+}
+
+static NSDictionary *KeychainCleanupStatus(NSString *bundleID) {
+    if (!ValidBundleID(bundleID)) return Failure(@"Bundle ID 格式无效。");
+    NSString *container = FindUniqueAppContainer(bundleID);
+    if (!container) return Failure(@"无法唯一定位目标 App 数据容器，不能读取 Keychain 清理状态。");
+    NSString *cache = [[container stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Caches"];
+    NSString *requestPath = [cache stringByAppendingPathComponent:@".modhw-keychain-clean.request.plist"];
+    NSString *resultPath = [cache stringByAppendingPathComponent:@".modhw-keychain-clean.result.plist"];
+    struct stat metadata;
+    if (lstat(resultPath.fileSystemRepresentation, &metadata) == 0) {
+        if (!S_ISREG(metadata.st_mode)) return Failure(@"Keychain 清理结果文件类型不安全。");
+        NSDictionary *result = [NSDictionary dictionaryWithContentsOfFile:resultPath];
+        if (![result isKindOfClass:NSDictionary.class] ||
+            ![result[@"bundleIdentifier"] isEqualToString:bundleID]) {
+            return Failure(@"Keychain 清理结果与目标 App 不匹配。");
+        }
+        BOOL success = [result[@"success"] respondsToSelector:@selector(boolValue)] &&
+                       [result[@"success"] boolValue];
+        NSString *output = [NSString stringWithFormat:@"Keychain 清理%@。\n范围：%@\n逐类结果：%@",
+                            success ? @"成功" : @"失败",
+                            result[@"scope"] ?: @"未知",
+                            result[@"items"] ?: @[]];
+        if (result[@"error"]) output = [output stringByAppendingFormat:@"\n错误：%@", result[@"error"]];
+        unlink(resultPath.fileSystemRepresentation);
+        return @{@"ok": @(success), @"pending": @NO, @"action": @"keychain-clean-status", @"output": output};
+    }
+    if (lstat(requestPath.fileSystemRepresentation, &metadata) == 0 && S_ISREG(metadata.st_mode)) {
+        return @{@"ok": @YES, @"pending": @YES, @"action": @"keychain-clean-status",
+                 @"output": @"Keychain 清理任务仍在等待目标 App 启动。请打开目标 App 一次，再返回管理器检查结果。"};
+    }
+    return Failure(@"没有待处理或已完成的 Keychain 清理任务。请先执行一次深度清理。");
+}
+
 static BOOL ApplyHookProfile(NSString *bundleID, NSDictionary *profile, BOOL global, NSString **message) {
     NSString *validationError = nil;
     if ((!global && !ValidBundleID(bundleID)) || !ValidateHookProfile(profile, &validationError)) {
@@ -662,6 +718,9 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
     if ([action isEqualToString:@"status"]) {
         return @{@"ok": @YES, @"paired": @NO, @"helper": @"Alpha11 Maintenance Helper"};
     }
+    if ([action isEqualToString:@"keychain-clean-status"]) {
+        return KeychainCleanupStatus(request[@"bundleID"]);
+    }
 
     BOOL isGlobalProfile = [action isEqualToString:@"apply-global-profile"];
     if (isGlobalProfile || [action isEqualToString:@"apply-profile"]) {
@@ -696,6 +755,9 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
     } else if ([action isEqualToString:@"clean"]) {
         if (!ValidBundleID(bundleID) || !confirm)
             return Failure(@"清理必须提供有效 Bundle ID 和明确确认。");
+        NSString *filterError = nil;
+        if (!AddBundleToSubstrateFilter(bundleID, &filterError))
+            return Failure(filterError ?: @"无法将目标 App 加入 Hook 注入名单，未执行清理。");
         path = @"/var/jb/usr/bin/mod-hw-app-clean";
         [arguments addObjectsFromArray:@[bundleID, @"--confirm"]];
     } else if ([action isEqualToString:@"config-backup"]) {
@@ -714,7 +776,7 @@ static NSDictionary *ExecuteRequest(NSDictionary *request) {
     } else if ([action isEqualToString:@"acceptance-iphone12"]) {
         path = @"/var/jb/usr/bin/mod-hw-acceptance-iphone12";
     } else {
-        return Failure(@"只允许 status、backup、verify、restore、clean、config-backup、config-restore、keychain-diagnose、diagnose-config、selftest、acceptance-iphone12。");
+        return Failure(@"只允许 status、backup、verify、restore、clean、config-backup、config-restore、keychain-diagnose、diagnose-config、selftest、acceptance-iphone12、keychain-clean-status。");
     }
 
     if (access(path.fileSystemRepresentation, X_OK) != 0) return Failure(@"维护脚本未安装或不可执行。");

@@ -19,6 +19,8 @@
 // 苹果设备的UDID是由IMEI号（iPad、iPod为ECID）、序列号、WiFi地址、蓝牙地址这四项生成的，所以如果爱思验机里面提示五码匹配为“否”，则说明此设备这五项最少有一项是被修改过的。
 
 #import <dlfcn.h>
+#import <Security/Security.h>
+#import <Security/SecTask.h>
 #include <stdint.h>
 #include <string.h>
 #if __arm64e__
@@ -851,11 +853,110 @@ void HOOK_IDFV() {
   CHLoadLateClass(UIDevice);
   CHClassHook0(UIDevice, identifierForVendor);
 }
+static BOOL IsValidKeychainCleanupBundleID(NSString *value) {
+  if (![value isKindOfClass:NSString.class] || value.length == 0 || value.length > 255) return NO;
+  NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"] invertedSet];
+  return [value rangeOfCharacterFromSet:invalid].location == NSNotFound &&
+         ![value hasPrefix:@"."] && ![value hasSuffix:@"."] && ![value containsString:@".."];
+}
+
+static BOOL IsValidKeychainCleanupRequestID(NSString *value) {
+  if (![value isKindOfClass:NSString.class] || value.length != 32) return NO;
+  NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"] invertedSet];
+  return [value rangeOfCharacterFromSet:invalid].location == NSNotFound;
+}
+
+static void ProcessPendingKeychainCleanup(void) {
+  @autoreleasepool {
+    NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+    if (!IsValidKeychainCleanupBundleID(bundleID)) return;
+
+    NSString *cacheDirectory = [[NSHomeDirectory() stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Caches"];
+    NSString *requestPath = [cacheDirectory stringByAppendingPathComponent:@".modhw-keychain-clean.request.plist"];
+    NSString *resultPath = [cacheDirectory stringByAppendingPathComponent:@".modhw-keychain-clean.result.plist"];
+    struct stat requestStat;
+    if (lstat(requestPath.fileSystemRepresentation, &requestStat) != 0 ||
+        !S_ISREG(requestStat.st_mode) || requestStat.st_uid != getuid() ||
+        (requestStat.st_mode & 0777) != 0600) return;
+
+    NSDictionary *request = [NSDictionary dictionaryWithContentsOfFile:requestPath];
+    if (![request isKindOfClass:NSDictionary.class] ||
+        ![request[@"bundleIdentifier"] isEqualToString:bundleID]) return;
+    NSString *requestID = request[@"requestID"];
+    if (!IsValidKeychainCleanupRequestID(requestID)) return;
+
+    NSMutableArray *itemResults = [NSMutableArray array];
+    BOOL overallSuccess = YES;
+    NSString *applicationIdentifier = nil;
+    NSString *failureReason = nil;
+
+    SecTaskRef task = SecTaskCreateFromSelf(kCFAllocatorDefault);
+    if (task != NULL) {
+      CFTypeRef entitlement = SecTaskCopyValueForEntitlement(task, CFSTR("application-identifier"), NULL);
+      if (entitlement != NULL) applicationIdentifier = CFBridgingRelease(entitlement);
+      CFRelease(task);
+    }
+    NSString *requiredSuffix = [@"." stringByAppendingString:bundleID];
+    if (![applicationIdentifier isKindOfClass:NSString.class] ||
+        applicationIdentifier.length <= requiredSuffix.length ||
+        ![applicationIdentifier hasSuffix:requiredSuffix]) {
+      overallSuccess = NO;
+      failureReason = @"无法读取或验证目标 App 的 application-identifier Entitlement。";
+    } else {
+      NSArray *classes = @[
+        @{@"name": @"generic-password", @"class": (__bridge id)kSecClassGenericPassword},
+        @{@"name": @"internet-password", @"class": (__bridge id)kSecClassInternetPassword},
+        @{@"name": @"certificate", @"class": (__bridge id)kSecClassCertificate},
+        @{@"name": @"key", @"class": (__bridge id)kSecClassKey},
+        @{@"name": @"identity", @"class": (__bridge id)kSecClassIdentity}
+      ];
+      for (NSDictionary *entry in classes) {
+        NSDictionary *query = @{
+          (__bridge id)kSecClass: entry[@"class"],
+          (__bridge id)kSecAttrAccessGroup: applicationIdentifier,
+          (__bridge id)kSecAttrSynchronizable: @NO
+        };
+        OSStatus status = SecItemDelete((__bridge CFDictionaryRef)query);
+        BOOL okay = status == errSecSuccess || status == errSecItemNotFound;
+        if (!okay) overallSuccess = NO;
+        [itemResults addObject:@{
+          @"class": entry[@"name"],
+          @"status": @(status),
+          @"success": @(okay)
+        }];
+      }
+    }
+
+    NSMutableDictionary *result = [@{
+      @"bundleIdentifier": bundleID,
+      @"requestID": requestID,
+      @"success": @(overallSuccess),
+      @"applicationIdentifier": applicationIdentifier ?: @"",
+      @"scope": @"private application-identifier group; local non-synchronizable items only",
+      @"items": itemResults,
+      @"completedAt": [NSDate date]
+    } mutableCopy];
+    if (failureReason) result[@"error"] = failureReason;
+
+    BOOL saved = [result writeToFile:resultPath atomically:YES];
+    if (saved) {
+      [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions: @0600}
+                                       ofItemAtPath:resultPath error:nil];
+      unlink(requestPath.fileSystemRepresentation);
+      NSLog(@"[mod_hw] Keychain cleanup %@ for %@ (private app-ID group only).",
+            overallSuccess ? @"completed" : @"failed", bundleID);
+    } else {
+      NSLog(@"[mod_hw] Keychain cleanup result could not be saved for %@.", bundleID);
+    }
+  }
+}
+
 //////////////////////////////////////////////////////////
 //_MSInitialize
 //////////////////////////////////////////////////////////
 // UIKit processes are admitted by the Substrate filter, but only processes with a valid profile install hooks.
 __attribute__((__constructor__)) static void _MSInitialize(void) {
+  ProcessPendingKeychainCleanup();
   initPrefFile();
   if (cf_device == nil || [cf_device count] == 0) {
     NSLog(@"[mod_hw] No valid profile for this process; skipping Hook installation.");

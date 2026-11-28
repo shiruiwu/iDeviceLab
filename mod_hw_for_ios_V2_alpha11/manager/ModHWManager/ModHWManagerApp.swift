@@ -625,7 +625,7 @@ struct ContentView: View {
                             Label("清理前自动备份并校验 SHA-256", systemImage: "checkmark.shield.fill").foregroundStyle(.blue)
                             Label("失败时从清理前快照自动回滚", systemImage: "arrow.uturn.backward.circle.fill").foregroundStyle(.blue)
                             Divider()
-                            Text("Keychain、App Groups、共享容器、系统数据库和服务端数据不在清理范围内。此功能不能等同于刷机或承诺完全无痕。")
+                            Text("Keychain 将在目标 App 下次启动时清理其私有 application-identifier 访问组的本机条目；共享 Keychain 组、iCloud 同步条目、App Groups、共享容器及服务端数据仍不清理。此功能不能等同于刷机。")
                                 .font(.footnote).foregroundStyle(.secondary)
                             Button(maintenanceRunning ? "正在清理…" : "立即清理") {
                                 pendingMaintenanceAction = "clean"
@@ -635,6 +635,10 @@ struct ContentView: View {
                             .tint(.purple)
                             .frame(maxWidth: .infinity)
                             .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
+                            Button("检查 Keychain 清理结果") { checkKeychainCleanupStatus() }
+                                .buttonStyle(.bordered)
+                                .frame(maxWidth: .infinity)
+                                .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
                         }
                     }
                     if !maintenanceResult.isEmpty {
@@ -653,7 +657,7 @@ struct ContentView: View {
             Button("确认清理并自动备份", role: .destructive) { performMaintenance("clean") }
             Button("取消", role: .cancel) { pendingMaintenanceAction = nil }
         } message: {
-            Text("此操作将清空所选应用的整个本地数据容器。请先完全退出目标应用。")
+            Text("此操作将清空所选应用的本地数据容器，并在目标 App 下次启动时删除其私有 Keychain 访问组中的本机条目。Keychain 不包含在本地备份内，删除后无法通过本工具还原；共享组和 iCloud 同步条目不会删除。请先完全退出目标应用。")
         }
         .navigationTitle("清理中心")
         .navigationBarTitleDisplayMode(.inline)
@@ -1007,6 +1011,8 @@ struct ContentView: View {
                     .disabled(!helperPaired || maintenanceRunning)
                 Button("诊断所选应用的 Keychain 权限声明") { performMaintenance("keychain-diagnose") }
                     .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
+                Button("检查所选应用的 Keychain 清理结果") { checkKeychainCleanupStatus() }
+                    .disabled(!helperPaired || maintenanceRunning || maintenanceBundleID.isEmpty)
                 Button("运行只读设备自检") { performMaintenance("selftest") }
                     .disabled(!helperPaired || maintenanceRunning)
                 Button("运行 iPhone 12 / iOS 16.2 最终验收") { performMaintenance("acceptance-iphone12") }
@@ -1230,6 +1236,9 @@ struct ContentView: View {
                 }
                 let detail = detailParts.joined(separator: "\n")
                 maintenanceResult = result.ok ? detail : "操作失败：\n\(detail)"
+                if action == "clean" && result.ok {
+                    maintenanceResult += "\n\n钥匙串清理任务已排队。请打开目标 App 一次，返回管理器后点击“检查 Keychain 清理结果”。"
+                }
                 recordOperation(action, target: bundleID.isEmpty ? archive : bundleID, success: result.ok, detail: detail)
                 if result.ok && ["backup", "restore", "clean"].contains(action) {
                     fetchBackups()
@@ -1239,6 +1248,33 @@ struct ContentView: View {
                 maintenanceResult = "操作失败：\(error.localizedDescription)"
                 recordOperation(action, target: bundleID.isEmpty ? archive : bundleID, success: false, detail: error.localizedDescription)
                 checkMaintenanceHelper()
+            }
+        }
+    }
+
+    private func checkKeychainCleanupStatus() {
+        let bundleID = maintenanceBundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !bundleID.isEmpty else {
+            maintenanceResult = "请先选择或填写目标应用的 Bundle ID。"
+            return
+        }
+        maintenanceRunning = true
+        Task {
+            defer { maintenanceRunning = false }
+            do {
+                let result = try await MaintenanceClient.request(action: "keychain-clean-status", bundleID: bundleID)
+                let detail = result.output ?? result.error ?? "Root Helper 未返回详细结果。"
+                if result.pending == true {
+                    maintenanceResult = "Keychain 清理尚未执行：请打开目标 App 一次，再返回此页检查。\n\(detail)"
+                } else {
+                    maintenanceResult = result.ok ? "Keychain 清理完成：\n\(detail)" : "Keychain 清理失败：\n\(detail)"
+                }
+                recordOperation("keychain-clean-status", target: bundleID,
+                                success: result.ok && result.pending != true, detail: detail)
+            } catch {
+                maintenanceResult = "读取 Keychain 清理状态失败：\(error.localizedDescription)"
+                recordOperation("keychain-clean-status", target: bundleID, success: false,
+                                detail: error.localizedDescription)
             }
         }
     }
@@ -1532,6 +1568,7 @@ struct MaintenanceOperationResult: Decodable {
     let output: String?
     let error: String?
     let outputTruncated: Bool?
+    let pending: Bool?
 }
 
 enum MaintenanceClient {

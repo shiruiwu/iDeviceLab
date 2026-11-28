@@ -122,8 +122,38 @@ CURRENT_ID="$(plutil -extract MCMMetadataIdentifier raw -o - "$MATCH/.com.apple.
 REMAINING="$(find "$MATCH" -mindepth 1 -maxdepth 1 ! -name '.com.apple.mobile_container_manager.metadata.plist' -print -quit)" || fail '清理结果目录检查失败；已触发自动回滚。'
 [ -z "$REMAINING" ] || fail '清理后仍有未删除项目；已触发自动回滚。'
 
+# Queue Keychain cleanup for execution inside the target app process. This is
+# deliberately limited to the app's private application-identifier access group;
+# shared groups and iCloud-synchronizable items are excluded.
+CACHE_DIR="$MATCH/Library/Caches"
+mkdir -p "$CACHE_DIR" || fail '无法创建目标 App 的 Keychain 清理任务目录；已触发自动回滚。'
+[ -d "$MATCH/Library" ] && [ ! -L "$MATCH/Library" ] || fail 'Library 目录不安全；已触发自动回滚。'
+[ -d "$CACHE_DIR" ] && [ ! -L "$CACHE_DIR" ] || fail 'Caches 目录不安全；已触发自动回滚。'
+chown mobile:mobile "$MATCH/Library" "$CACHE_DIR" || fail '无法设置 Keychain 清理任务目录权限；已触发自动回滚。'
+chmod 0700 "$MATCH/Library" "$CACHE_DIR" || fail '无法设置 Keychain 清理任务目录模式；已触发自动回滚。'
+REQUEST_ID="$(/usr/bin/od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+[ "\${#REQUEST_ID}" -eq 32 ] || fail '无法生成 Keychain 清理任务编号；已触发自动回滚。'
+REQUEST_PATH="$CACHE_DIR/.modhw-keychain-clean.request.plist"
+RESULT_PATH="$CACHE_DIR/.modhw-keychain-clean.result.plist"
+REQUEST_TMP="$REQUEST_PATH.tmp.$"
+rm -f "$REQUEST_PATH" "$RESULT_PATH" "$REQUEST_TMP"
+umask 077
+cat > "$REQUEST_TMP" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>bundleIdentifier</key><string>$BUNDLE_ID</string>
+<key>requestID</key><string>$REQUEST_ID</string>
+</dict></plist>
+EOF
+chown mobile:mobile "$REQUEST_TMP" || fail '无法设置 Keychain 清理任务所有者；已触发自动回滚。'
+chmod 0600 "$REQUEST_TMP" || fail '无法设置 Keychain 清理任务权限；已触发自动回滚。'
+mv "$REQUEST_TMP" "$REQUEST_PATH" || fail '无法发布 Keychain 清理任务；已触发自动回滚。'
+
 SUCCESS=1
 echo "App 本地数据容器清理完成：$BUNDLE_ID"
 echo "自动备份：$ARCHIVE_NAME"
 echo "回滚快照：$SNAPSHOT"
-echo '此操作不清除 Keychain、App Groups、共享容器、系统数据库、通知/云端记录或服务端数据。'
+echo 'Keychain 清理任务已排队：首次打开目标 App 后执行。'
+echo '范围：仅目标 App 私有 application-identifier 访问组的本机条目；共享 Keychain 组及 iCloud 同步条目不删除。'
+echo 'App Groups、共享容器、系统数据库、通知/云端记录或服务端数据不在清理范围内。'
