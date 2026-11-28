@@ -22,7 +22,7 @@ PAYLOAD="$BUILD_DIR/Payload"
 mkdir -p "$PAYLOAD"
 ditto "$APP" "$PAYLOAD/ModHWManager.app"
 INFO="$PAYLOAD/ModHWManager.app/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 17' "$INFO"
+/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 18' "$INFO"
 BINARY="$PAYLOAD/ModHWManager.app/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO")"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")"
 [[ "$BUNDLE_ID" == "com.modhw.manager.sandboxed" ]] || { echo "Bundle ID 不匹配：$BUNDLE_ID" >&2; exit 5; }
