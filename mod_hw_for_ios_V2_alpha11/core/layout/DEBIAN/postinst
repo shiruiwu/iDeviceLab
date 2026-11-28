@@ -93,10 +93,18 @@ start_service() {
 SERVICE_FAILURE=0
 start_service "$LABEL" "$PLIST" || SERVICE_FAILURE=1
 start_service "$HELPER_LABEL" "$HELPER_PLIST" || SERVICE_FAILURE=1
+STATUS_DIR="/var/mobile/Library/Preferences"
+STATUS_FILE="$STATUS_DIR/com.idevelab.core-readiness"
+mkdir -p "$STATUS_DIR"
 if [ "$SERVICE_FAILURE" -ne 0 ]; then
+  printf '%s\\n' "not-ready" > "$STATUS_FILE"
+  chown mobile:mobile "$STATUS_FILE" 2>/dev/null || true
   echo "ERROR: Core or Maintenance Helper failed to start; see $LOG_FILE and service logs."
-  echo "Package files are installed, but service readiness is NOT confirmed."
-  exit 1
+  echo "Package configuration completed, but service readiness is NOT confirmed."
+  # Keep dpkg configured; the explicit readiness marker prevents false-positive health status.
+  exit 0
 fi
+printf '%s\\n' "ready" > "$STATUS_FILE"
+chown mobile:mobile "$STATUS_FILE" 2>/dev/null || true
 echo "Alpha11 Core and Maintenance Helper are running."
 exit 0
