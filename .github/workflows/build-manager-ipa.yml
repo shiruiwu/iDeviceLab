@@ -75,41 +75,6 @@ jobs:
           log show --last 3m --style compact --predicate 'process == "ModHWManager"' > build/diagnostics/manager-runtime.log 2>&1 || true
           xcrun simctl spawn "$DEVICE_ID" launchctl list > build/diagnostics/launchctl-list.txt 2>&1 || true
 
-      - name: Build TrollStore IPA
-        run: bash scripts/build-trollstore-ipa.sh
-
-      - name: Verify IPA structure and metadata
-        run: |
-          set -euo pipefail
-          IPA=release/mod_hw_manager_trollstore_build16.ipa
-          test -s "$IPA"
-          unzip -t "$IPA"
-          TMP="$(mktemp -d)"
-          trap 'rm -rf "$TMP"' EXIT
-          unzip -q "$IPA" -d "$TMP"
-          APP="$TMP/Payload/ModHWManager.app"
-          test -s "$APP/Info.plist"
-          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
-          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
-          BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
-          MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
-          test "$BUNDLE_ID" = "com.modhw.manager"
-          test "$BUILD" = "16"
-          test "$MIN_OS" = "16.0"
-          test -s "$APP/$EXECUTABLE"
-          file "$APP/$EXECUTABLE" | grep -q Mach-O
-          lipo "$APP/$EXECUTABLE" -verify_arch arm64
-          ldid -e "$APP/$EXECUTABLE" > "$TMP/entitlements.plist"
-          python3 - "$TMP/entitlements.plist" <<'PY'
-          import plistlib, sys
-          with open(sys.argv[1], "rb") as f:
-              e = plistlib.load(f)
-          assert e.get("com.apple.private.security.no-sandbox") is True, e
-          assert not e.get("platform-application", False), e
-          print("Entitlements verified")
-          PY
-          echo "Verified: bundle=$BUNDLE_ID build=$BUILD minOS=$MIN_OS arch=arm64"
-
       - name: Verify sandboxed Manager Build18
         run: |
           set -euo pipefail
@@ -149,14 +114,6 @@ jobs:
           name: mod-hw-manager-runtime-diagnostics
           path: mod_hw_for_ios_V2_alpha11/build/diagnostics/
           if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload Manager IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: mod-hw-manager-build16-roothelper-pairing
-          path: mod_hw_for_ios_V2_alpha11/release/mod_hw_manager_trollstore_build16.ipa
-          if-no-files-found: error
           retention-days: 14
 
       - name: Upload sandboxed UIKit startup control IPA
