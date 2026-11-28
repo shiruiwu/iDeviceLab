@@ -719,9 +719,11 @@ struct ContentView: View {
                                 HStack {
                                     Text(record.action).font(.subheadline.weight(.semibold))
                                     Spacer()
-                                    Label(record.success ? "成功" : "失败", systemImage: record.success ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    let hookWritePending = record.action.contains("Hook 配置应用")
+                                    Label(hookWritePending ? "已写入，待验证" : (record.success ? "成功" : "失败"),
+                                          systemImage: hookWritePending ? "clock.badge.exclamationmark" : (record.success ? "checkmark.circle.fill" : "xmark.circle.fill"))
                                         .font(.caption)
-                                        .foregroundStyle(record.success ? .green : .red)
+                                        .foregroundStyle(hookWritePending ? .orange : (record.success ? .green : .red))
                                 }
                                 Text(record.target).font(.caption.monospaced()).foregroundStyle(.secondary)
                                 Text(record.date.formatted(date: .abbreviated, time: .standard))
