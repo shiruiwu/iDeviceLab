@@ -33,7 +33,7 @@ Package: com.idevelab.core.alpha11
 Name: iDeviceLab Alpha11 Core
 Version: 0.3.9~alpha11
 Architecture: iphoneos-arm64
-Description: Rootless diagnostics Core with sandbox-private authenticated Manager maintenance bridge.
+Description: Rootless diagnostics Core with sandboxed Manager App Group authentication and Root Helper bridge.
 Maintainer: iDeviceLab contributors
 Depends: firmware (>= 15.0), com.modhw.ios.diagnostics
 Section: Utilities
