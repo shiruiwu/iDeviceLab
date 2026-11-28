@@ -25,9 +25,9 @@ trollstore_entitlements = plistlib.loads(trollstore_entitlements_path.read_bytes
 check(trollstore_entitlements.get("com.apple.private.security.no-sandbox") is True and
       trollstore_entitlements.get("com.apple.security.application-groups") == ["group.com.idevelab.manager"],
       "Production TrollStore Manager carries both no-sandbox and the Core-shared App Group entitlement")
-check("mod_hw_manager_trollstore_build20.ipa" in ipa and "CURRENT_PROJECT_VERSION=20" in ipa and
+check("mod_hw_manager_trollstore_build21.ipa" in ipa and "CURRENT_PROJECT_VERSION=21" in ipa and
       "com.apple.security.application-groups" in ipa and "group.com.idevelab.manager" in ipa,
-      "Production TrollStore IPA Build20 is built with the App Group required by Core authentication")
+      "Production TrollStore IPA Build21 is built with the App Group required by Core authentication")
 check("PRODUCT_BUNDLE_IDENTIFIER=com.modhw.manager.sandboxed" in sandboxed_ipa and
       "CURRENT_PROJECT_VERSION=19" in sandboxed_ipa and
       'assert not e.get("com.apple.private.security.no-sandbox"' in sandboxed_ipa and
@@ -149,7 +149,7 @@ check("HookerForMGCopyMultipleAnswers();" in gestalt_source and
       "CFArrayGetValueAtIndex" in gestalt_source,
       "MobileGestalt multiple-answer requests apply the same configured overrides as MGCopyAnswer")
 check("-fno-objc-arc" in makefile, "Manual-reference-counted build flag retained")
-check("CURRENT_PROJECT_VERSION = 20;" in project, "Manager project build number is 20")
+check("CURRENT_PROJECT_VERSION = 21;" in project, "Manager project build number is 21")
 check("fileImporter" in manager and "fileExporter" in manager, "Manager imports and exports plist files")
 check("TabView" in manager and "homePage" in manager and "recordsPage" in manager and
       "settingsPage" in manager and "aboutPage" in manager and
