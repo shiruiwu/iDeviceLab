@@ -1524,20 +1524,20 @@ enum MaintenanceClient {
     private static let bridgeURL = URL(string: "http://127.0.0.1:18081/maintenance")!
     private static let bridgeTokenName = "idevelab-manager-bridge.token"
 
-    // The token lives only in this app's sandbox container. The unsandboxed
-    // mobile Core reads it from the container metadata; other apps cannot.
-    private static func managerContainerPath() throws -> String {
-        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            throw NSError(domain: "MaintenanceHelper", code: 7, userInfo: [NSLocalizedDescriptionKey: "无法定位 Manager 私有数据目录。"])
+    // The explicitly entitled App Group is shared with the mobile Core.
+    // The ordinary app sandbox cannot read another app's private container.
+    private static let managerAppGroupIdentifier = "group.com.idevelab.manager"
+
+    private static func managerGroupContainerURL() throws -> URL {
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: managerAppGroupIdentifier) else {
+            throw NSError(domain: "MaintenanceHelper", code: 7, userInfo: [NSLocalizedDescriptionKey: "无法定位 Manager 共享通信目录，请通过 TrollStore 重新安装 Build18。"])
         }
-        return support.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL.path
+        return container.standardizedFileURL
     }
 
     private static func bridgeToken() throws -> String {
         let fileManager = FileManager.default
-        guard let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            throw NSError(domain: "MaintenanceHelper", code: 7, userInfo: [NSLocalizedDescriptionKey: "无法定位 Manager 私有数据目录。"])
-        }
+        let support = try managerGroupContainerURL().appendingPathComponent("Library/Application Support", isDirectory: true)
         try fileManager.createDirectory(at: support, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let tokenURL = support.appendingPathComponent(bridgeTokenName, isDirectory: false)
         var tokenData: Data
@@ -1564,7 +1564,7 @@ enum MaintenanceClient {
     }
 
     static func request(action: String, bundleID: String? = nil, archive: String? = nil, profile: [String: Any]? = nil, confirm: Bool = false) async throws -> MaintenanceOperationResult {
-        var payload: [String: Any] = ["action": action, "managerPID": Int(getpid()), "managerContainer": try managerContainerPath()]
+        var payload: [String: Any] = ["action": action, "managerPID": Int(getpid()), "managerGroupContainer": try managerGroupContainerURL().path]
         if let bundleID { payload["bundleID"] = bundleID }
         if let archive { payload["archive"] = archive }
         if let profile { payload["profile"] = profile }
