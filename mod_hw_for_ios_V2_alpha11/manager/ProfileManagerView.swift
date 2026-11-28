@@ -481,7 +481,7 @@ private var header: some View {
                     confirm: true
                 )
                 alertMessage = result.ok
-                    ? "\(result.output ?? "Hook 配置已写入。")\n\(isGlobal ? "请重新启动需要应用全局配置的目标 App。" : "请强制关闭并重新打开目标 App。")"
+                    ? (result.output ?? "Hook 配置文件已写入。请执行一次 Respring，再强制关闭并重新打开目标 App；写入成功不等于运行时 Hook 已验证。")
                     : (result.error ?? result.output ?? "Hook 配置写入失败。")
                 onOperation?(isGlobal ? "全局 Hook 配置应用" : "分 App Hook 配置应用",
                              result.ok, result.output ?? result.error ?? "")
