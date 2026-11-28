@@ -21,6 +21,25 @@
 #import <dlfcn.h>
 #include <stdint.h>
 #include <string.h>
+#if __arm64e__
+#include <ptrauth.h>
+#endif
+
+static void *MGSymbolReadable(void *pointer) {
+#if __arm64e__
+  if (pointer != NULL) pointer = ptrauth_strip(pointer, ptrauth_key_function_pointer);
+#endif
+  return pointer;
+}
+
+static void *MGSymbolCallable(void *pointer) {
+#if __arm64e__
+  if (pointer != NULL) pointer = ptrauth_sign_unauthenticated(
+      ptrauth_strip(pointer, ptrauth_key_function_pointer),
+      ptrauth_key_function_pointer, 0);
+#endif
+  return pointer;
+}
 #import <stdio.h>
 
 #include <sys/sysctl.h>
@@ -565,9 +584,14 @@ static void MGCopyAnswerHookImpl(const void* mg_copy_answer_addr){
     // On ARM64 the exported MGCopyAnswer entry is a short thunk. Do not
     // blindly hook +8: newer iOS builds branch to the internal routine at
     // a branch-relative address. Decode the actual B immediate instead.
+    const uint8_t *readableEntry = (const uint8_t *)MGSymbolReadable((void *)mg_copy_answer_addr);
+    if (readableEntry == NULL) {
+      NSLog(@"[mod_hw] MGCopyAnswer entry cannot be PAC-stripped.");
+      return;
+    }
     uint32_t firstInstruction = 0, branchInstruction = 0;
-    memcpy(&firstInstruction, mg_copy_answer_addr, sizeof(firstInstruction));
-    memcpy(&branchInstruction, (const uint8_t *)mg_copy_answer_addr + 4, sizeof(branchInstruction));
+    memcpy(&firstInstruction, readableEntry, sizeof(firstInstruction));
+    memcpy(&branchInstruction, readableEntry + 4, sizeof(branchInstruction));
     if (firstInstruction != 0xD2800001 ||
         (branchInstruction & 0xFC000000) != 0x14000000) {
       NSLog(@"[mod_hw] Unsupported MGCopyAnswer thunk: first=0x%08x branch=0x%08x; skipping unsafe hook.",
@@ -577,10 +601,10 @@ static void MGCopyAnswerHookImpl(const void* mg_copy_answer_addr){
     int64_t immediate26 = (int64_t)(branchInstruction & 0x03FFFFFF);
     if (immediate26 & 0x02000000) immediate26 -= 0x04000000;
     intptr_t branchOffset = (intptr_t)(immediate26 * 4);
-    const void *internalAddress = (const uint8_t *)mg_copy_answer_addr + 4 + branchOffset;
+    void *internalAddress = (void *)(readableEntry + 4 + branchOffset);
     NSLog(@"[mod_hw] MGCopyAnswer internal target resolved at %p (offset=%ld).",
           internalAddress, (long)branchOffset);
-    CallMSHookFunction((void *)internalAddress, (void *)FN_NextMGCopyAnswer, (void **)&HookNextMGCopyAnswer);
+    CallMSHookFunction(MGSymbolCallable(internalAddress), (void *)FN_NextMGCopyAnswer, (void **)&HookNextMGCopyAnswer);
     if (HookNextMGCopyAnswer == NULL) {
       NSLog(@"[mod_hw] MGCopyAnswer internal hook installation failed.");
     } else {
