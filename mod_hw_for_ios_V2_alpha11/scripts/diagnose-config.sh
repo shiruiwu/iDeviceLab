@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Read-only plist file diagnostics. Does not display values or modify device state.
 set -eu
 PRIMARY='/var/mobile/Library/Preferences/com.modhw.ios.devices.plist'

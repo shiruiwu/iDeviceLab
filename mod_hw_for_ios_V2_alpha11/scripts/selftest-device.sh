@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Non-destructive on-device smoke test for Alpha11 on a Rootless jailbreak.
 set -u
 PASS=0

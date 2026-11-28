@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Create a private, timestamped archive of one installed app's data container.
 # This does not touch the app, Keychain, App Group containers, or system databases.
 set -eu

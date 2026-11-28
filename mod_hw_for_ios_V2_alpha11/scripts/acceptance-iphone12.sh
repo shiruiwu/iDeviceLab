@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Final read-only acceptance gate for the requested iPhone 12 / iOS 16.2 target.
 set -eu
 

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Read-only inspection of signed Keychain entitlement declarations for one installed app.
 # Does not read, export, delete, or modify Keychain items.
 set -eu

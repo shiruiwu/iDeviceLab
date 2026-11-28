@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Restore one verified app-data archive. Keychain/App Groups/system data are excluded.
 set -eu
 APP_ROOT='/var/mobile/Containers/Data/Application'

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Verify a backup archive created by mod-hw-app-backup.
 # This is an integrity/readability check only; it never extracts or restores data.
 set -eu

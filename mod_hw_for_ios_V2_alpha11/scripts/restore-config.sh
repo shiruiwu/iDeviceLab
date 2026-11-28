@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Restore a verified global + per-App Hook configuration bundle with rollback.
 set -eu
 PREFERENCES='/var/mobile/Library/Preferences'

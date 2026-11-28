@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Clear one installed app's local data container after making a verified backup.
 # Keychain, App Groups, shared containers and server-side data are not touched.
 set -eu

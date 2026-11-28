@@ -298,19 +298,33 @@ static int RunFixedTool(const char *path, NSArray<NSString *> *arguments, NSStri
     posix_spawnattr_setpgroup(&attributes, 0);
     posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
 
-    // Run packaged shell scripts through the system shell explicitly.
-    char *argv[6] = {(char *)"/bin/sh", (char *)path, NULL, NULL, NULL, NULL};
+    // Dopamine/Procursus rootless keeps its shell inside the jailbreak prefix.
+    const char *shellCandidates[] = {"/var/jb/bin/sh", "/var/jb/usr/bin/sh", "/bin/sh", "/usr/bin/sh"};
+    const char *shellPath = NULL;
+    for (size_t i = 0; i < sizeof(shellCandidates) / sizeof(shellCandidates[0]); i++) {
+        if (access(shellCandidates[i], X_OK) == 0) { shellPath = shellCandidates[i]; break; }
+    }
+    if (!shellPath) {
+        posix_spawn_file_actions_destroy(&actions);
+        posix_spawnattr_destroy(&attributes);
+        close(pipes[0]);
+        close(pipes[1]);
+        if (output) *output = @"未找到可执行 Shell。已检查 /var/jb/bin/sh、/var/jb/usr/bin/sh、/bin/sh、/usr/bin/sh。";
+        return 127;
+    }
+    setenv("PATH", "/var/jb/usr/bin:/var/jb/bin:/var/jb/usr/sbin:/var/jb/sbin:/usr/bin:/bin:/usr/sbin:/sbin", 1);
+    char *argv[6] = {(char *)shellPath, (char *)path, NULL, NULL, NULL, NULL};
     for (NSUInteger i = 0; i < arguments.count && i < 3; i++) argv[i + 2] = (char *)arguments[i].UTF8String;
     pid_t child = 0;
-    int spawnError = posix_spawn(&child, "/bin/sh", &actions, &attributes, argv, environ);
+    int spawnError = posix_spawn(&child, shellPath, &actions, &attributes, argv, environ);
     posix_spawn_file_actions_destroy(&actions);
     posix_spawnattr_destroy(&attributes);
     close(pipes[1]);
     if (spawnError != 0) {
         int savedError = spawnError;
         close(pipes[0]);
-        if (output) *output = [NSString stringWithFormat:@"Root Helper 无法启动系统 Shell 执行维护脚本。脚本：%s；Shell：/bin/sh；posix_spawn errno=%d（%s）",
-                               path, savedError, strerror(savedError)];
+        if (output) *output = [NSString stringWithFormat:@"Root Helper 无法启动 Shell 执行维护脚本。脚本：%s；Shell：%s；posix_spawn errno=%d（%s）",
+                               path, shellPath, savedError, strerror(savedError)];
         return savedError == ENOENT ? 127 : 126;
     }
 
@@ -584,13 +598,25 @@ static BOOL AddBundleToSubstrateFilter(NSString *bundleID, NSString **message) {
     return YES;
 }
 
-static NSString *FindUniqueAppContainer(NSString *bundleID) {
+static NSString *FindUniqueAppContainer(NSString *bundleID, NSString **diagnostic) {
     NSString *root = @"/var/mobile/Containers/Data/Application";
-    NSArray *entries = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    BOOL isDirectory = NO;
+    if (![NSFileManager.defaultManager fileExistsAtPath:root isDirectory:&isDirectory] || !isDirectory) {
+        if (diagnostic) *diagnostic = [NSString stringWithFormat:@"App 数据容器根目录不存在或不可访问：%@。", root];
+        return nil;
+    }
+    NSError *listError = nil;
+    NSArray *entries = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:&listError];
+    if (![entries isKindOfClass:NSArray.class]) {
+        if (diagnostic) *diagnostic = [NSString stringWithFormat:@"无法枚举 App 数据容器：%@。", listError.localizedDescription ?: @"未知错误"];
+        return nil;
+    }
     NSString *match = nil;
-    NSUInteger count = 0;
+    NSMutableArray<NSString *> *matches = [NSMutableArray array];
+    NSUInteger metadataCount = 0;
     for (NSString *entry in entries) {
-        if ([entry hasPrefix:@"."] || [entry containsString:@"/"] || [entry containsString:@".."]) continue;
+        if (![entry isKindOfClass:NSString.class] || [entry hasPrefix:@"."] ||
+            [entry containsString:@"/"] || [entry containsString:@".."]) continue;
         NSString *container = [root stringByAppendingPathComponent:entry];
         struct stat containerStat;
         if (lstat(container.fileSystemRepresentation, &containerStat) != 0 ||
@@ -599,19 +625,31 @@ static NSString *FindUniqueAppContainer(NSString *bundleID) {
         struct stat metadataStat;
         if (lstat(metadataPath.fileSystemRepresentation, &metadataStat) != 0 ||
             !S_ISREG(metadataStat.st_mode)) continue;
+        metadataCount++;
         NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
-        if ([metadata[@"MCMMetadataIdentifier"] isEqualToString:bundleID]) {
+        id identifier = metadata[@"MCMMetadataIdentifier"];
+        if ([identifier isKindOfClass:NSString.class] && [identifier isEqualToString:bundleID]) {
             match = container;
-            count++;
+            [matches addObject:entry];
         }
     }
-    return count == 1 ? match : nil;
+    if (matches.count == 1) {
+        if (diagnostic) *diagnostic = [NSString stringWithFormat:@"唯一匹配到目标 App 数据容器：%@。", matches.firstObject];
+        return match;
+    }
+    if (diagnostic) {
+        *diagnostic = [NSString stringWithFormat:@"目标 Bundle ID：%@；匹配到 %lu 个容器（必须恰好 1 个）；已扫描 %lu 个带 MCM 元数据的容器。匹配目录：%@。请确认目标 App 已安装并至少启动过一次；不会在多匹配时擅自选择。",
+                       bundleID, (unsigned long)matches.count, (unsigned long)metadataCount,
+                       matches.count ? [matches componentsJoinedByString:@", "] : @"无"];
+    }
+    return nil;
 }
 
 static NSDictionary *HookRuntimeStatus(NSString *bundleID) {
     if (!ValidBundleID(bundleID)) return Failure(@"Bundle ID 格式无效。");
-    NSString *container = FindUniqueAppContainer(bundleID);
-    if (!container) return Failure(@"无法唯一定位目标 App 数据容器；请确认应用已安装。");
+    NSString *containerDiagnostic = nil;
+    NSString *container = FindUniqueAppContainer(bundleID, &containerDiagnostic);
+    if (!container) return Failure(containerDiagnostic ?: @"无法唯一定位目标 App 数据容器。");
     NSString *cache = [[container stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Caches"];
     NSString *statusPath = [cache stringByAppendingPathComponent:@".modhw-hook-status.plist"];
     struct stat cacheStat, statusStat;
@@ -658,8 +696,9 @@ static NSDictionary *HookRuntimeStatus(NSString *bundleID) {
 
 static NSDictionary *KeychainCleanupStatus(NSString *bundleID) {
     if (!ValidBundleID(bundleID)) return Failure(@"Bundle ID 格式无效。");
-    NSString *container = FindUniqueAppContainer(bundleID);
-    if (!container) return Failure(@"无法唯一定位目标 App 数据容器，不能读取 Keychain 清理状态。");
+    NSString *containerDiagnostic = nil;
+    NSString *container = FindUniqueAppContainer(bundleID, &containerDiagnostic);
+    if (!container) return Failure([NSString stringWithFormat:@"无法读取 Keychain 清理状态。%@", containerDiagnostic ?: @"无法唯一定位目标 App 数据容器。"]);
     NSString *cache = [[container stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Caches"];
     NSString *requestPath = [cache stringByAppendingPathComponent:@".modhw-keychain-clean.request.plist"];
     NSString *resultPath = [cache stringByAppendingPathComponent:@".modhw-keychain-clean.result.plist"];

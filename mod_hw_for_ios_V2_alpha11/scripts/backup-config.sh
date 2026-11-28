@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Back up the global Hook plist and all per-App Hook profiles as one verified archive.
 set -eu
 PREFERENCES='/var/mobile/Library/Preferences'

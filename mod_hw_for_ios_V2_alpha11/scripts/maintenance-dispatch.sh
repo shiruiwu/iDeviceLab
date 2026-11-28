@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/var/jb/bin/sh
 # Root-only, fixed-command dispatcher for Alpha11 maintenance scripts.
 # This is a terminal entry point, not a remote service or arbitrary command runner.
 set -eu
